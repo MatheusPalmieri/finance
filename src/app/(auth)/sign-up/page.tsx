@@ -10,9 +10,18 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
 
   async function handleRegister() {
+    const firstName = name.split(' ')[0];
+    const lastName = name.split(' ').slice(1).join(' ');
+
     const { error } = await createClient().auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+        },
+      },
     });
 
     if (error) alert(error.message);

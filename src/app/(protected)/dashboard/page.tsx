@@ -1,12 +1,14 @@
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-
-export default async function DashboardPage() {
-  const supabase = createServerComponentClient({ cookies });
+export default async function Dashboard() {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await (await createClient()).auth.getUser();
 
-  return <h1>Bem-vindo, {user?.email}</h1>;
+  return (
+    <div>
+      <h1>Bem-vindo, {user?.email}</h1>
+      <pre>{JSON.stringify(user, null, 2)}</pre>
+    </div>
+  );
 }
