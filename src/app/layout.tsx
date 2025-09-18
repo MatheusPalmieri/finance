@@ -14,9 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Template',
-  description:
-    'A complete and professional Next.js template following industry best practices by Matheus Palmieri',
+  title: 'Finance',
+  description: 'System to manage your finances',
 };
 
 export default function RootLayout({
