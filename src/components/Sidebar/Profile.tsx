@@ -1,17 +1,16 @@
 'use client';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser } from '@/hooks/useUser';
 
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-
-export const SidebarUser2 = () => {
+export const SidebarProfile = () => {
   const { user, isLoading } = useUser();
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-        <Avatar className="h-8 w-8 rounded-lg">
-          <AvatarFallback className="rounded-lg">...</AvatarFallback>
+        <Avatar className="h-8 w-8 rounded-full">
+          <AvatarFallback className="rounded-full">...</AvatarFallback>
         </Avatar>
         <div className="grid flex-1 text-left text-sm leading-tight">
           <span className="truncate font-medium">Carregando...</span>
@@ -25,7 +24,7 @@ export const SidebarUser2 = () => {
 
   return (
     <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-      <Avatar className="h-8 w-8 rounded-lg">
+      <Avatar className="size-8">
         <AvatarImage
           src={
             user?.user_metadata?.avatar_url ||
@@ -36,13 +35,13 @@ export const SidebarUser2 = () => {
             user?.identities?.[0]?.identity_data?.first_name
           }
         />
-        <AvatarFallback className="rounded-lg">
+        <AvatarFallback className="rounded-full">
           {(
             user?.user_metadata?.name ||
             user?.identities?.[0]?.identity_data?.first_name
           )
             ?.charAt(0)
-            ?.toUpperCase() || 'U'}
+            ?.toUpperCase() || '?'}
         </AvatarFallback>
       </Avatar>
       <div className="grid flex-1 text-left text-sm leading-tight">
@@ -52,9 +51,10 @@ export const SidebarUser2 = () => {
             'Usuário'}
         </span>
         <span className="text-muted-foreground truncate text-xs">
-          {user?.email || 'email@exemplo.com'}
+          {user?.email || 'finance@backstage.app'}
         </span>
       </div>
     </div>
   );
 };
+SidebarProfile.displayName = 'SidebarProfile';

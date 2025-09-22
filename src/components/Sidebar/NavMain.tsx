@@ -1,8 +1,9 @@
 'use client';
 
-import { type Icon, IconCirclePlusFilled, IconMail } from '@tabler/icons-react';
+import { usePathname, useRouter } from 'next/navigation';
 
-import { Button } from '@/components/ui/Button';
+import { CirclePlus, type LucideIcon } from 'lucide-react';
+
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -11,15 +12,18 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-export function NavMain({
-  items,
-}: {
+interface SidebarNavMainProps {
   items: {
     title: string;
     url: string;
-    icon?: Icon;
+    icon?: LucideIcon;
   }[];
-}) {
+}
+
+export const SidebarNavMain = ({ items }: SidebarNavMainProps) => {
+  const pathname = usePathname();
+  const router = useRouter();
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -27,25 +31,23 @@ export function NavMain({
           <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton
               tooltip="Quick Create"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
+              className="hover:text-primary-foreground active:text-primary-foreground min-w-8 bg-purple-600 text-white duration-200 ease-linear hover:bg-purple-700 active:bg-purple-800"
             >
-              <IconCirclePlusFilled />
+              <CirclePlus />
               <span>Quick Create</span>
             </SidebarMenuButton>
-            <Button
-              size="icon"
-              className="size-8 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-            >
-              <IconMail />
-              <span className="sr-only">Inbox</span>
-            </Button>
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
+              <SidebarMenuButton
+                tooltip={item.title}
+                data-active={pathname === item.url}
+                onClick={() => {
+                  router.push(item.url);
+                }}
+              >
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
               </SidebarMenuButton>
@@ -55,4 +57,5 @@ export function NavMain({
       </SidebarGroupContent>
     </SidebarGroup>
   );
-}
+};
+SidebarNavMain.displayName = 'SidebarNavMain';

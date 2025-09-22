@@ -2,152 +2,52 @@
 
 import * as React from 'react';
 
-import {
-  IconCamera,
-  IconChartBar,
-  IconDashboard,
-  IconDatabase,
-  IconFileAi,
-  IconFileDescription,
-  IconFileWord,
-  IconFolder,
-  IconHelp,
-  IconInnerShadowTop,
-  IconListDetails,
-  IconReport,
-  IconSearch,
-  IconSettings,
-  IconUsers,
-} from '@tabler/icons-react';
+import Link from 'next/link';
 
-import { NavDocuments } from '@/components/nav-documents';
-import { NavMain } from '@/components/nav-main';
-import { NavSecondary } from '@/components/nav-secondary';
+import {
+  ChartPie,
+  Landmark,
+  PiggyBank,
+  ReceiptText,
+  Settings,
+} from 'lucide-react';
+
 import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   Sidebar as SidebarRoot,
 } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
-import { SidebarUser } from './User';
+import { SidebarFooterMenu } from './FooterMenu';
+import { SidebarNavFooter } from './NavFooter';
+import { SidebarNavMain } from './NavMain';
 
-const data = {
-  user: {
-    name: 'shadcn',
-    email: 'm@example.com',
-    avatar: '/avatars/shadcn.jpg',
-  },
-  navMain: [
+const nav = {
+  main: [
     {
       title: 'Dashboard',
-      url: '#',
-      icon: IconDashboard,
+      url: '/dashboard',
+      icon: ChartPie,
     },
     {
-      title: 'Lifecycle',
-      url: '#',
-      icon: IconListDetails,
+      title: 'Bills',
+      url: '/bills',
+      icon: ReceiptText,
     },
     {
-      title: 'Analytics',
-      url: '#',
-      icon: IconChartBar,
-    },
-    {
-      title: 'Projects',
-      url: '#',
-      icon: IconFolder,
-    },
-    {
-      title: 'Team',
-      url: '#',
-      icon: IconUsers,
+      title: 'Investments',
+      url: '/investments',
+      icon: Landmark,
     },
   ],
-  navClouds: [
-    {
-      title: 'Capture',
-      icon: IconCamera,
-      isActive: true,
-      url: '#',
-      items: [
-        {
-          title: 'Active Proposals',
-          url: '#',
-        },
-        {
-          title: 'Archived',
-          url: '#',
-        },
-      ],
-    },
-    {
-      title: 'Proposal',
-      icon: IconFileDescription,
-      url: '#',
-      items: [
-        {
-          title: 'Active Proposals',
-          url: '#',
-        },
-        {
-          title: 'Archived',
-          url: '#',
-        },
-      ],
-    },
-    {
-      title: 'Prompts',
-      icon: IconFileAi,
-      url: '#',
-      items: [
-        {
-          title: 'Active Proposals',
-          url: '#',
-        },
-        {
-          title: 'Archived',
-          url: '#',
-        },
-      ],
-    },
-  ],
-  navSecondary: [
+  footer: [
     {
       title: 'Settings',
-      url: '#',
-      icon: IconSettings,
-    },
-    {
-      title: 'Get Help',
-      url: '#',
-      icon: IconHelp,
-    },
-    {
-      title: 'Search',
-      url: '#',
-      icon: IconSearch,
-    },
-  ],
-  documents: [
-    {
-      name: 'Data Library',
-      url: '#',
-      icon: IconDatabase,
-    },
-    {
-      name: 'Reports',
-      url: '#',
-      icon: IconReport,
-    },
-    {
-      name: 'Word Assistant',
-      url: '#',
-      icon: IconFileWord,
+      icon: Settings,
     },
   ],
 };
@@ -159,25 +59,30 @@ export const Sidebar = React.memo<React.ComponentProps<typeof SidebarRoot>>(
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                className="data-[slot=sidebar-menu-button]:!p-1.5"
-              >
-                <a href="/dashboard">
-                  <IconInnerShadowTop className="!size-5" />
-                  <span className="text-base font-semibold">Acme Inc.</span>
-                </a>
-              </SidebarMenuButton>
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <PiggyBank
+                  className={cn(
+                    '!size-5 !text-purple-600',
+                    'group-hover/menu-item:-translate-y-1 group-hover/menu-item:scale-110 group-hover/menu-item:-rotate-12',
+                    'transition-all delay-100 duration-200'
+                  )}
+                />
+
+                <span className="text-base leading-none font-semibold">
+                  Back Fin.
+                </span>
+              </Link>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarHeader>
+
         <SidebarContent>
-          <NavMain items={data.navMain} />
-          <NavDocuments items={data.documents} />
-          <NavSecondary items={data.navSecondary} className="mt-auto" />
+          <SidebarNavMain items={nav.main} />
+          <SidebarNavFooter items={nav.footer} className="mt-auto" />
         </SidebarContent>
+
         <SidebarFooter>
-          <SidebarUser />
+          <SidebarFooterMenu />
         </SidebarFooter>
       </SidebarRoot>
     );

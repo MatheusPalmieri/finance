@@ -1,8 +1,6 @@
 'use client';
 
-import * as React from 'react';
-
-import { type Icon } from '@tabler/icons-react';
+import type { LucideIcon } from 'lucide-react';
 
 import {
   SidebarGroup,
@@ -12,27 +10,27 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-export function NavSecondary({
-  items,
-  ...props
-}: {
+interface SidebarNavFooterProps
+  extends React.ComponentPropsWithoutRef<typeof SidebarGroup> {
   items: {
     title: string;
-    url: string;
-    icon: Icon;
+    icon: LucideIcon;
   }[];
-} & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+}
+
+export const SidebarNavFooter = ({
+  items,
+  ...props
+}: SidebarNavFooterProps) => {
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild>
-                <a href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </a>
+              <SidebarMenuButton>
+                <item.icon />
+                <span>{item.title}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
@@ -40,4 +38,5 @@ export function NavSecondary({
       </SidebarGroupContent>
     </SidebarGroup>
   );
-}
+};
+SidebarNavFooter.displayName = 'SidebarNavFooter';
