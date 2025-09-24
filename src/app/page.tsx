@@ -1,5 +1,5 @@
-import { HomeHero } from '@/features/home/home-hero';
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return <HomeHero />;
+  return redirect('/dashboard');
 }
