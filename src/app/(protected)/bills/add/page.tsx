@@ -1,7 +1,12 @@
 'use client';
 
+import { useState } from 'react';
+
+import { useRouter } from 'next/navigation';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { ProtectedMain } from '@/components';
@@ -25,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { createClient } from '@/utils/supabase/client';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -60,6 +66,10 @@ const formSchema = z.object({
 });
 
 export default function BillsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -74,12 +84,46 @@ export default function BillsPage() {
     },
   });
 
-  function onSubmit(_values: z.infer<typeof formSchema>) {
-    // console.log(values);
-    // const _payload = {
-    //   ...values,
-    // };
-    // console.log(payload);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error('Erro de autenticação. Faça login novamente.');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('bills')
+        .insert([
+          {
+            ...values,
+            user_id: user.id,
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error('Erro ao inserir conta:', error);
+        toast.error('Erro ao salvar a conta. Tente novamente.');
+        return;
+      }
+
+      toast.success('Conta adicionada com sucesso!');
+
+      form.reset();
+
+      router.push('/bills');
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      toast.error('Erro inesperado. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -263,7 +307,9 @@ export default function BillsPage() {
           />
 
           <div className="col-span-2 flex justify-end">
-            <Button type="submit">Submit</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Salvando...' : 'Salvar Conta'}
+            </Button>
           </div>
         </form>
       </Form>

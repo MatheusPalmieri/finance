@@ -4,9 +4,14 @@ import { createServerClient } from '@supabase/ssr';
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/constants';
 
-const protectedRoutes = ['/dashboard', '/settings'];
+const protectedRoutes = [
+  '/dashboard',
+  '/settings',
+  '/bills',
+  '/investments',
+  '/transaction',
+];
 const authRoutes = ['/sign-in', '/sign-up'];
-const publicRoutes = ['/'];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -35,7 +40,7 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl;
 
   // Public routes
-  if (publicRoutes.includes(url.pathname)) {
+  if (url.pathname === '/') {
     return supabaseResponse;
   }
 

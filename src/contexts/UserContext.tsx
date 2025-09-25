@@ -1,4 +1,3 @@
-// EXEMPLO: Implementação com Context API para cache simples
 'use client';
 
 import {
@@ -10,14 +9,6 @@ import {
 } from 'react';
 
 import { createClient } from '@/utils/supabase/client';
-
-// EXEMPLO: Implementação com Context API para cache simples
-
-// EXEMPLO: Implementação com Context API para cache simples
-
-// EXEMPLO: Implementação com Context API para cache simples
-
-// EXEMPLO: Implementação com Context API para cache simples
 
 interface User {
   id: string;
@@ -58,7 +49,6 @@ export const UserProvider = ({ children }: UserProviderProps) => {
         throw fetchError;
       }
 
-      console.log('🚀 ~ user from Context:', user);
       setUser(user);
     } catch (err) {
       const errorMessage =
@@ -73,11 +63,9 @@ export const UserProvider = ({ children }: UserProviderProps) => {
   useEffect(() => {
     fetchUser();
 
-    // Opcional: Escutar mudanças de autenticação
     const {
       data: { subscription },
     } = createClient().auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user);
       setUser(session?.user ?? null);
     });
 
@@ -102,20 +90,3 @@ export const useUserContext = () => {
   }
   return context;
 };
-
-// Para usar, você precisaria envolver sua aplicação:
-/*
-// layout.tsx
-import { UserProvider } from '@/contexts/UserContext';
-
-export default function RootLayout({ children }) {
-  return (
-    <UserProvider>
-      {children}
-    </UserProvider>
-  );
-}
-
-// Em qualquer componente:
-const { user, isLoading, error, refetch } = useUserContext();
-*/

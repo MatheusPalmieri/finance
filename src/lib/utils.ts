@@ -35,6 +35,21 @@ export function formatDateTime(date: Date | string, locale = 'en-US'): string {
 }
 
 /**
+ * Format a date DD/MM/YYYY or MM/DD/YYYY
+ */
+export function formatDateSimple(
+  date: Date | string,
+  locale = 'en-US'
+): string {
+  const dateObj = new Date(date);
+  return dateObj.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: 'numeric',
+  });
+}
+
+/**
  * Capitalize first letter of a string
  */
 export function capitalize(str: string): string {
