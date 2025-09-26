@@ -76,8 +76,8 @@ export function sleep(ms: number): Promise<void> {
  */
 export function formatCurrency(
   value: number,
-  currency = 'USD',
-  locale = 'en-US'
+  currency = 'BRL',
+  locale = 'pt-BR'
 ): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',

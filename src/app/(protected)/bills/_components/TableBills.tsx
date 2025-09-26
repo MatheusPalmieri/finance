@@ -68,12 +68,43 @@ export const columns: ColumnDef<Bill>[] = [
     cell: ({ row }) => <div className="capitalize">{row.getValue('name')}</div>,
   },
   {
+    accessorKey: 'installments',
+    header: 'Installments',
+    cell: ({ row }) => {
+      const totalInstallments = row.original.total_installments;
+      const currentInstallment = row.original.installment_number;
+
+      if (totalInstallments > 1) {
+        return (
+          <Badge variant="outline" className="text-xs">
+            📋 {currentInstallment}/{totalInstallments}
+          </Badge>
+        );
+      }
+
+      return (
+        <Badge variant="secondary" className="text-xs">
+          💳 Single
+        </Badge>
+      );
+    },
+  },
+  {
     accessorKey: 'amount',
     header: 'Amount',
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue('amount'));
+      const transactionType = row.original.transaction_type;
 
-      return formatCurrency(amount, 'BRL', 'pt-BR');
+      return (
+        <span
+          className={
+            transactionType === 'expense' ? 'text-red-600' : 'text-green-600'
+          }
+        >
+          {formatCurrency(amount, 'BRL', 'pt-BR')}
+        </span>
+      );
     },
   },
   {
@@ -169,15 +200,18 @@ export function TableBills({ data }: { data: Bill[] }) {
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Filter name..."
-          value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-          onChange={(event) =>
-            table.getColumn('name')?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center space-x-2">
+          <Input
+            placeholder="Filter name..."
+            value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+            onChange={(event) =>
+              table.getColumn('name')?.setFilterValue(event.target.value)
+            }
+            className="max-w-sm"
+          />
+        </div>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">

@@ -43,6 +43,13 @@ export interface Bill {
   is_essential: boolean;
   user_id: string;
   created_at: string;
+
+  // Novos campos para parcelamento
+  transaction_type: 'income' | 'expense';
+  category: string;
+  installment_number: number;
+  total_installments: number;
+  parent_transaction_id: string | null;
 }
 
 export default function BillsPage() {
@@ -137,6 +144,10 @@ export default function BillsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
+          <Button variant="outline" asChild>
+            <Link href="/bills/import">Import CSV</Link>
+          </Button>
+
           <Button asChild>
             <Link href="/bills/add">
               {isLoading ? 'Loading...' : 'Add Bill'}
@@ -145,31 +156,7 @@ export default function BillsPage() {
         </div>
       </header>
 
-      {/* Indicador temporário para debug */}
-      <div className="mt-4 rounded-lg bg-gray-100 p-4">
-        <p className="text-sm text-gray-600">
-          {isLoading ? (
-            '🔄 Carregando contas...'
-          ) : (
-            <>
-              📊 <strong>{bills.length}</strong> contas encontradas no mês de{' '}
-              <strong>{month}</strong>
-              {searchTerm && (
-                <span>
-                  {' '}
-                  | 🔎 <strong>{filteredBills.length}</strong> após filtro de
-                  busca
-                </span>
-              )}
-            </>
-          )}
-        </p>
-        <p className="mt-1 text-xs text-gray-500">
-          Abra o console do navegador (F12) para ver os detalhes das contas
-        </p>
-      </div>
-
-      <TableBills data={bills} />
+      <TableBills data={filteredBills} />
     </ProtectedMain>
   );
 }
