@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components';
 import { SidebarInset, SidebarProvider } from '@/components/ui';
+import { Toaster } from '@/components/ui/sonner';
 import { SWRProvider } from '@/providers';
 
 export default function ProtectedLayout({
@@ -19,6 +20,7 @@ export default function ProtectedLayout({
       >
         <Sidebar variant="inset" />
         <SidebarInset>{children}</SidebarInset>
+        <Toaster />
       </SidebarProvider>
     </SWRProvider>
   );

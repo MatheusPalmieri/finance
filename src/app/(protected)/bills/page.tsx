@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import Link from 'next/link';
 
@@ -50,6 +50,10 @@ export interface Bill {
   installment_number: number;
   total_installments: number;
   parent_transaction_id: string | null;
+
+  // Campos para soft delete
+  status: 'active' | 'deleted';
+  deleted_at: string | null;
 }
 
 export default function BillsPage() {
@@ -62,7 +66,7 @@ export default function BillsPage() {
 
   const supabase = createClient();
 
-  const fetchBills = async () => {
+  const fetchBills = useCallback(async () => {
     setIsLoading(true);
 
     try {
@@ -79,6 +83,7 @@ export default function BillsPage() {
         .from('bills')
         .select('*')
         .eq('user_id', user.id)
+        .neq('status', 'deleted')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -99,11 +104,11 @@ export default function BillsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [month, supabase]);
 
   useEffect(() => {
     fetchBills();
-  }, [month]);
+  }, [month, fetchBills]);
 
   const filteredBills = bills.filter(
     (bill) =>
@@ -113,42 +118,52 @@ export default function BillsPage() {
 
   return (
     <ProtectedMain title="Bills">
-      <header className="flex items-center justify-between">
-        <Select
-          value={month}
-          onValueChange={setMonth as (value: string) => void}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Month" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="January">January</SelectItem>
-            <SelectItem value="February">February</SelectItem>
-            <SelectItem value="March">March</SelectItem>
-            <SelectItem value="April">April</SelectItem>
-            <SelectItem value="May">May</SelectItem>
-            <SelectItem value="June">June</SelectItem>
-            <SelectItem value="July">July</SelectItem>
-            <SelectItem value="August">August</SelectItem>
-            <SelectItem value="September">September</SelectItem>
-            <SelectItem value="October">October</SelectItem>
-            <SelectItem value="November">November</SelectItem>
-            <SelectItem value="December">December</SelectItem>
-          </SelectContent>
-        </Select>
+      <header className="mb-6 flex items-center justify-between rounded-lg border border-purple-200 bg-purple-50 p-4">
+        <div className="flex items-center gap-4">
+          <Select
+            value={month}
+            onValueChange={setMonth as (value: string) => void}
+          >
+            <SelectTrigger className="w-[180px] border-purple-200 focus:border-purple-500 focus:ring-purple-500">
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent className="border-purple-200">
+              <SelectItem value="January">January</SelectItem>
+              <SelectItem value="February">February</SelectItem>
+              <SelectItem value="March">March</SelectItem>
+              <SelectItem value="April">April</SelectItem>
+              <SelectItem value="May">May</SelectItem>
+              <SelectItem value="June">June</SelectItem>
+              <SelectItem value="July">July</SelectItem>
+              <SelectItem value="August">August</SelectItem>
+              <SelectItem value="September">September</SelectItem>
+              <SelectItem value="October">October</SelectItem>
+              <SelectItem value="November">November</SelectItem>
+              <SelectItem value="December">December</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <div className="flex items-center gap-2">
           <Input
-            placeholder="Search for a bill"
+            placeholder="Search bills..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-64 border-purple-200 focus:border-purple-500 focus:ring-purple-500"
           />
+        </div>
 
-          <Button variant="outline" asChild>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            asChild
+            className="border-purple-200 text-purple-700 hover:border-purple-300 hover:bg-purple-100"
+          >
             <Link href="/bills/import">Import CSV</Link>
           </Button>
 
-          <Button asChild>
+          <Button
+            asChild
+            className="bg-purple-600 text-white hover:bg-purple-700"
+          >
             <Link href="/bills/add">
               {isLoading ? 'Loading...' : 'Add Bill'}
             </Link>
@@ -156,7 +171,7 @@ export default function BillsPage() {
         </div>
       </header>
 
-      <TableBills data={filteredBills} />
+      <TableBills data={filteredBills} onUpdate={fetchBills} />
     </ProtectedMain>
   );
 }
