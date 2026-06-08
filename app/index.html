@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Odonto Reativa CRM — gestão de clientes" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <title>Odonto Reativa CRM</title>
+
+    <style>
+      /* Splash-only vars — prefixadas para não conflitar com shadcn/ui */
+      #splash {
+        --s-bg:    #ffffff;
+        --s-fg:    #09090b;
+        --s-muted: #71717a;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #splash {
+          --s-bg:    #09090b;
+          --s-fg:    #fafafa;
+          --s-muted: #a1a1aa;
+        }
+      }
+
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background-color: var(--s-bg);
+        font-family: system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        transition: opacity 0.35s ease, visibility 0.35s ease;
+      }
+
+      #splash.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .splash-logo {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .splash-logo svg {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        flex-shrink: 0;
+      }
+
+      .splash-name {
+        display: flex;
+        flex-direction: column;
+        line-height: 1;
+      }
+
+      .splash-name strong {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: var(--s-fg);
+      }
+
+      .splash-name span {
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--s-muted);
+        margin-top: 3px;
+      }
+
+      .splash-dots {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .splash-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--s-muted);
+        animation: dot-pulse 1.4s ease-in-out infinite;
+        opacity: 0.3;
+      }
+
+      .splash-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .splash-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes dot-pulse {
+        0%, 80%, 100% { opacity: 0.3; transform: scale(1); }
+        40%            { opacity: 1;   transform: scale(1.3); }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Splash screen (removida quando o React monta) -->
+    <div id="splash" role="status" aria-label="Carregando Odonto Reativa CRM">
+      <div class="splash-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+          <rect width="64" height="64" rx="16" fill="#0f172a"/>
+          <path d="M20 14c-2.5 0-6 1.5-6 7 0 3 1 5.5 2 8 1 2.5 1.5 5 2 9 .4 3 1 5 2 5s1.6-2 2-5c.5-3.5 1-5 2-5s1.5 1.5 2 5c.4 3 1 5 2 5s1.6-2 2-5c.5-4 1-6.5 2-9 1-2.5 2-5 2-8 0-5.5-3.5-7-6-7-1.5 0-2.5.5-4 .5S21.5 14 20 14z" fill="white" opacity="0.95"/>
+        </svg>
+        <div class="splash-name">
+          <strong>Odonto Reativa</strong>
+          <span>CRM</span>
+        </div>
+      </div>
+      <div class="splash-dots" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      // Remove o splash assim que o React inserir conteúdo no #root
+      const splash = document.getElementById("splash")
+      const root   = document.getElementById("root")
+
+      const observer = new MutationObserver(() => {
+        if (root.firstChild) {
+          splash.classList.add("hidden")
+          splash.addEventListener("transitionend", () => splash.remove(), { once: true })
+          observer.disconnect()
+        }
+      })
+
+      observer.observe(root, { childList: true })
+    </script>
+  </body>
+</html>

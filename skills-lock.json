@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "skills": {
+    "caveman": {
+      "source": "juliusbrussee/caveman",
+      "sourceType": "github",
+      "skillPath": "skills/caveman/SKILL.md",
+      "computedHash": "dfbf85749fd474feeb0bbe60c779795ecd5dbec0083299b56e68916bc3ddd8c9"
+    },
+    "elysiajs": {
+      "source": "elysiajs/skills",
+      "sourceType": "github",
+      "skillPath": "elysia/SKILL.md",
+      "computedHash": "55268e69a2c766ed67e56a0db57544f60cc52dba0c7f024a974baf965e525e1b"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "0f8321e347a21d27b427608c8d98db5d812ceed2b94f1cca2eae400d6b11147d"
+    },
+    "nodejs-best-practices": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nodejs-best-practices/SKILL.md",
+      "computedHash": "3e025f24a1948fcbfe666eabc757f5b426271b08a420a86dba1ea7518cc7b369"
+    },
+    "postgresql-optimization": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/postgresql-optimization/SKILL.md",
+      "computedHash": "8022448de70ba9a485e3b5bce34c5bbc644f93eb39b68431c9f7dabcf03aeb09"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "ac9d0d69caac7de1d1e5647f3db3bcd2f13af355d6b3a78780fbf7fc80e8dca0"
+    },
+    "sql-code-review": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/sql-code-review/SKILL.md",
+      "computedHash": "ae157a0eeaa4c4712e850e85d71d25f2a53168f94011f3a08b888424f41220ee"
+    },
+    "sql-optimization": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/sql-optimization/SKILL.md",
+      "computedHash": "47c930907f25d67454ac8c2d155785eae3dce72242960d0c0e9ebf2ced9cd231"
+    },
+    "typescript-mcp-server-generator": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/typescript-mcp-server-generator/SKILL.md",
+      "computedHash": "d7add3c0bf0b16006283fcb77748eb7025d574c5e2d15306d767fb901d47ad37"
+    },
+    "vite": {
+      "source": "antfu/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vite/SKILL.md",
+      "computedHash": "867ff66238f3152e9c494339ad08dc432dd0df5bcf5cc7a00b61a72b580eb908"
+    }
+  }
+}
