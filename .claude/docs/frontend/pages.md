@@ -1,7 +1,7 @@
 ---
 title: Frontend — Páginas e estrutura
 area: frontend
-updated: 2026-06-09
+updated: 2026-06-08
 ---
 
 ## Visão geral
@@ -10,10 +10,17 @@ SPA com React Router DOM v7 usando o padrão moderno `createBrowserRouter` + `Ro
 
 ## Configuração do roteador (`App.tsx`)
 
+**Code-splitting por rota**: cada página é importada com `React.lazy()` (dynamic `import()`), gerando um chunk separado por rota. Como as páginas usam export nomeado, o import é mapeado para `default`:
+
 ```tsx
+const Home = lazy(() =>
+  import("@/pages/Home").then((m) => ({ default: m.Home }))
+)
+// idem Clients, Funnel, Dashboard
+
 const router = createBrowserRouter([
   {
-    element: <AppLayout />,          // layout pai com <Outlet />
+    element: <AppLayout />,          // layout pai com <Outlet /> dentro de <Suspense>
     children: [
       { index: true, element: <Home /> },
       { path: "clients",   element: <Clients /> },
@@ -35,6 +42,19 @@ Vantagens sobre o padrão JSX `<BrowserRouter>/<Routes>/<Route>`:
 - Configuração declarativa em objetos — mais fácil de inspecionar e testar
 - `index: true` para rota raiz (sem `path="/"`)
 - Caminhos filhos sem barra inicial (`"clients"`, não `"/clients"`)
+
+### Impacto do code-splitting no bundle
+
+O `recharts` (~108 kB gzip, usado por Funil/Dashboard) saiu do bundle inicial e só baixa ao acessar essas rotas. Bundle inicial caiu de **328 kB → 124 kB gzip** e o warning de chunk > 500 kB do Vite sumiu.
+
+| Chunk | gzip | Carrega em |
+|-------|------|-----------|
+| `index` (React, Router, layout) | ~124 kB | sempre |
+| `Home` | ~2 kB | `/` |
+| `Funnel` | ~8 kB | `/funnel` |
+| `Dashboard` | ~19 kB | `/dashboard` |
+| `Clients` | ~43 kB | `/clients` |
+| `AreaChart` (recharts) | ~108 kB | junto de Funil/Dashboard |
 
 Stack de dados/formulários: **TanStack Query v5** (cache + mutations), **React Hook Form v7** + **Zod v4** (validação), **sonner** (toasts).
 
@@ -58,7 +78,7 @@ Stack de dados/formulários: **TanStack Query v5** (cache + mutations), **React 
   - **Indicador ativo deslizante**: um `<div>` absoluto (`bg-sidebar-primary`) animado com `translateY(activeIndex * ITEM_HEIGHT)` + `transition-all` (easing `cubic-bezier(0.22,1,0.36,1)`), que escorrega entre os itens. `activeIndex` derivado de `useLocation().pathname` via `getActiveIndex()` (match exato em `/`, `startsWith` no resto). Itens `h-10` (`ITEM_HEIGHT = 40`) num container `relative`.
   - **Micro-interações**: ícone com `group-hover:scale-110`, hover com `bg-sidebar-accent`.
   - **Rodapé** (`FooterButton` reutilizável): toggle de tema (Sun/Moon com cross-fade via `dark:` variants, hint `D`) + toggle de colapso (`PanelLeftClose`/`PanelLeftOpen`, hint `B`). Ambos viram ícone centralizado + tooltip quando colapsada.
-- `components/layout/AppLayout.tsx` — `<main>` com `max-w-7xl` centralizado, padding `px-8 py-8`
+- `components/layout/AppLayout.tsx` — `<main>` com `max-w-7xl` centralizado, padding `px-8 py-8`. O `<Outlet />` é envolvido por `<Suspense>` com fallback de loading (spinner `Loader2` centralizado em `h-[60vh]`) enquanto o chunk da rota lazy carrega.
 
 ## Setup global (`main.tsx`)
 
@@ -193,7 +213,7 @@ Cada mudança de filtro re-busca via TanStack Query (nova `queryKey`).
 - **Motion**: cards entram com `animate-in fade-in slide-in-from-bottom-2` escalonados por `animationDelay`; recharts anima as séries (`animationDuration={700}`).
 - **Tooltips** custom (`ChartTooltip` / `FunnelTooltip`) estilizados com tokens (`bg-popover`).
 
-> ⚠️ recharts importa um `Funnel` que **colide** com o nome do componente da página — por isso o import é aliased para `FunnelSeries`. O recharts engorda o bundle (~1MB); aceitável por ora (warning de chunk no build).
+> ⚠️ recharts importa um `Funnel` que **colide** com o nome do componente da página — por isso o import é aliased para `FunnelSeries`. O recharts é pesado (~108 kB gzip) mas agora fica isolado em chunk próprio via lazy loading da rota (ver "Impacto do code-splitting no bundle").
 
 ## Painel operacional (`pages/Dashboard/`)
 

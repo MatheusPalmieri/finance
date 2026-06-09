@@ -1,10 +1,22 @@
+import { lazy } from "react"
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 
 import { AppLayout } from "@/components/layout/AppLayout"
-import { Home } from "@/pages/Home"
-import { Clients } from "@/pages/Clients"
-import { Funnel } from "@/pages/Funnel"
-import { Dashboard } from "@/pages/Dashboard"
+
+// Cada página é carregada sob demanda (code-splitting por rota).
+// Componentes pesados (ex.: gráficos do Dashboard) só baixam quando acessados.
+const Home = lazy(() =>
+  import("@/pages/Home").then((m) => ({ default: m.Home }))
+)
+const Clients = lazy(() =>
+  import("@/pages/Clients").then((m) => ({ default: m.Clients }))
+)
+const Funnel = lazy(() =>
+  import("@/pages/Funnel").then((m) => ({ default: m.Funnel }))
+)
+const Dashboard = lazy(() =>
+  import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard }))
+)
 
 const router = createBrowserRouter([
   {
