@@ -32,6 +32,7 @@ Docs existentes:
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
+- `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render
 - `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida

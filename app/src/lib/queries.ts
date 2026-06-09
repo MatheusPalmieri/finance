@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { toast } from "sonner"
 import { api, type ListClientsParams, type StatsParams } from "./api"
 import type { ClientPhase, CloseReason } from "@/types/client"
@@ -15,6 +20,9 @@ export function useClients(params: ListClientsParams) {
   return useQuery({
     queryKey: clientKeys.list(params),
     queryFn: () => api.clients.list(params),
+    // Mantém os dados anteriores visíveis enquanto a próxima página/filtro
+    // carrega — sem flash de skeleton nem remount da tabela.
+    placeholderData: keepPreviousData,
   })
 }
 

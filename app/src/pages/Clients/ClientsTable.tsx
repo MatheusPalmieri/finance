@@ -35,9 +35,11 @@ import {
   UserCheck,
   Users,
 } from "lucide-react"
+import { memo } from "react"
 import { type Client } from "@/types/client"
 import { PhaseBadge } from "@/components/PhaseBadge"
 import { formatPhone } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 const LIMIT_OPTIONS = [10, 25, 50, 100]
 
@@ -47,6 +49,7 @@ interface ClientsTableProps {
   page: number
   limit: number
   isLoading: boolean
+  isFetching?: boolean
   onPageChange: (page: number) => void
   onLimitChange: (limit: number) => void
   onEdit: (client: Client) => void
@@ -54,6 +57,96 @@ interface ClientsTableProps {
   onChangeResponsible: (client: Client) => void
   onDelete: (client: Client) => void
 }
+
+interface ClientRowProps {
+  client: Client
+  onEdit: (client: Client) => void
+  onChangePhase: (client: Client) => void
+  onChangeResponsible: (client: Client) => void
+  onDelete: (client: Client) => void
+}
+
+// Linha memoizada: como os handlers vêm de setState (referência estável) e o
+// objeto client só muda quando os dados mudam, mexer no estado do pai (abrir
+// modal, paginar) não re-renderiza todas as linhas.
+const ClientRow = memo(function ClientRow({
+  client,
+  onEdit,
+  onChangePhase,
+  onChangeResponsible,
+  onDelete,
+}: ClientRowProps) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-2">
+          {client.hasDuplicate && (
+            <AlertTriangle
+              size={13}
+              className="shrink-0 text-amber-500"
+              aria-label="Telefone duplicado"
+            />
+          )}
+          <span className="max-w-45 truncate">{client.name}</span>
+        </div>
+      </TableCell>
+
+      <TableCell className="font-mono text-sm text-muted-foreground">
+        {formatPhone(client.phoneAreaCode, client.phoneNumber)}
+      </TableCell>
+
+      <TableCell className="text-muted-foreground">{client.city}</TableCell>
+
+      <TableCell>
+        <PhaseBadge client={client} className="text-xs" />
+      </TableCell>
+
+      <TableCell className="font-mono text-sm text-muted-foreground">
+        {client.responsiblePhoneAreaCode && client.responsiblePhoneNumber ? (
+          formatPhone(
+            client.responsiblePhoneAreaCode,
+            client.responsiblePhoneNumber
+          )
+        ) : (
+          <span className="text-muted-foreground/50">—</span>
+        )}
+      </TableCell>
+
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <MoreHorizontal size={14} />
+              <span className="sr-only">Ações</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={() => onEdit(client)}>
+              <Pencil size={13} className="mr-2" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onChangePhase(client)}>
+              <UserCheck size={13} className="mr-2" />
+              Alterar fase
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onChangeResponsible(client)}>
+              <Phone size={13} className="mr-2" />
+              Responsável
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDelete(client)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 size={13} className="mr-2" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  )
+})
 
 function TableSkeleton() {
   return (
@@ -90,6 +183,7 @@ export function ClientsTable({
   page,
   limit,
   isLoading,
+  isFetching,
   onPageChange,
   onLimitChange,
   onEdit,
@@ -103,7 +197,14 @@ export function ClientsTable({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div
+        className={cn(
+          "overflow-hidden rounded-lg border bg-card transition-opacity",
+          // Atenua durante refetch em background (troca de página/filtro),
+          // sem voltar ao skeleton.
+          isFetching && !isLoading && "opacity-60"
+        )}
+      >
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -136,79 +237,14 @@ export function ClientsTable({
               </TableRow>
             ) : (
               clients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {client.hasDuplicate && (
-                        <AlertTriangle
-                          size={13}
-                          className="shrink-0 text-amber-500"
-                          aria-label="Telefone duplicado"
-                        />
-                      )}
-                      <span className="max-w-45 truncate">{client.name}</span>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="font-mono text-sm text-muted-foreground">
-                    {formatPhone(client.phoneAreaCode, client.phoneNumber)}
-                  </TableCell>
-
-                  <TableCell className="text-muted-foreground">
-                    {client.city}
-                  </TableCell>
-
-                  <TableCell>
-                    <PhaseBadge client={client} className="text-xs" />
-                  </TableCell>
-
-                  <TableCell className="font-mono text-sm text-muted-foreground">
-                    {client.responsiblePhoneAreaCode &&
-                    client.responsiblePhoneNumber ? (
-                      formatPhone(
-                        client.responsiblePhoneAreaCode,
-                        client.responsiblePhoneNumber
-                      )
-                    ) : (
-                      <span className="text-muted-foreground/50">—</span>
-                    )}
-                  </TableCell>
-
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <MoreHorizontal size={14} />
-                          <span className="sr-only">Ações</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => onEdit(client)}>
-                          <Pencil size={13} className="mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onChangePhase(client)}>
-                          <UserCheck size={13} className="mr-2" />
-                          Alterar fase
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onChangeResponsible(client)}
-                        >
-                          <Phone size={13} className="mr-2" />
-                          Responsável
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => onDelete(client)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 size={13} className="mr-2" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                <ClientRow
+                  key={client.id}
+                  client={client}
+                  onEdit={onEdit}
+                  onChangePhase={onChangePhase}
+                  onChangeResponsible={onChangeResponsible}
+                  onDelete={onDelete}
+                />
               ))
             )}
           </TableBody>

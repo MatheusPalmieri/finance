@@ -1,11 +1,21 @@
-import { useState } from "react"
-import { DollarSign, LayoutDashboard, Send, Trophy } from "lucide-react"
+import { lazy, Suspense, useState } from "react"
+import { DollarSign, LayoutDashboard, Loader2, Send, Trophy } from "lucide-react"
 import { SegmentedControl } from "@/components/charts"
-import { OverviewTab } from "./OverviewTab"
-import { MessagingTab } from "./MessagingTab"
-import { RevenueTab } from "./RevenueTab"
-import { PerformanceTab } from "./PerformanceTab"
 import type { Period } from "./mock"
+
+// Cada aba só baixa seu código (e o mock que consome) ao ser aberta.
+const OverviewTab = lazy(() =>
+  import("./OverviewTab").then((m) => ({ default: m.OverviewTab }))
+)
+const MessagingTab = lazy(() =>
+  import("./MessagingTab").then((m) => ({ default: m.MessagingTab }))
+)
+const RevenueTab = lazy(() =>
+  import("./RevenueTab").then((m) => ({ default: m.RevenueTab }))
+)
+const PerformanceTab = lazy(() =>
+  import("./PerformanceTab").then((m) => ({ default: m.PerformanceTab }))
+)
 
 type Tab = "overview" | "messaging" | "revenue" | "performance"
 
@@ -48,10 +58,18 @@ export function Dashboard() {
         )}
       </div>
 
-      {tab === "overview" && <OverviewTab />}
-      {tab === "messaging" && <MessagingTab period={period} />}
-      {tab === "revenue" && <RevenueTab />}
-      {tab === "performance" && <PerformanceTab />}
+      <Suspense
+        fallback={
+          <div className="flex h-64 items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        }
+      >
+        {tab === "overview" && <OverviewTab />}
+        {tab === "messaging" && <MessagingTab period={period} />}
+        {tab === "revenue" && <RevenueTab />}
+        {tab === "performance" && <PerformanceTab />}
+      </Suspense>
     </div>
   )
 }

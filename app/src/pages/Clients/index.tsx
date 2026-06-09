@@ -45,7 +45,7 @@ export function Clients() {
 
   const debouncedSearch = useDebounce(search, 350)
 
-  const { data, isLoading } = useClients({
+  const { data, isLoading, isFetching } = useClients({
     page,
     limit,
     search: debouncedSearch || undefined,
@@ -175,6 +175,7 @@ export function Clients() {
         page={page}
         limit={limit}
         isLoading={isLoading}
+        isFetching={isFetching}
         onPageChange={setPage}
         onLimitChange={handleLimitChange}
         onEdit={setEditClient}

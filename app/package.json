@@ -34,11 +34,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
     "@eslint/js": "^10",
+    "@rolldown/plugin-babel": "^0.2.3",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^10",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
