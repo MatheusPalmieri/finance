@@ -7,8 +7,16 @@ import { normalizePhone } from "../lib/phone"
 const CLIENT_PHASE_VALUES = clientPhaseEnum.enumValues
 const CLOSE_REASON_VALUES = closeReasonEnum.enumValues
 
+// Mapeia o filtro de janela de criação para uma quantidade de dias
+const CREATED_WITHIN_DAYS: Record<string, number> = {
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+}
+
 export const clientsRoute = new Elysia({ prefix: "/clients" })
-  // Lista clientes com paginação, busca, filtro de fase e flag de duplicatas
+  // Lista clientes com paginação, busca e filtros (fase, motivo, cidade,
+  // contato, responsável, janela de criação e flag de duplicatas)
   .get(
     "/",
     async ({ query }) => {
@@ -29,6 +37,43 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
 
       if (query.phase) {
         conditions.push(eq(clients.phase, query.phase as (typeof CLIENT_PHASE_VALUES)[number]))
+      }
+
+      if (query.closeReason) {
+        conditions.push(
+          eq(
+            clients.closeReason,
+            query.closeReason as (typeof CLOSE_REASON_VALUES)[number]
+          )
+        )
+      }
+
+      if (query.city) {
+        conditions.push(eq(clients.city, query.city))
+      }
+
+      // Contatado = já teve mensagem enviada
+      if (query.contacted === "true") {
+        conditions.push(isNotNull(clients.messageSentAt))
+      } else if (query.contacted === "false") {
+        conditions.push(isNull(clients.messageSentAt))
+      }
+
+      // Possui telefone de responsável cadastrado
+      if (query.hasResponsible === "true") {
+        conditions.push(isNotNull(clients.responsiblePhoneNumber))
+      } else if (query.hasResponsible === "false") {
+        conditions.push(isNull(clients.responsiblePhoneNumber))
+      }
+
+      // Janela de criação relativa (últimos N dias)
+      const createdWithinDays = query.createdWithin
+        ? CREATED_WITHIN_DAYS[query.createdWithin]
+        : undefined
+      if (createdWithinDays) {
+        conditions.push(
+          sql`${clients.createdAt} >= now() - make_interval(days => ${createdWithinDays})`
+        )
       }
 
       // Subquery que detecta se o mesmo telefone existe em outro registro
@@ -86,10 +131,26 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
         limit: t.Optional(t.String()),
         search: t.Optional(t.String()),
         phase: t.Optional(t.String()),
+        closeReason: t.Optional(t.String()),
+        city: t.Optional(t.String()),
+        contacted: t.Optional(t.String()),
+        hasResponsible: t.Optional(t.String()),
+        createdWithin: t.Optional(t.String()),
         duplicates: t.Optional(t.String()),
       }),
     }
   )
+
+  // Lista distinta de cidades cadastradas — alimenta o dropdown de filtro
+  .get("/cities", async () => {
+    const rows = await db
+      .selectDistinct({ city: clients.city })
+      .from(clients)
+      .where(isNull(clients.deletedAt))
+      .orderBy(clients.city)
+
+    return rows.map((r) => r.city)
+  })
 
   // Agrega métricas para o dashboard do funil (filtra por período e cidade)
   .get(
@@ -215,7 +276,7 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
     return client
   })
 
-  // Cria um novo cliente
+  // Cria um novo cliente — opcionalmente já com fase/motivo definidos
   .post(
     "/",
     async ({ body, error }) => {
@@ -225,15 +286,31 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
         return error(400, { message: "Phone number must have 8 digits" })
       }
 
-      const [client] = await db
-        .insert(clients)
-        .values({
-          name: body.name,
-          phoneAreaCode: body.phoneAreaCode.replace(/\D/g, "").slice(0, 2),
-          phoneNumber,
-          city: body.city,
-        })
-        .returning()
+      const phase =
+        (body.phase as (typeof CLIENT_PHASE_VALUES)[number]) ?? "PROSPECTING"
+
+      if (phase === "CLOSED" && !body.closeReason) {
+        return error(400, { message: "Close reason required when phase is CLOSED" })
+      }
+
+      const values: typeof clients.$inferInsert = {
+        name: body.name,
+        phoneAreaCode: body.phoneAreaCode.replace(/\D/g, "").slice(0, 2),
+        phoneNumber,
+        city: body.city,
+        phase,
+        closeReason:
+          phase === "CLOSED"
+            ? (body.closeReason as (typeof CLOSE_REASON_VALUES)[number])
+            : null,
+      }
+
+      // Carimba os timestamps de transição coerentes com a fase inicial
+      if (phase === "NEGOTIATING") values.negotiatingStartedAt = new Date()
+      if (phase === "CLOSED") values.closedAt = new Date()
+      if (body.messageSent) values.messageSentAt = new Date()
+
+      const [client] = await db.insert(clients).values(values).returning()
 
       return client
     },
@@ -243,6 +320,9 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
         phoneAreaCode: t.String({ minLength: 1, maxLength: 3 }),
         phoneNumber: t.String({ minLength: 7, maxLength: 11 }),
         city: t.String({ minLength: 1 }),
+        phase: t.Optional(t.String()),
+        closeReason: t.Optional(t.String()),
+        messageSent: t.Optional(t.Boolean()),
       }),
     }
   )

@@ -37,7 +37,7 @@ import {
 } from "lucide-react"
 import { memo } from "react"
 import { type Client } from "@/types/client"
-import { PhaseBadge } from "@/components/PhaseBadge"
+import { CloseReasonBadge, PhaseBadge } from "@/components/PhaseBadge"
 import { formatPhone } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -52,6 +52,7 @@ interface ClientsTableProps {
   isFetching?: boolean
   onPageChange: (page: number) => void
   onLimitChange: (limit: number) => void
+  onRowClick: (client: Client) => void
   onEdit: (client: Client) => void
   onChangePhase: (client: Client) => void
   onChangeResponsible: (client: Client) => void
@@ -60,6 +61,7 @@ interface ClientsTableProps {
 
 interface ClientRowProps {
   client: Client
+  onRowClick: (client: Client) => void
   onEdit: (client: Client) => void
   onChangePhase: (client: Client) => void
   onChangeResponsible: (client: Client) => void
@@ -71,13 +73,25 @@ interface ClientRowProps {
 // modal, paginar) não re-renderiza todas as linhas.
 const ClientRow = memo(function ClientRow({
   client,
+  onRowClick,
   onEdit,
   onChangePhase,
   onChangeResponsible,
   onDelete,
 }: ClientRowProps) {
   return (
-    <TableRow>
+    <TableRow
+      role="button"
+      tabIndex={0}
+      onClick={() => onRowClick(client)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onRowClick(client)
+        }
+      }}
+      className="cursor-pointer"
+    >
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           {client.hasDuplicate && (
@@ -98,7 +112,15 @@ const ClientRow = memo(function ClientRow({
       <TableCell className="text-muted-foreground">{client.city}</TableCell>
 
       <TableCell>
-        <PhaseBadge client={client} className="text-xs" />
+        <PhaseBadge client={client} phaseOnly className="text-xs" />
+      </TableCell>
+
+      <TableCell>
+        {client.closeReason ? (
+          <CloseReasonBadge closeReason={client.closeReason} className="text-xs" />
+        ) : (
+          <span className="text-muted-foreground/50">—</span>
+        )}
       </TableCell>
 
       <TableCell className="font-mono text-sm text-muted-foreground">
@@ -112,7 +134,7 @@ const ClientRow = memo(function ClientRow({
         )}
       </TableCell>
 
-      <TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -120,14 +142,14 @@ const ClientRow = memo(function ClientRow({
               <span className="sr-only">Ações</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onClick={() => onEdit(client)}>
               <Pencil size={13} className="mr-2" />
               Editar
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onChangePhase(client)}>
               <UserCheck size={13} className="mr-2" />
-              Alterar fase
+              Alterar fase/motivo
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onChangeResponsible(client)}>
               <Phone size={13} className="mr-2" />
@@ -166,6 +188,9 @@ function TableSkeleton() {
             <Skeleton className="h-5 w-20 rounded-full" />
           </TableCell>
           <TableCell>
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </TableCell>
+          <TableCell>
             <Skeleton className="h-4 w-28" />
           </TableCell>
           <TableCell className="text-right">
@@ -186,6 +211,7 @@ export function ClientsTable({
   isFetching,
   onPageChange,
   onLimitChange,
+  onRowClick,
   onEdit,
   onChangePhase,
   onChangeResponsible,
@@ -212,6 +238,7 @@ export function ClientsTable({
               <TableHead className="font-medium">Telefone</TableHead>
               <TableHead className="font-medium">Cidade</TableHead>
               <TableHead className="font-medium">Fase</TableHead>
+              <TableHead className="font-medium">Motivo</TableHead>
               <TableHead className="font-medium">Responsável</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -221,7 +248,7 @@ export function ClientsTable({
               <TableSkeleton />
             ) : clients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-16 text-center">
+                <TableCell colSpan={7} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Users size={32} strokeWidth={1.5} />
                     <div>
@@ -240,6 +267,7 @@ export function ClientsTable({
                 <ClientRow
                   key={client.id}
                   client={client}
+                  onRowClick={onRowClick}
                   onEdit={onEdit}
                   onChangePhase={onChangePhase}
                   onChangeResponsible={onChangeResponsible}

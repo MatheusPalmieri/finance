@@ -22,7 +22,14 @@ Lista clientes ativos (soft-delete excluído) com paginação e filtros.
 | `limit` | string | `"20"` | Itens por página |
 | `search` | string | — | Busca ilike em `name` e `city` |
 | `phase` | string | — | Filtra por `ClientPhase` exato |
+| `closeReason` | string | — | Filtra por `CloseReason` exato |
+| `city` | string | — | Filtra por cidade exata |
+| `contacted` | `"true" \| "false"` | — | `true` = `messageSentAt IS NOT NULL`; `false` = `IS NULL` |
+| `hasResponsible` | `"true" \| "false"` | — | `true` = tem `responsiblePhoneNumber`; `false` = não tem |
+| `createdWithin` | `"7d" \| "30d" \| "90d"` | — | Janela relativa: `createdAt >= now() - N dias` |
 | `duplicates` | `"true"` | — | Retorna só clientes com telefone duplicado |
+
+Todos os filtros são combináveis (AND). Valores fora do enum/janela esperados são ignorados.
 
 **Resposta:**
 
@@ -89,9 +96,21 @@ Agrega métricas para o dashboard do **Funil de vendas** (`/funnel`). Filtra por
 
 ---
 
+### GET /clients/cities
+
+Lista distinta de cidades de clientes ativos, ordenada alfabeticamente. Alimenta o dropdown de filtro "Cidade" na página de Clientes. Definido **antes** de `/:id` para a rota estática ter precedência sobre a paramétrica.
+
+**Resposta:**
+
+```json
+["Balneário Camboriú", "Blumenau", "Brusque", "Florianópolis"]
+```
+
+---
+
 ### POST /clients
 
-Cria um cliente. O backend normaliza `phoneNumber` (remove 9 inicial se 9 dígitos). Fase inicial sempre `PROSPECTING`.
+Cria um cliente. O backend normaliza `phoneNumber` (remove 9 inicial se 9 dígitos). A fase é opcional (default `PROSPECTING`) e o backend carimba os timestamps de transição coerentes: `negotiatingStartedAt` se criado em `NEGOTIATING`, `closedAt` se em `CLOSED`, `messageSentAt` se `messageSent=true`. Quando `phase=CLOSED`, `closeReason` é obrigatório (400 caso contrário); para outras fases o `closeReason` é ignorado/zerado.
 
 **Body:**
 
@@ -100,7 +119,10 @@ Cria um cliente. O backend normaliza `phoneNumber` (remove 9 inicial se 9 dígit
   "name": "string (min 1)",
   "phoneAreaCode": "string (1-3 chars, só dígitos)",
   "phoneNumber": "string (7-11 chars, só dígitos)",
-  "city": "string (min 1)"
+  "city": "string (min 1)",
+  "phase": "PROSPECTING | NEGOTIATING | CLOSED (opcional)",
+  "closeReason": "CloseReason (opcional, obrigatório se phase=CLOSED)",
+  "messageSent": "boolean (opcional)"
 }
 ```
 
@@ -118,7 +140,7 @@ Retorna um cliente por ID. Retorna 404 se não encontrado ou deletado.
 
 Atualiza campos gerais (nome, telefone, cidade). Não altera fase nem responsável.
 
-**Body:** mesmo schema do POST.
+**Body:** apenas `name`, `phoneAreaCode`, `phoneNumber`, `city` (não aceita os campos de fase do POST).
 
 ---
 

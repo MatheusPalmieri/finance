@@ -19,11 +19,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export type ContactedFilter = "all" | "yes" | "no"
+export type ResponsibleFilter = "all" | "yes" | "no"
+export type CreatedWithin = "" | "7d" | "30d" | "90d"
+
 export interface ListClientsParams {
   page?: number
   limit?: number
   search?: string
   phase?: ClientPhase | ""
+  closeReason?: CloseReason | ""
+  city?: string
+  contacted?: ContactedFilter
+  hasResponsible?: ResponsibleFilter
+  createdWithin?: CreatedWithin
   duplicates?: boolean
 }
 
@@ -52,11 +61,20 @@ export const api = {
       if (params.limit) q.set("limit", String(params.limit))
       if (params.search) q.set("search", params.search)
       if (params.phase) q.set("phase", params.phase)
+      if (params.closeReason) q.set("closeReason", params.closeReason)
+      if (params.city) q.set("city", params.city)
+      if (params.contacted && params.contacted !== "all")
+        q.set("contacted", params.contacted === "yes" ? "true" : "false")
+      if (params.hasResponsible && params.hasResponsible !== "all")
+        q.set("hasResponsible", params.hasResponsible === "yes" ? "true" : "false")
+      if (params.createdWithin) q.set("createdWithin", params.createdWithin)
       if (params.duplicates) q.set("duplicates", "true")
       return request<ClientsResponse>(`/clients?${q}`)
     },
 
     get: (id: string) => request<Client>(`/clients/${id}`),
+
+    cities: () => request<string[]>("/clients/cities"),
 
     stats: (params: StatsParams = {}) => {
       const q = new URLSearchParams()
@@ -70,6 +88,9 @@ export const api = {
       phoneAreaCode: string
       phoneNumber: string
       city: string
+      phase?: ClientPhase
+      closeReason?: CloseReason
+      messageSent?: boolean
     }) =>
       request<Client>("/clients", {
         method: "POST",

@@ -26,24 +26,43 @@ const CLOSE_REASON_VARIANT: Record<CloseReason, BadgeVariant> = {
 }
 
 // Badge de status do cliente: mostra o motivo de fechamento quando o cliente
-// está fechado (closeReason), senão a fase atual.
+// está fechado (closeReason), senão a fase atual. Com `phaseOnly`, ignora o
+// closeReason e mostra sempre a fase (útil quando o motivo tem coluna própria).
 export function PhaseBadge({
   client,
   className,
+  phaseOnly,
 }: {
   client: Pick<Client, "phase" | "closeReason">
   className?: string
+  phaseOnly?: boolean
 }) {
-  const variant = client.closeReason
-    ? CLOSE_REASON_VARIANT[client.closeReason]
+  const showReason = !phaseOnly && client.closeReason
+  const variant = showReason
+    ? CLOSE_REASON_VARIANT[client.closeReason!]
     : PHASE_VARIANT[client.phase]
-  const label = client.closeReason
-    ? CLOSE_REASON_LABELS[client.closeReason]
+  const label = showReason
+    ? CLOSE_REASON_LABELS[client.closeReason!]
     : CLIENT_PHASE_LABELS[client.phase]
 
   return (
     <Badge variant={variant} className={className}>
       {label}
+    </Badge>
+  )
+}
+
+// Badge do motivo de fechamento (closeReason), para exibição em coluna própria.
+export function CloseReasonBadge({
+  closeReason,
+  className,
+}: {
+  closeReason: CloseReason
+  className?: string
+}) {
+  return (
+    <Badge variant={CLOSE_REASON_VARIANT[closeReason]} className={className}>
+      {CLOSE_REASON_LABELS[closeReason]}
     </Badge>
   )
 }

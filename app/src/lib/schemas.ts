@@ -40,6 +40,20 @@ export const phaseSchema = z
 
 export type PhaseFormValues = z.infer<typeof phaseSchema>
 
+// Criação: campos gerais + fase/motivo opcionais (default PROSPECTING)
+export const createClientSchema = clientSchema
+  .extend({
+    phase: z.enum(CLIENT_PHASES),
+    closeReason: z.enum(CLOSE_REASONS).optional(),
+    messageSent: z.boolean().optional(),
+  })
+  .refine((data) => data.phase !== "CLOSED" || !!data.closeReason, {
+    message: "Motivo de fechamento obrigatório",
+    path: ["closeReason"],
+  })
+
+export type CreateClientFormValues = z.infer<typeof createClientSchema>
+
 export const responsibleSchema = z.object({
   responsiblePhoneAreaCode: z
     .string()

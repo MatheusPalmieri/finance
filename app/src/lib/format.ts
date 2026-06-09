@@ -5,6 +5,17 @@ export function formatPhone(areaCode: string, number: string) {
   return `(${areaCode}) ${number.slice(0, 4)}-${number.slice(4)}`
 }
 
+// Data e hora absolutas em pt-BR ("08/06/2026 14:30")
+export function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 // Tempo relativo curto em pt-BR ("hoje", "ontem", "há 3d", "há 2m", "há 1a")
 export function relativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()

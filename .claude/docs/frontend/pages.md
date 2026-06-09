@@ -99,6 +99,7 @@ Todos os hooks invalidam `clientKeys.lists()` no `onSuccess` e disparam toast vi
 |------|------|-----------|
 | `useClients(params)` | `useQuery` | Lista paginada com filtros |
 | `useClientStats(params)` | `useQuery` | Métricas do funil (`period`, `city`) |
+| `useClientCities()` | `useQuery` | Lista distinta de cidades (`GET /clients/cities`), `staleTime` 5min — alimenta o filtro de cidade |
 | `useCreateClient()` | `useMutation` | POST /clients |
 | `useUpdateClient()` | `useMutation` | PUT /clients/:id |
 | `useUpdateClientPhase()` | `useMutation` | PATCH /clients/:id/phase |
@@ -111,7 +112,8 @@ Cache keys centralizados em `clientKeys` (factory pattern do TQ).
 
 | Schema | Uso |
 |--------|-----|
-| `clientSchema` / `ClientFormValues` | Create + Edit modais |
+| `clientSchema` / `ClientFormValues` | EditClientModal (campos gerais) |
+| `createClientSchema` / `CreateClientFormValues` | CreateClientModal — estende `clientSchema` com `phase` + `closeReason` + `messageSent` (refine: motivo obrigatório se `phase=CLOSED`) |
 | `phaseSchema` / `PhaseFormValues` | PhaseModal |
 | `responsibleSchema` / `ResponsibleFormValues` | ResponsibleModal |
 
@@ -122,21 +124,37 @@ Cache keys centralizados em `clientKeys` (factory pattern do TQ).
 | Arquivo | Função |
 |---------|--------|
 | `index.tsx` | Orquestra filtros, debounce de busca, modais |
-| `ClientsTable.tsx` | Tabela com skeleton, empty state, DropdownMenu por linha |
-| `ClientForm.tsx` | Campos RHF controlados (nome, DDD, telefone, cidade) |
-| `CreateClientModal.tsx` | Modal criação — RHF + Zod + `useCreateClient` |
-| `EditClientModal.tsx` | Modal edição — RHF + Zod + `useUpdateClient` |
-| `PhaseModal.tsx` | Modal de fase — seletor de phase + closeReason condicional + checkbox messageSent |
+| `ClientsTable.tsx` | Tabela com skeleton, empty state, DropdownMenu por linha. Linha clicável abre o `ClientDetailsModal` |
+| `ClientDetailsModal.tsx` | Modal de leitura com todos os campos do cliente (contato, linha do tempo de fase, registro) + botões que abrem os mesmos diálogos de ação (Editar / Fase-motivo / Responsável / Excluir) |
+| `ClientForm.tsx` | Campos RHF controlados (nome, DDD, telefone, cidade). Genérico sobre `T extends ClientFormValues` para servir Create e Edit |
+| `CreateClientModal.tsx` | Modal criação — RHF + Zod + `useCreateClient`. Usa `ClientForm` + `PhaseReasonFields` (define fase/motivo já na criação) |
+| `EditClientModal.tsx` | Modal edição — RHF + Zod + `useUpdateClient` (só campos gerais) |
+| `PhaseModal.tsx` | Modal de fase — usa `PhaseReasonFields` (phase + closeReason condicional + checkbox messageSent) |
 | `ResponsibleModal.tsx` | Modal responsável — RHF + `useUpdateClientResponsible` |
+
+Componentes de formulário compartilhados em `components/forms/`:
+
+| Arquivo | Função |
+|---------|--------|
+| `PhoneFields.tsx` | Par DDD + Telefone (só dígitos), genérico sobre o form |
+| `PhaseReasonFields.tsx` | Fase + motivo de fechamento (condicional em `CLOSED`) + checkbox "mensagem enviada" (condicional em `PROSPECTING`), genérico. Reutilizado por CreateClientModal e PhaseModal |
 | `DeleteDialog.tsx` | AlertDialog de confirmação — `useDeleteClient` |
 
 ### Fluxo de estado (`index.tsx`)
 
 ```
 useClients(params)  ← TanStack Query (cache automático)
-  ├── filtros: search (debounce 350ms), phaseFilter, showDuplicates, page
-  └── page reset: feito nos handlers handleSearchChange / handlePhaseChange / handleDuplicatesToggle / handleClearFilters
+  ├── filtros inline:   search (debounce 350ms), phaseFilter, cityFilter, showDuplicates
+  ├── filtros avançados: closeReasonFilter, contactedFilter, responsibleFilter, createdWithin (no popover "Filtros")
+  ├── page reset: todo handler de filtro chama setPage(1)
+  └── handleClearFilters: zera todos os filtros de uma vez (botão "Limpar", visível só com filtro ativo)
 ```
+
+**Barra de filtros** — busca, **Fase** e **Cidade** (selects inline), botão **Filtros** (`Popover`) e toggle **Duplicatas**:
+
+- O `Popover` (`components/ui/popover.tsx`, padrão `radix-ui`) agrupa os filtros avançados: **Motivo de fechamento** (`closeReason`), **Contato** (`messageSentAt` not null / null), **Responsável** (tem `responsiblePhoneNumber` / não), **Criado em** (janela relativa `7d`/`30d`/`90d`).
+- O botão "Filtros" exibe um `Badge` com a contagem de filtros avançados ativos (`advancedCount`).
+- Tipos de filtro em `lib/api.ts`: `ContactedFilter`, `ResponsibleFilter`, `CreatedWithin`. O `api.clients.list()` traduz `yes/no` → `true/false` e omite `all`/vazios da query string.
 
 Ao confirmar qualquer mutation, TQ invalida `clientKeys.lists()` — sem callbacks manuais de reload.
 
@@ -144,11 +162,15 @@ Ao confirmar qualquer mutation, TQ invalida `clientKeys.lists()` — sem callbac
 
 - **Skeleton**: 8 linhas de `<Skeleton />` enquanto `isLoading=true`
 - **Empty state**: ícone `Users` + texto explicativo
-- **Ações por linha**: `DropdownMenu` com Editar / Alterar fase / Responsável / Excluir
+- **Linha clicável**: clique (ou Enter/Espaço) abre `ClientDetailsModal`; a célula de ações faz `stopPropagation` para não disparar o detalhe ao usar o dropdown
+- **Ações por linha**: `DropdownMenu` com Editar / Alterar fase/motivo / Responsável / Excluir
+- **Detalhe → ação**: os botões do `ClientDetailsModal` fecham o detalhe e abrem o diálogo de ação correspondente (`openFromDetails` no `index.tsx`), reusando exatamente os mesmos modais da tabela
 - Coluna Nome: ícone `AlertTriangle` âmbar quando `hasDuplicate=true`
 - Coluna Telefone: `(DDD) XXXX-XXXX` em `font-mono`
 - Coluna Responsável: `—` se não cadastrado
-- **Badge de fase**: mostra `closeReason` quando disponível (clientes CLOSED); mostra `phase` nos demais
+- **Colunas**: Nome, Telefone, Cidade, Fase, Motivo, Responsável + ações
+- **Coluna Fase**: `<PhaseBadge phaseOnly />` — sempre a `phase`, sem embutir o motivo
+- **Coluna Motivo**: `<CloseReasonBadge />` com o `closeReason`; `—` quando ausente (clientes não fechados)
 
 ### Toasts e confirmações
 

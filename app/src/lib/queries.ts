@@ -14,6 +14,7 @@ export const clientKeys = {
   list: (params: ListClientsParams) => [...clientKeys.lists(), params] as const,
   detail: (id: string) => [...clientKeys.all, "detail", id] as const,
   stats: (params: StatsParams) => [...clientKeys.all, "stats", params] as const,
+  cities: () => [...clientKeys.all, "cities"] as const,
 }
 
 export function useClients(params: ListClientsParams) {
@@ -30,6 +31,15 @@ export function useClientStats(params: StatsParams) {
   return useQuery({
     queryKey: clientKeys.stats(params),
     queryFn: () => api.clients.stats(params),
+  })
+}
+
+export function useClientCities() {
+  return useQuery({
+    queryKey: clientKeys.cities(),
+    queryFn: () => api.clients.cities(),
+    // Cidades mudam raramente — mantém em cache por bastante tempo.
+    staleTime: 5 * 60 * 1000,
   })
 }
 
