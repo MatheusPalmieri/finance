@@ -58,7 +58,6 @@
       .splash-logo svg {
         width: 52px;
         height: 52px;
-        border-radius: 12px;
         flex-shrink: 0;
       }
 
@@ -112,9 +111,15 @@
     <!-- Splash screen (removida quando o React monta) -->
     <div id="splash" role="status" aria-label="Carregando Odonto Reativa CRM">
       <div class="splash-logo">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-          <rect width="64" height="64" rx="16" fill="#0f172a"/>
-          <path d="M20 14c-2.5 0-6 1.5-6 7 0 3 1 5.5 2 8 1 2.5 1.5 5 2 9 .4 3 1 5 2 5s1.6-2 2-5c.5-3.5 1-5 2-5s1.5 1.5 2 5c.4 3 1 5 2 5s1.6-2 2-5c.5-4 1-6.5 2-9 1-2.5 2-5 2-8 0-5.5-3.5-7-6-7-1.5 0-2.5.5-4 .5S21.5 14 20 14z" fill="white" opacity="0.95"/>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+          <defs>
+            <linearGradient id="splash-logo-grad" x1="0" y1="0" x2="40" y2="40">
+              <stop offset="0%" stop-color="#3b82f6"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+          <rect width="40" height="40" rx="11" fill="url(#splash-logo-grad)"/>
+          <path d="M20 10c-5 0-7.5 3-7.5 6.5 0 3.5 1.5 6 2.2 9 .3 1.5.5 3.5.9 4.9.3 1 1.6.9 1.9-.1l1.3-5.1c.2-.9 2.2-.9 2.4 0l1.3 5.1c.3 1 1.6 1.1 1.9.1.4-1.4.6-3.4.9-4.9.7-3 2.2-5.5 2.2-9C27.5 13 25 10 20 10Z" fill="white" fill-opacity="0.96"/>
         </svg>
         <div class="splash-name">
           <strong>Odonto Reativa</strong>
