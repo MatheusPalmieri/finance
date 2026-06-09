@@ -29,17 +29,17 @@ export const CLOSE_REASON_LABELS: Record<CloseReason, string> = {
 export const CLIENT_PHASE_HEX: Record<ClientPhase, string> = {
   PROSPECTING: "#64748b", // slate
   NEGOTIATING: "#f59e0b", // amber
-  CLOSED: "#94a3b8",      // slate-400 (split por closeReason no gráfico)
+  CLOSED: "#94a3b8", // slate-400 (split por closeReason no gráfico)
 }
 
 export const CLOSE_REASON_HEX: Record<CloseReason, string> = {
-  CLIENT: "#10b981",       // emerald
-  TRIAL: "#8b5cf6",        // violet
+  CLIENT: "#10b981", // emerald
+  TRIAL: "#8b5cf6", // violet
   CUSTOM_TRIAL: "#a855f7", // purple
   PRICE_OBJECTION: "#f43f5e", // rose
-  NO_FIT: "#ef4444",       // red
-  GHOST: "#a1a1aa",        // zinc
-  UNREACHABLE: "#78716c",  // stone
+  NO_FIT: "#ef4444", // red
+  GHOST: "#a1a1aa", // zinc
+  UNREACHABLE: "#78716c", // stone
 }
 
 export interface Client {

@@ -33,7 +33,7 @@ export function StatCard({
 
   return (
     <div
-      className="flex animate-in flex-col gap-2 rounded-xl border bg-card p-4 fade-in slide-in-from-bottom-2 duration-500"
+      className="flex animate-in flex-col gap-2 rounded-xl border bg-card p-4 duration-500 fade-in slide-in-from-bottom-2"
       style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
     >
       <div className="flex items-center justify-between">
@@ -77,7 +77,7 @@ export function ChartCard({
   return (
     <div
       className={cn(
-        "animate-in rounded-xl border bg-card p-5 fade-in slide-in-from-bottom-2 duration-500",
+        "animate-in rounded-xl border bg-card p-5 duration-500 fade-in slide-in-from-bottom-2",
         className
       )}
       style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
@@ -127,13 +127,13 @@ export function ChartTooltip({
         <div key={i} className="flex items-center gap-2">
           <span
             className="size-2 rounded-full"
-            style={{ backgroundColor: p.color ?? p.payload?.fill ?? p.payload?.color }}
+            style={{
+              backgroundColor: p.color ?? p.payload?.fill ?? p.payload?.color,
+            }}
           />
           <span className="text-muted-foreground">{p.name}</span>
           <span className="ml-auto font-medium text-popover-foreground tabular-nums">
-            {typeof p.value === "number" && format
-              ? format(p.value)
-              : p.value}
+            {typeof p.value === "number" && format ? format(p.value) : p.value}
             {format ? "" : suffix}
           </span>
         </div>

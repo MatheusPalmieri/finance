@@ -1,10 +1,5 @@
 import { useState } from "react"
-import {
-  DollarSign,
-  LayoutDashboard,
-  Send,
-  Trophy,
-} from "lucide-react"
+import { DollarSign, LayoutDashboard, Send, Trophy } from "lucide-react"
 import { SegmentedControl } from "@/components/charts"
 import { OverviewTab } from "./OverviewTab"
 import { MessagingTab } from "./MessagingTab"
@@ -45,7 +40,11 @@ export function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SegmentedControl options={TABS} value={tab} onChange={setTab} />
         {tab === "messaging" && (
-          <SegmentedControl options={PERIODS} value={period} onChange={setPeriod} />
+          <SegmentedControl
+            options={PERIODS}
+            value={period}
+            onChange={setPeriod}
+          />
         )}
       </div>
 

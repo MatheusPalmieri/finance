@@ -1,6 +1,7 @@
 import { Controller, type Control, type FieldErrors } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PhoneFields } from "@/components/forms/PhoneFields"
 import type { ClientFormValues } from "@/lib/schemas"
 
 interface ClientFormProps {
@@ -30,53 +31,13 @@ export function ClientForm({ control, errors }: ClientFormProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div className="grid gap-1.5">
-          <Label htmlFor="phoneAreaCode">DDD</Label>
-          <Controller
-            name="phoneAreaCode"
-            control={control}
-            render={({ field }) => (
-              <Input
-                id="phoneAreaCode"
-                placeholder="11"
-                maxLength={2}
-                aria-invalid={!!errors.phoneAreaCode}
-                {...field}
-                onChange={(e) =>
-                  field.onChange(e.target.value.replace(/\D/g, "").slice(0, 2))
-                }
-              />
-            )}
-          />
-          {errors.phoneAreaCode && (
-            <p className="text-xs text-destructive">{errors.phoneAreaCode.message}</p>
-          )}
-        </div>
-
-        <div className="col-span-2 grid gap-1.5">
-          <Label htmlFor="phoneNumber">Telefone</Label>
-          <Controller
-            name="phoneNumber"
-            control={control}
-            render={({ field }) => (
-              <Input
-                id="phoneNumber"
-                placeholder="99999999"
-                maxLength={9}
-                aria-invalid={!!errors.phoneNumber}
-                {...field}
-                onChange={(e) =>
-                  field.onChange(e.target.value.replace(/\D/g, "").slice(0, 9))
-                }
-              />
-            )}
-          />
-          {errors.phoneNumber && (
-            <p className="text-xs text-destructive">{errors.phoneNumber.message}</p>
-          )}
-        </div>
-      </div>
+      <PhoneFields
+        control={control}
+        errors={errors}
+        areaCodeName="phoneAreaCode"
+        numberName="phoneNumber"
+        idPrefix="client"
+      />
 
       <div className="grid gap-1.5">
         <Label htmlFor="city">Cidade</Label>

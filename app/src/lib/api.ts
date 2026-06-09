@@ -1,4 +1,9 @@
-import type { Client, ClientPhase, ClientsResponse, CloseReason } from "@/types/client"
+import type {
+  Client,
+  ClientPhase,
+  ClientsResponse,
+  CloseReason,
+} from "@/types/client"
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 
@@ -87,7 +92,11 @@ export const api = {
 
     updatePhase: (
       id: string,
-      body: { phase: ClientPhase; closeReason?: CloseReason; messageSent?: boolean }
+      body: {
+        phase: ClientPhase
+        closeReason?: CloseReason
+        messageSent?: boolean
+      }
     ) =>
       request<Client>(`/clients/${id}/phase`, {
         method: "PATCH",

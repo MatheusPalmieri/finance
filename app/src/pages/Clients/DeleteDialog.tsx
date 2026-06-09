@@ -31,16 +31,20 @@ export function DeleteDialog({ client, onClose }: DeleteDialogProps) {
           <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
           <AlertDialogDescription>
             Tem certeza que deseja excluir{" "}
-            <span className="font-semibold text-foreground">{client?.name}</span>?
-            Esta ação não pode ser desfeita.
+            <span className="font-semibold text-foreground">
+              {client?.name}
+            </span>
+            ? Esta ação não pode ser desfeita.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={del.isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={del.isPending}>
+            Cancelar
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={del.isPending}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
           >
             {del.isPending ? "Excluindo..." : "Excluir"}
           </AlertDialogAction>

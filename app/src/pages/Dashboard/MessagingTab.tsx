@@ -90,8 +90,15 @@ export function MessagingTab({ period }: { period: Period }) {
       >
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={daily} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
+            <LineChart
+              data={daily}
+              margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+            >
+              <CartesianGrid
+                stroke={gridStroke}
+                strokeDasharray="3 3"
+                vertical={false}
+              />
               <XAxis
                 dataKey="label"
                 tick={axisTick}
@@ -100,12 +107,44 @@ export function MessagingTab({ period }: { period: Period }) {
                 interval="preserveStartEnd"
                 minTickGap={32}
               />
-              <YAxis tick={axisTick} axisLine={false} tickLine={false} width={36} />
+              <YAxis
+                tick={axisTick}
+                axisLine={false}
+                tickLine={false}
+                width={36}
+              />
               <Tooltip content={<ChartTooltip />} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              <Line type="monotone" dataKey="sent" name="Enviadas" stroke={CHART_COLORS.blue} strokeWidth={2} dot={false} animationDuration={700} />
-              <Line type="monotone" dataKey="delivered" name="Entregues" stroke={CHART_COLORS.cyan} strokeWidth={2} dot={false} animationDuration={700} />
-              <Line type="monotone" dataKey="replied" name="Respondidas" stroke={CHART_COLORS.emerald} strokeWidth={2} dot={false} animationDuration={700} />
+              <Legend
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="sent"
+                name="Enviadas"
+                stroke={CHART_COLORS.blue}
+                strokeWidth={2}
+                dot={false}
+                animationDuration={700}
+              />
+              <Line
+                type="monotone"
+                dataKey="delivered"
+                name="Entregues"
+                stroke={CHART_COLORS.cyan}
+                strokeWidth={2}
+                dot={false}
+                animationDuration={700}
+              />
+              <Line
+                type="monotone"
+                dataKey="replied"
+                name="Respondidas"
+                stroke={CHART_COLORS.emerald}
+                strokeWidth={2}
+                dot={false}
+                animationDuration={700}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -120,16 +159,61 @@ export function MessagingTab({ period }: { period: Period }) {
         >
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={messageStatusByChannel} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="channel" tick={axisTick} axisLine={false} tickLine={false} />
-                <YAxis tick={axisTick} axisLine={false} tickLine={false} width={40} tickFormatter={(v) => fmtCompact(v as number)} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                <Bar dataKey="Respondido" stackId="a" fill={CHART_COLORS.emerald} animationDuration={700} />
-                <Bar dataKey="Sem resposta" stackId="a" fill={CHART_COLORS.slate} animationDuration={700} />
-                <Bar dataKey="Opt-out" stackId="a" fill={CHART_COLORS.amber} animationDuration={700} />
-                <Bar dataKey="Não entregue" stackId="a" fill={CHART_COLORS.rose} radius={[4, 4, 0, 0]} animationDuration={700} />
+              <BarChart
+                data={messageStatusByChannel}
+                margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+              >
+                <CartesianGrid
+                  stroke={gridStroke}
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="channel"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  width={40}
+                  tickFormatter={(v) => fmtCompact(v as number)}
+                />
+                <Tooltip
+                  content={<ChartTooltip />}
+                  cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                />
+                <Legend
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                />
+                <Bar
+                  dataKey="Respondido"
+                  stackId="a"
+                  fill={CHART_COLORS.emerald}
+                  animationDuration={700}
+                />
+                <Bar
+                  dataKey="Sem resposta"
+                  stackId="a"
+                  fill={CHART_COLORS.slate}
+                  animationDuration={700}
+                />
+                <Bar
+                  dataKey="Opt-out"
+                  stackId="a"
+                  fill={CHART_COLORS.amber}
+                  animationDuration={700}
+                />
+                <Bar
+                  dataKey="Não entregue"
+                  stackId="a"
+                  fill={CHART_COLORS.rose}
+                  radius={[4, 4, 0, 0]}
+                  animationDuration={700}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -145,7 +229,17 @@ export function MessagingTab({ period }: { period: Period }) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Tooltip content={<ChartTooltip suffix=" disparos" />} />
-                <Pie data={channels} dataKey="sent" nameKey="name" innerRadius={48} outerRadius={74} paddingAngle={2} stroke="var(--background)" strokeWidth={2} animationDuration={700}>
+                <Pie
+                  data={channels}
+                  dataKey="sent"
+                  nameKey="name"
+                  innerRadius={48}
+                  outerRadius={74}
+                  paddingAngle={2}
+                  stroke="var(--background)"
+                  strokeWidth={2}
+                  animationDuration={700}
+                >
                   {channels.map((c) => (
                     <Cell key={c.name} fill={c.color} />
                   ))}
@@ -156,9 +250,14 @@ export function MessagingTab({ period }: { period: Period }) {
           <div className="mt-2 flex flex-col gap-1">
             {channels.map((c) => (
               <div key={c.name} className="flex items-center gap-2 text-sm">
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: c.color }}
+                />
                 <span className="text-muted-foreground">{c.name}</span>
-                <span className="ml-auto font-medium tabular-nums">{c.responseRate}%</span>
+                <span className="ml-auto font-medium tabular-nums">
+                  {c.responseRate}%
+                </span>
               </div>
             ))}
           </div>
@@ -190,15 +289,23 @@ function Heatmap() {
         <div className="grid grid-cols-[3rem_repeat(7,1fr)] gap-1.5 pl-1">
           <div />
           {HEAT_HOURS.map((h) => (
-            <div key={h} className="pb-1 text-center text-[10px] text-muted-foreground">
+            <div
+              key={h}
+              className="pb-1 text-center text-[10px] text-muted-foreground"
+            >
               {h}
             </div>
           ))}
         </div>
         {/* Linhas por dia */}
         {HEAT_DAYS.map((day, di) => (
-          <div key={day} className="mb-1.5 grid grid-cols-[3rem_repeat(7,1fr)] items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">{day}</span>
+          <div
+            key={day}
+            className="mb-1.5 grid grid-cols-[3rem_repeat(7,1fr)] items-center gap-1.5"
+          >
+            <span className="text-xs font-medium text-muted-foreground">
+              {day}
+            </span>
             {HEAT_HOURS.map((_, hi) => {
               const cell = heatmap[di][hi]
               return (
@@ -208,7 +315,10 @@ function Heatmap() {
                   className="flex h-9 items-center justify-center rounded-md text-[10px] font-medium tabular-nums transition-transform hover:scale-105"
                   style={{
                     backgroundColor: heatColor(cell.rate),
-                    color: cell.rate / heatMax > 0.55 ? "#fff" : "var(--muted-foreground)",
+                    color:
+                      cell.rate / heatMax > 0.55
+                        ? "#fff"
+                        : "var(--muted-foreground)",
                   }}
                 >
                   {cell.rate}

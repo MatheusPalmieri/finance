@@ -1,14 +1,7 @@
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { FormModal } from "@/components/forms/FormModal"
 import { clientSchema, type ClientFormValues } from "@/lib/schemas"
 import { useCreateClient } from "@/lib/queries"
 import { ClientForm } from "./ClientForm"
@@ -26,7 +19,12 @@ interface CreateClientModalProps {
 }
 
 export function CreateClientModal({ open, onClose }: CreateClientModalProps) {
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<ClientFormValues>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: DEFAULT,
   })
@@ -38,33 +36,20 @@ export function CreateClientModal({ open, onClose }: CreateClientModalProps) {
   }, [open, reset])
 
   function onSubmit(values: ClientFormValues) {
-    create.mutate(values, {
-      onSuccess: () => {
-        onClose()
-      },
-    })
+    create.mutate(values, { onSuccess: onClose })
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Novo cliente</DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} id="create-client-form">
-          <ClientForm control={control} errors={errors} />
-        </form>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={create.isPending}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="create-client-form" disabled={create.isPending}>
-            {create.isPending ? "Salvando..." : "Criar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title="Novo cliente"
+      formId="create-client-form"
+      onSubmit={handleSubmit(onSubmit)}
+      isPending={create.isPending}
+      submitLabel="Criar"
+    >
+      <ClientForm control={control} errors={errors} />
+    </FormModal>
   )
 }

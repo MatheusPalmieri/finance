@@ -111,12 +111,29 @@ export function OverviewTab() {
               >
                 <defs>
                   <linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_COLORS.emerald} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={CHART_COLORS.emerald} stopOpacity={0} />
+                    <stop
+                      offset="0%"
+                      stopColor={CHART_COLORS.emerald}
+                      stopOpacity={0.35}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={CHART_COLORS.emerald}
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
+                <CartesianGrid
+                  stroke={gridStroke}
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis
                   tick={axisTick}
                   axisLine={false}
@@ -166,8 +183,10 @@ export function OverviewTab() {
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold tabular-nums">{totalCustomers}</span>
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xl font-bold tabular-nums">
+                {totalCustomers}
+              </span>
+              <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
                 clientes
               </span>
             </div>
@@ -175,9 +194,14 @@ export function OverviewTab() {
           <div className="mt-2 flex flex-col gap-1">
             {plans.map((p) => (
               <div key={p.name} className="flex items-center gap-2 text-sm">
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ backgroundColor: p.color }}
+                />
                 <span className="text-muted-foreground">{p.name}</span>
-                <span className="ml-auto font-medium tabular-nums">{p.customers}</span>
+                <span className="ml-auto font-medium tabular-nums">
+                  {p.customers}
+                </span>
               </div>
             ))}
           </div>
@@ -195,9 +219,24 @@ export function OverviewTab() {
               data={revenueByMonth}
               margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
             >
-              <CartesianGrid stroke={gridStroke} strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="left" tick={axisTick} axisLine={false} tickLine={false} width={32} />
+              <CartesianGrid
+                stroke={gridStroke}
+                strokeDasharray="3 3"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="month"
+                tick={axisTick}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                tick={axisTick}
+                axisLine={false}
+                tickLine={false}
+                width={32}
+              />
               <YAxis
                 yAxisId="right"
                 orientation="right"

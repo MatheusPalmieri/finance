@@ -7,37 +7,25 @@ import {
   Users,
 } from "lucide-react"
 import { Link } from "react-router-dom"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChartCard, StatCard } from "@/components/charts"
+import { PhaseBadge } from "@/components/PhaseBadge"
 import { useClientStats, useClients } from "@/lib/queries"
+import { relativeTime } from "@/lib/format"
 import {
   CLIENT_PHASE_HEX,
   CLIENT_PHASE_LABELS,
-  CLOSE_REASON_LABELS,
-  type Client,
   type ClientPhase,
   type CloseReason,
 } from "@/types/client"
 
-const PHASE_VARIANT: Record<ClientPhase, "default" | "secondary" | "outline"> = {
-  PROSPECTING: "secondary",
-  NEGOTIATING: "default",
-  CLOSED: "secondary",
-}
-
-const CLOSE_REASON_VARIANT: Record<CloseReason, "default" | "secondary" | "outline"> = {
-  CLIENT: "default",
-  TRIAL: "outline",
-  CUSTOM_TRIAL: "outline",
-  PRICE_OBJECTION: "secondary",
-  NO_FIT: "secondary",
-  GHOST: "secondary",
-  UNREACHABLE: "secondary",
-}
-
 const WON: CloseReason[] = ["CLIENT", "TRIAL", "CUSTOM_TRIAL"]
-const LOST: CloseReason[] = ["PRICE_OBJECTION", "NO_FIT", "GHOST", "UNREACHABLE"]
+const LOST: CloseReason[] = [
+  "PRICE_OBJECTION",
+  "NO_FIT",
+  "GHOST",
+  "UNREACHABLE",
+]
 
 function greeting() {
   const h = new Date().getHours()
@@ -46,36 +34,14 @@ function greeting() {
   return "Boa noite"
 }
 
-// Tempo relativo curto em pt-BR
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const day = 86_400_000
-  const days = Math.floor(diff / day)
-  if (days <= 0) return "hoje"
-  if (days === 1) return "ontem"
-  if (days < 30) return `há ${days}d`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `há ${months}m`
-  return `há ${Math.floor(months / 12)}a`
-}
-
-function PhaseBadge({ client }: { client: Client }) {
-  const variant = client.closeReason
-    ? CLOSE_REASON_VARIANT[client.closeReason]
-    : PHASE_VARIANT[client.phase]
-  const label = client.closeReason
-    ? CLOSE_REASON_LABELS[client.closeReason]
-    : CLIENT_PHASE_LABELS[client.phase]
-  return (
-    <Badge variant={variant} className="shrink-0 text-xs">
-      {label}
-    </Badge>
-  )
-}
-
 export function Home() {
-  const { data: stats, isLoading: statsLoading } = useClientStats({ period: "all" })
-  const { data: recent, isLoading: recentLoading } = useClients({ page: 1, limit: 6 })
+  const { data: stats, isLoading: statsLoading } = useClientStats({
+    period: "all",
+  })
+  const { data: recent, isLoading: recentLoading } = useClients({
+    page: 1,
+    limit: 6,
+  })
 
   const k = useMemo(() => {
     if (!stats) return null
@@ -205,7 +171,10 @@ export function Home() {
           <div className="-mx-1 flex flex-col">
             {recentLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between px-1 py-2.5">
+                <div
+                  key={i}
+                  className="flex items-center justify-between px-1 py-2.5"
+                >
                   <div className="flex flex-col gap-1.5">
                     <Skeleton className="h-3.5 w-36" />
                     <Skeleton className="h-3 w-20" />
@@ -229,7 +198,7 @@ export function Home() {
                       {c.city} · {relativeTime(c.createdAt)}
                     </p>
                   </div>
-                  <PhaseBadge client={c} />
+                  <PhaseBadge client={c} className="shrink-0 text-xs" />
                 </div>
               ))
             )}
@@ -286,7 +255,9 @@ function PipelineBreakdown({
                 </span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-bold tabular-nums">{p.value}</span>
+                <span className="text-xl font-bold tabular-nums">
+                  {p.value}
+                </span>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {pct.toFixed(0)}%
                 </span>

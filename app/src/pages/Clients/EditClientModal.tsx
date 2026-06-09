@@ -1,13 +1,6 @@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { FormModal } from "@/components/forms/FormModal"
 import { clientSchema, type ClientFormValues } from "@/lib/schemas"
 import { useUpdateClient } from "@/lib/queries"
 import type { Client } from "@/types/client"
@@ -19,7 +12,11 @@ interface EditClientModalProps {
 }
 
 export function EditClientModal({ client, onClose }: EditClientModalProps) {
-  const { control, handleSubmit, formState: { errors } } = useForm<ClientFormValues>({
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     values: {
       name: client?.name ?? "",
@@ -37,25 +34,15 @@ export function EditClientModal({ client, onClose }: EditClientModalProps) {
   }
 
   return (
-    <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Editar cliente</DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} id="edit-client-form">
-          <ClientForm control={control} errors={errors} />
-        </form>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={update.isPending}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="edit-client-form" disabled={update.isPending}>
-            {update.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <FormModal
+      open={!!client}
+      onClose={onClose}
+      title="Editar cliente"
+      formId="edit-client-form"
+      onSubmit={handleSubmit(onSubmit)}
+      isPending={update.isPending}
+    >
+      <ClientForm control={control} errors={errors} />
+    </FormModal>
   )
 }

@@ -22,7 +22,10 @@ import { PhaseModal } from "./PhaseModal"
 import { ResponsibleModal } from "./ResponsibleModal"
 import { DeleteDialog } from "./DeleteDialog"
 
-const PHASE_OPTIONS = Object.entries(CLIENT_PHASE_LABELS) as [ClientPhase, string][]
+const PHASE_OPTIONS = Object.entries(CLIENT_PHASE_LABELS) as [
+  ClientPhase,
+  string,
+][]
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -80,7 +83,9 @@ export function Clients() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [phaseClient, setPhaseClient] = useState<Client | null>(null)
-  const [responsibleClient, setResponsibleClient] = useState<Client | null>(null)
+  const [responsibleClient, setResponsibleClient] = useState<Client | null>(
+    null
+  )
   const [deleteClient, setDeleteClient] = useState<Client | null>(null)
 
   const hasFilters = !!debouncedSearch || !!phaseFilter || showDuplicates
@@ -101,10 +106,13 @@ export function Clients() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-50 max-w-xs">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative max-w-xs min-w-50 flex-1">
+          <Search
+            size={13}
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
-            className="h-8 pl-8 pr-8 text-sm"
+            className="h-8 pr-8 pl-8 text-sm"
             placeholder="Buscar por nome ou cidade..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -112,7 +120,7 @@ export function Clients() {
           {search && (
             <button
               onClick={() => handleSearchChange("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X size={13} />
             </button>
@@ -121,7 +129,9 @@ export function Clients() {
 
         <Select
           value={phaseFilter || "all"}
-          onValueChange={(v) => handlePhaseChange(v === "all" ? "" : (v as ClientPhase))}
+          onValueChange={(v) =>
+            handlePhaseChange(v === "all" ? "" : (v as ClientPhase))
+          }
         >
           <SelectTrigger className="h-8 w-45 text-sm">
             <SelectValue placeholder="Todas as fases" />
@@ -173,14 +183,23 @@ export function Clients() {
         onDelete={setDeleteClient}
       />
 
-      <CreateClientModal open={createOpen} onClose={() => setCreateOpen(false)} />
-      <EditClientModal client={editClient} onClose={() => setEditClient(null)} />
+      <CreateClientModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
+      <EditClientModal
+        client={editClient}
+        onClose={() => setEditClient(null)}
+      />
       <PhaseModal client={phaseClient} onClose={() => setPhaseClient(null)} />
       <ResponsibleModal
         client={responsibleClient}
         onClose={() => setResponsibleClient(null)}
       />
-      <DeleteDialog client={deleteClient} onClose={() => setDeleteClient(null)} />
+      <DeleteDialog
+        client={deleteClient}
+        onClose={() => setDeleteClient(null)}
+      />
     </div>
   )
 }

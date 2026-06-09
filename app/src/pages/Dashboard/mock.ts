@@ -19,8 +19,18 @@ const pad = (n: number) => String(n).padStart(2, "0")
 
 // ── Receita / clientes por mês (últimos 12 meses) ────────────────────────────
 export const MONTHS = [
-  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
 ]
 
 export const revenueByMonth = MONTHS.map((month, i) => {
@@ -105,7 +115,12 @@ export const plans = [
   { name: "Starter", price: 97, customers: 142, color: CHART_COLORS.slate },
   { name: "Pro", price: 297, customers: 98, color: CHART_COLORS.blue },
   { name: "Business", price: 697, customers: 41, color: CHART_COLORS.violet },
-  { name: "Enterprise", price: 1990, customers: 12, color: CHART_COLORS.emerald },
+  {
+    name: "Enterprise",
+    price: 1990,
+    customers: 12,
+    color: CHART_COLORS.emerald,
+  },
 ].map((p) => ({ ...p, mrr: p.price * p.customers }))
 
 // ── Canais de aquisição (de onde vem a receita) ─────────────────────────────
@@ -118,8 +133,12 @@ export const acquisition = [
 
 // ── Performance por SDR ───────────────────────────────────────────────────────
 const SDR_NAMES = [
-  "Ana Beatriz", "Carlos Eduardo", "Mariana Lopes",
-  "Rafael Souza", "Juliana Pires", "Thiago Martins",
+  "Ana Beatriz",
+  "Carlos Eduardo",
+  "Mariana Lopes",
+  "Rafael Souza",
+  "Juliana Pires",
+  "Thiago Martins",
 ]
 export const sdrs = SDR_NAMES.map((name) => {
   const leads = rint(180, 420)
@@ -142,17 +161,23 @@ export const teamGoal = {
 
 // ── Clientes / receita por cidade ─────────────────────────────────────────────
 export const citiesPerf = [
-  "Florianópolis", "Joinville", "Blumenau", "Itajaí",
-  "Chapecó", "Criciúma", "Balneário Camboriú", "Lages",
-].map((city) => {
-  const customers = rint(14, 64)
-  return { city, customers, mrr: customers * rint(180, 420) }
-}).sort((a, b) => b.customers - a.customers)
+  "Florianópolis",
+  "Joinville",
+  "Blumenau",
+  "Itajaí",
+  "Chapecó",
+  "Criciúma",
+  "Balneário Camboriú",
+  "Lages",
+]
+  .map((city) => {
+    const customers = rint(14, 64)
+    return { city, customers, mrr: customers * rint(180, 420) }
+  })
+  .sort((a, b) => b.customers - a.customers)
 
 // ── Totais derivados para os KPIs ─────────────────────────────────────────────
-const totalSent30d = dailyMessaging
-  .slice(-30)
-  .reduce((s, d) => s + d.sent, 0)
+const totalSent30d = dailyMessaging.slice(-30).reduce((s, d) => s + d.sent, 0)
 const totalReplied30d = dailyMessaging
   .slice(-30)
   .reduce((s, d) => s + d.replied, 0)

@@ -42,7 +42,12 @@ import {
 import { cn } from "@/lib/utils"
 import { useClientStats } from "@/lib/queries"
 import type { StatsPeriod } from "@/lib/api"
-import { CLIENT_PHASE_HEX, CLOSE_REASON_HEX, CLOSE_REASON_LABELS, CLIENT_PHASE_LABELS } from "@/types/client"
+import {
+  CLIENT_PHASE_HEX,
+  CLOSE_REASON_HEX,
+  CLOSE_REASON_LABELS,
+  CLIENT_PHASE_LABELS,
+} from "@/types/client"
 
 type FunnelStage = {
   key: string
@@ -82,7 +87,11 @@ export function Funnel() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <SegmentedControl options={PERIODS} value={period} onChange={setPeriod} />
+          <SegmentedControl
+            options={PERIODS}
+            value={period}
+            onChange={setPeriod}
+          />
 
           <Select value={city} onValueChange={setCity}>
             <SelectTrigger className="h-9 w-52 text-sm">
@@ -106,10 +115,7 @@ export function Funnel() {
             onClick={() => refetch()}
             title="Atualizar"
           >
-            <RefreshCw
-              size={14}
-              className={cn(isFetching && "animate-spin")}
-            />
+            <RefreshCw size={14} className={cn(isFetching && "animate-spin")} />
           </Button>
         </div>
       </div>
@@ -138,7 +144,11 @@ function Dashboard({
 
   const won = (rc.CLIENT ?? 0) + (rc.TRIAL ?? 0) + (rc.CUSTOM_TRIAL ?? 0)
   const pipeline = pc.NEGOTIATING ?? 0
-  const lost = (rc.PRICE_OBJECTION ?? 0) + (rc.NO_FIT ?? 0) + (rc.GHOST ?? 0) + (rc.UNREACHABLE ?? 0)
+  const lost =
+    (rc.PRICE_OBJECTION ?? 0) +
+    (rc.NO_FIT ?? 0) +
+    (rc.GHOST ?? 0) +
+    (rc.UNREACHABLE ?? 0)
   const conversionRate = data.total > 0 ? (won / data.total) * 100 : 0
 
   const stages = useMemo<FunnelStage[]>(() => {
@@ -147,30 +157,90 @@ function Dashboard({
 
     const raw = [
       { key: "base", label: "Base total", color: "#64748b", value: base },
-      { key: "contacted", label: "Contatados", color: "#3b82f6", value: data.contacted },
-      { key: "negotiating", label: "Negociando", color: "#f59e0b", value: negotiatingOrClosed },
+      {
+        key: "contacted",
+        label: "Contatados",
+        color: "#3b82f6",
+        value: data.contacted,
+      },
+      {
+        key: "negotiating",
+        label: "Negociando",
+        color: "#f59e0b",
+        value: negotiatingOrClosed,
+      },
       { key: "won", label: "Ganhos", color: "#10b981", value: won },
     ]
 
     return raw.map((s, i, arr) => ({
       ...s,
       ofBase: base > 0 ? (s.value / base) * 100 : 0,
-      conv: i === 0 ? 100 : arr[i - 1].value > 0 ? (s.value / arr[i - 1].value) * 100 : 0,
+      conv:
+        i === 0
+          ? 100
+          : arr[i - 1].value > 0
+            ? (s.value / arr[i - 1].value) * 100
+            : 0,
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
   const distributionData = useMemo(() => {
     const items = [
-      { key: "PROSPECTING", name: CLIENT_PHASE_LABELS.PROSPECTING, value: pc.PROSPECTING ?? 0, color: CLIENT_PHASE_HEX.PROSPECTING },
-      { key: "NEGOTIATING", name: CLIENT_PHASE_LABELS.NEGOTIATING, value: pc.NEGOTIATING ?? 0, color: CLIENT_PHASE_HEX.NEGOTIATING },
-      { key: "CLIENT", name: CLOSE_REASON_LABELS.CLIENT, value: rc.CLIENT ?? 0, color: CLOSE_REASON_HEX.CLIENT },
-      { key: "TRIAL", name: CLOSE_REASON_LABELS.TRIAL, value: rc.TRIAL ?? 0, color: CLOSE_REASON_HEX.TRIAL },
-      { key: "CUSTOM_TRIAL", name: CLOSE_REASON_LABELS.CUSTOM_TRIAL, value: rc.CUSTOM_TRIAL ?? 0, color: CLOSE_REASON_HEX.CUSTOM_TRIAL },
-      { key: "PRICE_OBJECTION", name: CLOSE_REASON_LABELS.PRICE_OBJECTION, value: rc.PRICE_OBJECTION ?? 0, color: CLOSE_REASON_HEX.PRICE_OBJECTION },
-      { key: "NO_FIT", name: CLOSE_REASON_LABELS.NO_FIT, value: rc.NO_FIT ?? 0, color: CLOSE_REASON_HEX.NO_FIT },
-      { key: "GHOST", name: CLOSE_REASON_LABELS.GHOST, value: rc.GHOST ?? 0, color: CLOSE_REASON_HEX.GHOST },
-      { key: "UNREACHABLE", name: CLOSE_REASON_LABELS.UNREACHABLE, value: rc.UNREACHABLE ?? 0, color: CLOSE_REASON_HEX.UNREACHABLE },
+      {
+        key: "PROSPECTING",
+        name: CLIENT_PHASE_LABELS.PROSPECTING,
+        value: pc.PROSPECTING ?? 0,
+        color: CLIENT_PHASE_HEX.PROSPECTING,
+      },
+      {
+        key: "NEGOTIATING",
+        name: CLIENT_PHASE_LABELS.NEGOTIATING,
+        value: pc.NEGOTIATING ?? 0,
+        color: CLIENT_PHASE_HEX.NEGOTIATING,
+      },
+      {
+        key: "CLIENT",
+        name: CLOSE_REASON_LABELS.CLIENT,
+        value: rc.CLIENT ?? 0,
+        color: CLOSE_REASON_HEX.CLIENT,
+      },
+      {
+        key: "TRIAL",
+        name: CLOSE_REASON_LABELS.TRIAL,
+        value: rc.TRIAL ?? 0,
+        color: CLOSE_REASON_HEX.TRIAL,
+      },
+      {
+        key: "CUSTOM_TRIAL",
+        name: CLOSE_REASON_LABELS.CUSTOM_TRIAL,
+        value: rc.CUSTOM_TRIAL ?? 0,
+        color: CLOSE_REASON_HEX.CUSTOM_TRIAL,
+      },
+      {
+        key: "PRICE_OBJECTION",
+        name: CLOSE_REASON_LABELS.PRICE_OBJECTION,
+        value: rc.PRICE_OBJECTION ?? 0,
+        color: CLOSE_REASON_HEX.PRICE_OBJECTION,
+      },
+      {
+        key: "NO_FIT",
+        name: CLOSE_REASON_LABELS.NO_FIT,
+        value: rc.NO_FIT ?? 0,
+        color: CLOSE_REASON_HEX.NO_FIT,
+      },
+      {
+        key: "GHOST",
+        name: CLOSE_REASON_LABELS.GHOST,
+        value: rc.GHOST ?? 0,
+        color: CLOSE_REASON_HEX.GHOST,
+      },
+      {
+        key: "UNREACHABLE",
+        name: CLOSE_REASON_LABELS.UNREACHABLE,
+        value: rc.UNREACHABLE ?? 0,
+        color: CLOSE_REASON_HEX.UNREACHABLE,
+      },
     ]
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value)
@@ -178,7 +248,10 @@ function Dashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  const timeline = useMemo(() => buildTimeline(data.timeline, period), [data, period])
+  const timeline = useMemo(
+    () => buildTimeline(data.timeline, period),
+    [data, period]
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -307,7 +380,7 @@ function Dashboard({
                 <span className="text-2xl font-bold tabular-nums">
                   {data.total}
                 </span>
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
                   leads
                 </span>
               </div>
@@ -446,7 +519,14 @@ function FunnelTooltip({
   payload,
 }: {
   active?: boolean
-  payload?: { payload?: { label?: string; value?: number; color?: string; ofBase?: number } }[]
+  payload?: {
+    payload?: {
+      label?: string
+      value?: number
+      color?: string
+      ofBase?: number
+    }
+  }[]
 }) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload
@@ -517,7 +597,11 @@ function buildTimeline(
   }
 
   if (period === "all") {
-    return raw.map((t) => ({ date: t.date, label: fmt(t.date), count: t.count }))
+    return raw.map((t) => ({
+      date: t.date,
+      label: fmt(t.date),
+      count: t.count,
+    }))
   }
 
   const map = new Map(raw.map((t) => [t.date, t.count]))

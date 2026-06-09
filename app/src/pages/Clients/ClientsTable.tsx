@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -36,50 +35,11 @@ import {
   UserCheck,
   Users,
 } from "lucide-react"
-import {
-  CLIENT_PHASE_LABELS,
-  CLOSE_REASON_LABELS,
-  type Client,
-  type ClientPhase,
-  type CloseReason,
-} from "@/types/client"
+import { type Client } from "@/types/client"
+import { PhaseBadge } from "@/components/PhaseBadge"
+import { formatPhone } from "@/lib/format"
 
 const LIMIT_OPTIONS = [10, 25, 50, 100]
-
-const PHASE_VARIANT: Record<ClientPhase, "default" | "secondary" | "destructive" | "outline"> = {
-  PROSPECTING: "secondary",
-  NEGOTIATING: "default",
-  CLOSED: "secondary",
-}
-
-const CLOSE_REASON_VARIANT: Record<CloseReason, "default" | "secondary" | "destructive" | "outline"> = {
-  CLIENT: "default",
-  TRIAL: "outline",
-  CUSTOM_TRIAL: "outline",
-  PRICE_OBJECTION: "destructive",
-  NO_FIT: "destructive",
-  GHOST: "secondary",
-  UNREACHABLE: "secondary",
-}
-
-function PhaseBadge({ client }: { client: Client }) {
-  if (client.closeReason) {
-    return (
-      <Badge variant={CLOSE_REASON_VARIANT[client.closeReason]} className="text-xs">
-        {CLOSE_REASON_LABELS[client.closeReason]}
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant={PHASE_VARIANT[client.phase]} className="text-xs">
-      {CLIENT_PHASE_LABELS[client.phase]}
-    </Badge>
-  )
-}
-
-function formatPhone(areaCode: string, number: string) {
-  return `(${areaCode}) ${number.slice(0, 4)}-${number.slice(4)}`
-}
 
 interface ClientsTableProps {
   clients: Client[]
@@ -100,12 +60,24 @@ function TableSkeleton() {
     <>
       {Array.from({ length: 8 }).map((_, i) => (
         <TableRow key={i}>
-          <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-          <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-          <TableCell className="text-right"><Skeleton className="ml-auto h-7 w-7 rounded-md" /></TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-36" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-28" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-24" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-28" />
+          </TableCell>
+          <TableCell className="text-right">
+            <Skeleton className="ml-auto h-7 w-7 rounded-md" />
+          </TableCell>
         </TableRow>
       ))}
     </>
@@ -152,8 +124,12 @@ export function ClientsTable({
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <Users size={32} strokeWidth={1.5} />
                     <div>
-                      <p className="text-sm font-medium">Nenhum cliente encontrado</p>
-                      <p className="text-xs">Tente ajustar os filtros ou adicione um novo cliente</p>
+                      <p className="text-sm font-medium">
+                        Nenhum cliente encontrado
+                      </p>
+                      <p className="text-xs">
+                        Tente ajustar os filtros ou adicione um novo cliente
+                      </p>
                     </div>
                   </div>
                 </TableCell>
@@ -170,7 +146,7 @@ export function ClientsTable({
                           aria-label="Telefone duplicado"
                         />
                       )}
-                      <span className="truncate max-w-45">{client.name}</span>
+                      <span className="max-w-45 truncate">{client.name}</span>
                     </div>
                   </TableCell>
 
@@ -178,16 +154,24 @@ export function ClientsTable({
                     {formatPhone(client.phoneAreaCode, client.phoneNumber)}
                   </TableCell>
 
-                  <TableCell className="text-muted-foreground">{client.city}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {client.city}
+                  </TableCell>
 
                   <TableCell>
-                    <PhaseBadge client={client} />
+                    <PhaseBadge client={client} className="text-xs" />
                   </TableCell>
 
                   <TableCell className="font-mono text-sm text-muted-foreground">
-                    {client.responsiblePhoneAreaCode && client.responsiblePhoneNumber
-                      ? formatPhone(client.responsiblePhoneAreaCode, client.responsiblePhoneNumber)
-                      : <span className="text-muted-foreground/50">—</span>}
+                    {client.responsiblePhoneAreaCode &&
+                    client.responsiblePhoneNumber ? (
+                      formatPhone(
+                        client.responsiblePhoneAreaCode,
+                        client.responsiblePhoneNumber
+                      )
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
                   </TableCell>
 
                   <TableCell>
@@ -207,7 +191,9 @@ export function ClientsTable({
                           <UserCheck size={13} className="mr-2" />
                           Alterar fase
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onChangeResponsible(client)}>
+                        <DropdownMenuItem
+                          onClick={() => onChangeResponsible(client)}
+                        >
                           <Phone size={13} className="mr-2" />
                           Responsável
                         </DropdownMenuItem>
@@ -280,7 +266,7 @@ export function ClientsTable({
             <ChevronLeft size={13} />
           </Button>
 
-          <span className="min-w-20 text-center tabular-nums text-xs">
+          <span className="min-w-20 text-center text-xs tabular-nums">
             {isLoading ? "..." : `${page} / ${totalPages}`}
           </span>
 

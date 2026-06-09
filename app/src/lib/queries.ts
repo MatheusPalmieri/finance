@@ -42,8 +42,16 @@ export function useCreateClient() {
 export function useUpdateClient() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name: string; phoneAreaCode: string; phoneNumber: string; city: string }) =>
-      api.clients.update(id, body),
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string
+      name: string
+      phoneAreaCode: string
+      phoneNumber: string
+      city: string
+    }) => api.clients.update(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: clientKeys.lists() })
       toast.success("Cliente atualizado")
@@ -89,7 +97,11 @@ export function useUpdateClientResponsible() {
       id: string
       responsiblePhoneAreaCode: string
       responsiblePhoneNumber: string
-    }) => api.clients.updateResponsible(id, { responsiblePhoneAreaCode, responsiblePhoneNumber }),
+    }) =>
+      api.clients.updateResponsible(id, {
+        responsiblePhoneAreaCode,
+        responsiblePhoneNumber,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: clientKeys.lists() })
       toast.success("Responsável atualizado")
