@@ -26,7 +26,6 @@ export function EditClientModal({ client, onClose }: EditClientModalProps) {
       phoneAreaCode: client?.phoneAreaCode ?? "",
       phoneNumber: client?.phoneNumber ?? "",
       city: client?.city ?? "",
-      status: client?.status ?? "NOT_STARTED",
     },
   })
 

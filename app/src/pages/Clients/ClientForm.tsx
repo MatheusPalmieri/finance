@@ -1,17 +1,7 @@
 import { Controller, type Control, type FieldErrors } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { CLIENT_STATUS_LABELS, type ClientStatus } from "@/types/client"
 import type { ClientFormValues } from "@/lib/schemas"
-
-const STATUS_OPTIONS = Object.entries(CLIENT_STATUS_LABELS) as [ClientStatus, string][]
 
 interface ClientFormProps {
   control: Control<ClientFormValues>
@@ -105,28 +95,6 @@ export function ClientForm({ control, errors }: ClientFormProps) {
         {errors.city && (
           <p className="text-xs text-destructive">{errors.city.message}</p>
         )}
-      </div>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor="status">Status</Label>
-        <Controller
-          name="status"
-          control={control}
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="status" className="w-full" aria-invalid={!!errors.status}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
       </div>
     </div>
   )

@@ -9,20 +9,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  CLIENT_STATUS_LABELS,
+  CLIENT_PHASE_LABELS,
   type Client,
-  type ClientStatus,
+  type ClientPhase,
 } from "@/types/client"
 import { useClients } from "@/lib/queries"
 import { AlertTriangle, Plus, Search, X } from "lucide-react"
 import { ClientsTable } from "./ClientsTable"
 import { CreateClientModal } from "./CreateClientModal"
 import { EditClientModal } from "./EditClientModal"
-import { StatusModal } from "./StatusModal"
+import { PhaseModal } from "./PhaseModal"
 import { ResponsibleModal } from "./ResponsibleModal"
 import { DeleteDialog } from "./DeleteDialog"
 
-const STATUS_OPTIONS = Object.entries(CLIENT_STATUS_LABELS) as [ClientStatus, string][]
+const PHASE_OPTIONS = Object.entries(CLIENT_PHASE_LABELS) as [ClientPhase, string][]
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -37,7 +37,7 @@ export function Clients() {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | "">("")
+  const [phaseFilter, setPhaseFilter] = useState<ClientPhase | "">("")
   const [showDuplicates, setShowDuplicates] = useState(false)
 
   const debouncedSearch = useDebounce(search, 350)
@@ -46,7 +46,7 @@ export function Clients() {
     page,
     limit,
     search: debouncedSearch || undefined,
-    status: statusFilter || undefined,
+    phase: phaseFilter || undefined,
     duplicates: showDuplicates,
   })
 
@@ -55,8 +55,8 @@ export function Clients() {
     setPage(1)
   }
 
-  function handleStatusChange(value: ClientStatus | "") {
-    setStatusFilter(value)
+  function handlePhaseChange(value: ClientPhase | "") {
+    setPhaseFilter(value)
     setPage(1)
   }
 
@@ -72,19 +72,18 @@ export function Clients() {
 
   function handleClearFilters() {
     setSearch("")
-    setStatusFilter("")
+    setPhaseFilter("")
     setShowDuplicates(false)
     setPage(1)
   }
 
-  // Modais
   const [createOpen, setCreateOpen] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
-  const [statusClient, setStatusClient] = useState<Client | null>(null)
+  const [phaseClient, setPhaseClient] = useState<Client | null>(null)
   const [responsibleClient, setResponsibleClient] = useState<Client | null>(null)
   const [deleteClient, setDeleteClient] = useState<Client | null>(null)
 
-  const hasFilters = !!debouncedSearch || !!statusFilter || showDuplicates
+  const hasFilters = !!debouncedSearch || !!phaseFilter || showDuplicates
 
   return (
     <div className="flex flex-col gap-6">
@@ -101,7 +100,6 @@ export function Clients() {
         </Button>
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-50 max-w-xs">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -122,15 +120,15 @@ export function Clients() {
         </div>
 
         <Select
-          value={statusFilter || "all"}
-          onValueChange={(v) => handleStatusChange(v === "all" ? "" : (v as ClientStatus))}
+          value={phaseFilter || "all"}
+          onValueChange={(v) => handlePhaseChange(v === "all" ? "" : (v as ClientPhase))}
         >
           <SelectTrigger className="h-8 w-45 text-sm">
-            <SelectValue placeholder="Todos os status" />
+            <SelectValue placeholder="Todas as fases" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {STATUS_OPTIONS.map(([value, label]) => (
+            <SelectItem value="all">Todas as fases</SelectItem>
+            {PHASE_OPTIONS.map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>
@@ -170,22 +168,18 @@ export function Clients() {
         onPageChange={setPage}
         onLimitChange={handleLimitChange}
         onEdit={setEditClient}
-        onChangeStatus={setStatusClient}
+        onChangePhase={setPhaseClient}
         onChangeResponsible={setResponsibleClient}
         onDelete={setDeleteClient}
       />
 
       <CreateClientModal open={createOpen} onClose={() => setCreateOpen(false)} />
-
       <EditClientModal client={editClient} onClose={() => setEditClient(null)} />
-
-      <StatusModal client={statusClient} onClose={() => setStatusClient(null)} />
-
+      <PhaseModal client={phaseClient} onClose={() => setPhaseClient(null)} />
       <ResponsibleModal
         client={responsibleClient}
         onClose={() => setResponsibleClient(null)}
       />
-
       <DeleteDialog client={deleteClient} onClose={() => setDeleteClient(null)} />
     </div>
   )

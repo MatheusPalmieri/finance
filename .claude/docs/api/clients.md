@@ -21,7 +21,7 @@ Lista clientes ativos (soft-delete excluído) com paginação e filtros.
 | `page` | string | `"1"` | Página atual |
 | `limit` | string | `"20"` | Itens por página |
 | `search` | string | — | Busca ilike em `name` e `city` |
-| `status` | string | — | Filtra por `ClientStatus` exato |
+| `phase` | string | — | Filtra por `ClientPhase` exato |
 | `duplicates` | `"true"` | — | Retorna só clientes com telefone duplicado |
 
 **Resposta:**
@@ -37,8 +37,13 @@ Lista clientes ativos (soft-delete excluído) com paginação e filtros.
       "responsiblePhoneAreaCode": null,
       "responsiblePhoneNumber": null,
       "city": "...",
-      "status": "NOT_STARTED",
+      "phase": "PROSPECTING",
+      "closeReason": null,
+      "messageSentAt": null,
+      "negotiatingStartedAt": null,
+      "closedAt": null,
       "hasDuplicate": false,
+      "deletedAt": null,
       "createdAt": "...",
       "updatedAt": "..."
     }
@@ -51,9 +56,42 @@ O campo `hasDuplicate` é calculado via subquery SQL em tempo real — não pers
 
 ---
 
+### GET /clients/stats
+
+Agrega métricas para o dashboard do **Funil de vendas** (`/funnel`). Filtra por período (via `createdAt`) e cidade. Definido **antes** de `/:id` na rota para a rota estática ter precedência sobre a paramétrica.
+
+**Query params:**
+
+| Param | Tipo | Default | Descrição |
+|-------|------|---------|-----------|
+| `period` | `"7d" \| "30d" \| "90d" \| "all"` | `"30d"` | Janela de `createdAt`; `all` ignora o filtro de data |
+| `city` | string | — | Filtra por cidade exata |
+
+**Resposta:**
+
+```json
+{
+  "total": 50,
+  "phaseCounts": { "PROSPECTING": 20, "NEGOTIATING": 10, "CLOSED": 20 },
+  "closeReasonCounts": { "CLIENT": 5, "TRIAL": 3, "PRICE_OBJECTION": 8 },
+  "contacted": 35,
+  "byCity": [{ "city": "Florianópolis", "count": 5 }],
+  "timeline": [{ "date": "2026-06-08", "count": 50 }],
+  "cities": ["Balneário Camboriú", "Blumenau"]
+}
+```
+
+- `phaseCounts` — sempre traz as 3 chaves do enum (zeradas quando sem registros)
+- `closeReasonCounts` — só traz chaves com count > 0 (parcial)
+- `contacted` — count de clientes com `messageSentAt IS NOT NULL`
+- `byCity` — top 8 cidades por contagem, ordem decrescente
+- `timeline` — leads criados por dia (`YYYY-MM-DD`), só dias com registros; o frontend preenche os dias vazios para um eixo contínuo
+
+---
+
 ### POST /clients
 
-Cria um cliente. O backend normaliza `phoneNumber` (remove 9 inicial se 9 dígitos).
+Cria um cliente. O backend normaliza `phoneNumber` (remove 9 inicial se 9 dígitos). Fase inicial sempre `PROSPECTING`.
 
 **Body:**
 
@@ -62,8 +100,7 @@ Cria um cliente. O backend normaliza `phoneNumber` (remove 9 inicial se 9 dígit
   "name": "string (min 1)",
   "phoneAreaCode": "string (1-3 chars, só dígitos)",
   "phoneNumber": "string (7-11 chars, só dígitos)",
-  "city": "string (min 1)",
-  "status": "ClientStatus (opcional)"
+  "city": "string (min 1)"
 }
 ```
 
@@ -79,20 +116,35 @@ Retorna um cliente por ID. Retorna 404 se não encontrado ou deletado.
 
 ### PUT /clients/:id
 
-Atualiza campos gerais (nome, telefone, cidade). Não altera status nem responsável.
+Atualiza campos gerais (nome, telefone, cidade). Não altera fase nem responsável.
 
-**Body:** mesmo schema do POST (sem `status`).
+**Body:** mesmo schema do POST.
 
 ---
 
-### PATCH /clients/:id/status
+### PATCH /clients/:id/phase
 
-Atualiza apenas o status do cliente.
+Atualiza a fase do cliente e define automaticamente os timestamps de transição.
 
 **Body:**
 ```json
-{ "status": "NEGOTIATING" }
+{
+  "phase": "NEGOTIATING",
+  "closeReason": "CLIENT",
+  "messageSent": true
+}
 ```
+
+- `closeReason` — obrigatório quando `phase = "CLOSED"`, ignorado nas demais
+- `messageSent` — opcional; quando `true` e `messageSentAt` ainda é null, preenche `messageSentAt = now()`
+
+**Timestamps automáticos:**
+
+| Transição | Timestamp preenchido |
+|-----------|---------------------|
+| `→ NEGOTIATING` (primeira vez) | `negotiatingStartedAt` |
+| `→ CLOSED` (primeira vez) | `closedAt` |
+| `messageSent = true` (primeira vez) | `messageSentAt` |
 
 ---
 

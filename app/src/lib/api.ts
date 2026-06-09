@@ -1,4 +1,4 @@
-import type { Client, ClientsResponse, ClientStatus } from "@/types/client"
+import type { Client, ClientPhase, ClientsResponse, CloseReason } from "@/types/client"
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 
@@ -18,8 +18,25 @@ export interface ListClientsParams {
   page?: number
   limit?: number
   search?: string
-  status?: ClientStatus | ""
+  phase?: ClientPhase | ""
   duplicates?: boolean
+}
+
+export type StatsPeriod = "7d" | "30d" | "90d" | "all"
+
+export interface StatsParams {
+  period?: StatsPeriod
+  city?: string
+}
+
+export interface ClientStats {
+  total: number
+  phaseCounts: Record<ClientPhase, number>
+  closeReasonCounts: Partial<Record<CloseReason, number>>
+  contacted: number
+  byCity: { city: string; count: number }[]
+  timeline: { date: string; count: number }[]
+  cities: string[]
 }
 
 export const api = {
@@ -29,19 +46,25 @@ export const api = {
       if (params.page) q.set("page", String(params.page))
       if (params.limit) q.set("limit", String(params.limit))
       if (params.search) q.set("search", params.search)
-      if (params.status) q.set("status", params.status)
+      if (params.phase) q.set("phase", params.phase)
       if (params.duplicates) q.set("duplicates", "true")
       return request<ClientsResponse>(`/clients?${q}`)
     },
 
     get: (id: string) => request<Client>(`/clients/${id}`),
 
+    stats: (params: StatsParams = {}) => {
+      const q = new URLSearchParams()
+      if (params.period) q.set("period", params.period)
+      if (params.city) q.set("city", params.city)
+      return request<ClientStats>(`/clients/stats?${q}`)
+    },
+
     create: (body: {
       name: string
       phoneAreaCode: string
       phoneNumber: string
       city: string
-      status?: ClientStatus
     }) =>
       request<Client>("/clients", {
         method: "POST",
@@ -62,10 +85,13 @@ export const api = {
         body: JSON.stringify(body),
       }),
 
-    updateStatus: (id: string, status: ClientStatus) =>
-      request<Client>(`/clients/${id}/status`, {
+    updatePhase: (
+      id: string,
+      body: { phase: ClientPhase; closeReason?: CloseReason; messageSent?: boolean }
+    ) =>
+      request<Client>(`/clients/${id}/phase`, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       }),
 
     updateResponsible: (

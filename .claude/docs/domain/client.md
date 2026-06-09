@@ -19,7 +19,11 @@ updated: 2026-06-08
 | `responsiblePhoneAreaCode` | varchar(2) | não | DDD do responsável |
 | `responsiblePhoneNumber` | varchar(8) | não | Telefone do responsável (8 dígitos) |
 | `city` | varchar(255) | sim | Cidade |
-| `status` | ClientStatus | sim | Status no funil (default: `NOT_STARTED`) |
+| `phase` | ClientPhase | sim | Posição no funil (default: `PROSPECTING`) |
+| `closeReason` | CloseReason | não | Motivo de fechamento (só quando `phase = CLOSED`) |
+| `messageSentAt` | timestamp | não | Quando a primeira mensagem foi enviada |
+| `negotiatingStartedAt` | timestamp | não | Quando entrou em negociação |
+| `closedAt` | timestamp | não | Quando foi fechado |
 | `deletedAt` | timestamp | não | Preenchido no soft delete |
 | `createdAt` | timestamp | sim | Gerado automaticamente |
 | `updatedAt` | timestamp | sim | Atualizado automaticamente |
@@ -37,20 +41,54 @@ entrada: "87654321"   →  armazenado: "87654321"
 
 Telefones **não são únicos** — duplicatas são permitidas mas sinalizadas via `hasDuplicate: boolean` no GET /clients.
 
-## Status do funil (ClientStatus)
+## Fase do funil (ClientPhase)
 
-| Valor | Label PT-BR |
-|-------|-------------|
-| `NOT_STARTED` | Não iniciado |
-| `MESSAGE_SENT` | Mensagem enviada |
-| `NEGOTIATING` | Negociando |
-| `HAS_SYSTEM` | Tem sistema |
-| `NO_RESPONSE` | Sem resposta |
-| `REJECTED` | Rejeitado |
-| `DISLIKED` | Não gostou |
+| Valor | Label | Descrição |
+|-------|-------|-----------|
+| `PROSPECTING` | Prospecção | Adicionado, pode ter mensagem enviada |
+| `NEGOTIATING` | Negociando | Em negociação ativa |
+| `CLOSED` | Fechado | Encerrado (positivo ou negativo) |
+
+## Motivo de fechamento (CloseReason)
+
+Preenchido apenas quando `phase = CLOSED`.
+
+**Ganhos (won):**
+
+| Valor | Label |
+|-------|-------|
+| `CLIENT` | Cliente |
 | `TRIAL` | Trial |
 | `CUSTOM_TRIAL` | Trial customizado |
-| `INVALID_CONTACT` | Contato inválido |
+
+**Perdidos (lost):**
+
+| Valor | Label |
+|-------|-------|
+| `PRICE_OBJECTION` | Objeção de preço |
+| `NO_FIT` | Sem fit |
+| `GHOST` | Ghost |
+| `UNREACHABLE` | Inacessível |
+
+> `GHOST` e `UNREACHABLE` indicam clientes potencialmente re-engajáveis; `PRICE_OBJECTION` e `NO_FIT` foram decisões ativas do lead.
+
+## Timestamps de transição
+
+Preenchidos automaticamente pela API em `PATCH /clients/:id/phase`:
+
+| Timestamp | Quando é preenchido |
+|-----------|---------------------|
+| `messageSentAt` | Quando `messageSent: true` é enviado (só na primeira vez) |
+| `negotiatingStartedAt` | Na primeira transição para `NEGOTIATING` |
+| `closedAt` | Na primeira transição para `CLOSED` |
+
+**Métricas derivadas:**
+```
+Tempo até 1º contato  = messageSentAt - createdAt
+Tempo de prospecção   = negotiatingStartedAt - createdAt
+Tempo de negociação   = closedAt - negotiatingStartedAt
+Ciclo completo        = closedAt - createdAt
+```
 
 ## Soft delete
 

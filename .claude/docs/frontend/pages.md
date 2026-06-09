@@ -1,7 +1,7 @@
 ---
 title: Frontend — Páginas e estrutura
 area: frontend
-updated: 2026-06-08
+updated: 2026-06-09
 ---
 
 ## Visão geral
@@ -18,8 +18,9 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "clients",   element: <Clients /> },
       { path: "funnel",    element: <Funnel /> },
-      { path: "reports",   element: <Reports /> },
       { path: "dashboard", element: <Dashboard /> },
+      // /reports foi unificado ao /dashboard
+      { path: "reports",   element: <Navigate to="/dashboard" replace /> },
     ],
   },
 ])
@@ -41,16 +42,23 @@ Stack de dados/formulários: **TanStack Query v5** (cache + mutations), **React 
 
 | Path | Componente | Status |
 |------|-----------|--------|
-| `/` | `pages/Home.tsx` | Real (últimos clientes via TQ) |
+| `/` | `pages/Home.tsx` | **Dashboard resumo** (KPIs reais + pipeline + recentes) |
 | `/clients` | `pages/Clients/index.tsx` | Funcional |
-| `/funnel` | `pages/Funnel.tsx` | Mockado |
-| `/reports` | `pages/Reports.tsx` | Mockado |
-| `/dashboard` | `pages/Dashboard.tsx` | Mockado |
+| `/funnel` | `pages/Funnel.tsx` | **Dashboard real** (recharts + `GET /clients/stats`) |
+| `/dashboard` | `pages/Dashboard/index.tsx` | **Painel operacional** (recharts, mockado em 4 abas) |
+| `/reports` | — | Redireciona p/ `/dashboard` (`<Navigate replace>`) |
+
+> As páginas antigas `Reports.tsx` e `Dashboard.tsx` (mocks simples) foram **removidas** e unificadas no novo diretório `pages/Dashboard/`.
 
 ## Layout
 
-- `components/layout/Sidebar.tsx` — `w-52`, cabeçalho com `border-b`, hover com `bg-muted`
-- `components/layout/AppLayout.tsx` — `<main>` com `max-w-5xl` centralizado, padding `px-8 py-8`
+- `components/layout/Sidebar.tsx` — colapsável, usa os tokens `sidebar-*` (`bg-sidebar`, `border-sidebar-border`, etc). Largura `w-60` (expandida) ↔ `w-17` (colapsada) com `transition-[width]`.
+  - **Colapso persistido**: estado `collapsed` salvo no `localStorage` (`sidebar-collapsed`); atalho de teclado **`B`** alterna (com guarda `isEditableTarget` para não disparar dentro de inputs). Quando colapsada, labels somem (`w-0 opacity-0`) e cada item ganha um **tooltip** à direita (radix `Tooltip`, `side="right"`).
+  - **Logo** (`components/layout/Logo.tsx`): `LogoMark` é um SVG próprio — dente estilizado branco sobre quadrado arredondado com gradiente azul→ciano (`#3b82f6`→`#06b6d4`). `Logo` mostra o wordmark "Odonto Reativa / CRM" que colapsa junto com a sidebar.
+  - **Indicador ativo deslizante**: um `<div>` absoluto (`bg-sidebar-primary`) animado com `translateY(activeIndex * ITEM_HEIGHT)` + `transition-all` (easing `cubic-bezier(0.22,1,0.36,1)`), que escorrega entre os itens. `activeIndex` derivado de `useLocation().pathname` via `getActiveIndex()` (match exato em `/`, `startsWith` no resto). Itens `h-10` (`ITEM_HEIGHT = 40`) num container `relative`.
+  - **Micro-interações**: ícone com `group-hover:scale-110`, hover com `bg-sidebar-accent`.
+  - **Rodapé** (`FooterButton` reutilizável): toggle de tema (Sun/Moon com cross-fade via `dark:` variants, hint `D`) + toggle de colapso (`PanelLeftClose`/`PanelLeftOpen`, hint `B`). Ambos viram ícone centralizado + tooltip quando colapsada.
+- `components/layout/AppLayout.tsx` — `<main>` com `max-w-7xl` centralizado, padding `px-8 py-8`
 
 ## Setup global (`main.tsx`)
 
@@ -70,9 +78,10 @@ Todos os hooks invalidam `clientKeys.lists()` no `onSuccess` e disparam toast vi
 | Hook | Tipo | Descrição |
 |------|------|-----------|
 | `useClients(params)` | `useQuery` | Lista paginada com filtros |
+| `useClientStats(params)` | `useQuery` | Métricas do funil (`period`, `city`) |
 | `useCreateClient()` | `useMutation` | POST /clients |
 | `useUpdateClient()` | `useMutation` | PUT /clients/:id |
-| `useUpdateClientStatus()` | `useMutation` | PATCH /clients/:id/status |
+| `useUpdateClientPhase()` | `useMutation` | PATCH /clients/:id/phase |
 | `useUpdateClientResponsible()` | `useMutation` | PATCH /clients/:id/responsible |
 | `useDeleteClient()` | `useMutation` | DELETE /clients/:id |
 
@@ -83,7 +92,7 @@ Cache keys centralizados em `clientKeys` (factory pattern do TQ).
 | Schema | Uso |
 |--------|-----|
 | `clientSchema` / `ClientFormValues` | Create + Edit modais |
-| `statusSchema` / `StatusFormValues` | StatusModal |
+| `phaseSchema` / `PhaseFormValues` | PhaseModal |
 | `responsibleSchema` / `ResponsibleFormValues` | ResponsibleModal |
 
 ## Página de Clientes (`pages/Clients/`)
@@ -94,10 +103,10 @@ Cache keys centralizados em `clientKeys` (factory pattern do TQ).
 |---------|--------|
 | `index.tsx` | Orquestra filtros, debounce de busca, modais |
 | `ClientsTable.tsx` | Tabela com skeleton, empty state, DropdownMenu por linha |
-| `ClientForm.tsx` | Campos RHF controlados (nome, DDD, telefone, cidade, status) |
+| `ClientForm.tsx` | Campos RHF controlados (nome, DDD, telefone, cidade) |
 | `CreateClientModal.tsx` | Modal criação — RHF + Zod + `useCreateClient` |
 | `EditClientModal.tsx` | Modal edição — RHF + Zod + `useUpdateClient` |
-| `StatusModal.tsx` | Modal status — RHF + `useUpdateClientStatus` |
+| `PhaseModal.tsx` | Modal de fase — seletor de phase + closeReason condicional + checkbox messageSent |
 | `ResponsibleModal.tsx` | Modal responsável — RHF + `useUpdateClientResponsible` |
 | `DeleteDialog.tsx` | AlertDialog de confirmação — `useDeleteClient` |
 
@@ -105,8 +114,8 @@ Cache keys centralizados em `clientKeys` (factory pattern do TQ).
 
 ```
 useClients(params)  ← TanStack Query (cache automático)
-  ├── filtros: search (debounce 350ms), statusFilter, showDuplicates, page
-  └── page reset: feito nos handlers handleSearchChange / handleStatusChange / handleDuplicatesToggle / handleClearFilters
+  ├── filtros: search (debounce 350ms), phaseFilter, showDuplicates, page
+  └── page reset: feito nos handlers handleSearchChange / handlePhaseChange / handleDuplicatesToggle / handleClearFilters
 ```
 
 Ao confirmar qualquer mutation, TQ invalida `clientKeys.lists()` — sem callbacks manuais de reload.
@@ -115,10 +124,11 @@ Ao confirmar qualquer mutation, TQ invalida `clientKeys.lists()` — sem callbac
 
 - **Skeleton**: 8 linhas de `<Skeleton />` enquanto `isLoading=true`
 - **Empty state**: ícone `Users` + texto explicativo
-- **Ações por linha**: `DropdownMenu` com Editar / Alterar status / Responsável / Excluir
+- **Ações por linha**: `DropdownMenu` com Editar / Alterar fase / Responsável / Excluir
 - Coluna Nome: ícone `AlertTriangle` âmbar quando `hasDuplicate=true`
 - Coluna Telefone: `(DDD) XXXX-XXXX` em `font-mono`
 - Coluna Responsável: `—` se não cadastrado
+- **Badge de fase**: mostra `closeReason` quando disponível (clientes CLOSED); mostra `phase` nos demais
 
 ### Toasts e confirmações
 
@@ -126,17 +136,105 @@ Ao confirmar qualquer mutation, TQ invalida `clientKeys.lists()` — sem callbac
 - Exclusão via `AlertDialog` (sem `window.confirm`)
 - Erros de formulário inline via `errors.field.message` (Zod)
 
+## Primitivos de gráfico compartilhados
+
+A linguagem visual de dados (usada pelo Funil e pelo Dashboard) está dividida em dois arquivos para não misturar exports de componentes e de valores (regra `react-refresh/only-export-components`):
+
+**`components/charts.tsx`** (apenas componentes):
+- `StatCard` — card de KPI (label, value, `delta`/`trend`, ícone com bg do accent, `delay` de animação)
+- `ChartCard` — wrapper de gráfico (título, subtítulo, `action` opcional, `delay`)
+- `ChartTooltip` — tooltip custom com tokens (`bg-popover`); aceita `suffix` ou `format(v)`
+- `SegmentedControl<T>` — grupo de botões com pílula ativa (abas e filtros de período)
+
+**`lib/charts.ts`** (constantes e formatadores, sem JSX):
+- `CHART_COLORS` / `CHART_PALETTE` — paleta hex
+- `fmtBRL` / `fmtBRLk` / `fmtCompact` / `fmtNum` — formatadores pt-BR
+- `axisTick` / `gridStroke` — estilo de eixos recharts com tokens do tema
+
+> O Funil também consome esses primitivos (deixou de ter cópias locais de `StatCard`/`ChartCard`/`ChartTooltip` e usa `SegmentedControl` no filtro de período).
+
+## Home (`pages/Home.tsx`)
+
+Dashboard de resumo da base, alimentado por `useClientStats({ period: "all" })` (KPIs/pipeline) e `useClients({ page: 1, limit: 6 })` (recentes). Reaproveita `StatCard`/`ChartCard` de `components/charts.tsx`.
+
+- **Saudação dinâmica**: "Bom dia/tarde/noite" conforme `new Date().getHours()`
+- **4 KPIs**: total de leads, contatados (% da base), em negociação, taxa de conversão (ganhos/total)
+- **Pipeline** (`PipelineBreakdown`): barra empilhada das 3 fases (cores de `CLIENT_PHASE_HEX`) + legenda com contagem/percentual; link para `/funnel`
+- **Recentes**: lista dos 6 últimos leads (ordenados por `createdAt desc` no backend) com `PhaseBadge` e tempo relativo (`relativeTime` → "hoje"/"ontem"/"há Nd"); link para `/clients`
+- Skeletons em ambos os blocos enquanto carrega
+
+> `GET /clients` ordena por `createdAt desc` — necessário para "Recentes" e também aplica à listagem de Clientes (mais novos primeiro).
+
+## Página de Funil (`pages/Funnel.tsx`)
+
+Dashboard real do funil de vendas, alimentado por `GET /clients/stats` via `useClientStats`. Usa **recharts** (`^3`) para os gráficos e os primitivos de `components/charts.tsx`. Layout dentro do container `max-w-5xl` do `AppLayout`.
+
+### Filtros (dinâmicos)
+
+- **Período**: controle segmentado (`7d` / `30d` / `90d` / `Tudo`) — botões com pílula ativa (`bg-primary`)
+- **Cidade**: `Select` populado por `data.cities` (lista global); `__all__` = todas
+- **Atualizar**: botão `RefreshCw` que chama `refetch()` (gira enquanto `isFetching`)
+
+Cada mudança de filtro re-busca via TanStack Query (nova `queryKey`).
+
+### Composição
+
+| Bloco | Gráfico recharts | Origem dos dados |
+|-------|------------------|------------------|
+| 4 KPIs | — | `total`, pipeline ativo, fechados, taxa de conversão |
+| Funil de conversão | `FunnelChart` (aliased `FunnelSeries`) + lista de etapas com `% conversão` | etapas acumulativas derivadas de `statusCounts` (`FUNNEL_DEF`) |
+| Distribuição por status | `PieChart` donut com total no centro | `statusCounts` (só > 0) |
+| Leads ao longo do tempo | `AreaChart` com gradiente | `timeline` (dias vazios preenchidos no front por `buildTimeline`) |
+| Top cidades | `BarChart` horizontal | `byCity` |
+
+- **Funil acumulativo**: como cada cliente tem um único status, as etapas (`Base → Contatados → Negociando → Em trial → Fechado`) são supersets decrescentes, calculadas no front — não no banco.
+- **Cores**: `CLIENT_STATUS_HEX` em `types/client.ts` é a fonte única das cores por status; o funil/áreas usam constantes locais (`FUNNEL_DEF`).
+- **Estados**: `DashboardSkeleton` (loading), `EmptyState` (`total === 0`).
+- **Motion**: cards entram com `animate-in fade-in slide-in-from-bottom-2` escalonados por `animationDelay`; recharts anima as séries (`animationDuration={700}`).
+- **Tooltips** custom (`ChartTooltip` / `FunnelTooltip`) estilizados com tokens (`bg-popover`).
+
+> ⚠️ recharts importa um `Funnel` que **colide** com o nome do componente da página — por isso o import é aliased para `FunnelSeries`. O recharts engorda o bundle (~1MB); aceitável por ora (warning de chunk no build).
+
+## Painel operacional (`pages/Dashboard/`)
+
+Hub de analytics que **unificou** as antigas `/dashboard` e `/reports`. Pensado para um CRM de **disparos (outbound) para vender SaaS**. Dados **mockados** de forma determinística (seed fixa em `mock.ts`, PRNG mulberry32) — estáveis entre renders. Organizado em **4 abas** via `SegmentedControl`.
+
+| Arquivo | Conteúdo |
+|---------|----------|
+| `index.tsx` | Shell: cabeçalho, `SegmentedControl` de abas + filtro de período (só na aba Disparos) |
+| `mock.ts` | Toda a massa de dados + KPIs derivados; exporta `Period` (`30d`/`90d`/`12m`) |
+| `OverviewTab.tsx` | Visão geral |
+| `MessagingTab.tsx` | Disparos (recebe `period`) |
+| `RevenueTab.tsx` | Receita |
+| `PerformanceTab.tsx` | Performance do time |
+
+### Abas e gráficos (recharts)
+
+- **Visão geral** — 6 KPIs (MRR, clientes, disparos, resposta, conversão, churn); `AreaChart` de MRR (12m); `PieChart` donut de clientes por plano; `ComposedChart` (novos/cancelados em barras + linha de conversão).
+- **Disparos** — 4 KPIs; `LineChart` multi-série (enviadas/entregues/respondidas, fatiado por `period`); `BarChart` empilhado de status por canal; donut de volume por canal; **mapa de calor** (dia × horário) de taxa de resposta — grid de divs com alpha proporcional (`heatColor`).
+- **Receita** — 6 KPIs (MRR, ARR, ticket, LTV, CAC, LTV/CAC); `AreaChart` empilhado (base + expansão); donut de aquisição; `BarChart` horizontal de receita por plano.
+- **Performance** — 4 KPIs; `RadialBarChart` de meta do time; `BarChart` horizontal de conversões por SDR; tabela de ranking com mini-barra de meta; `BarChart` de clientes por cidade.
+
+- **Período** (`30d`/`90d`/`12m`) afeta as séries diárias da aba Disparos (`dailyMessaging.slice`); receita é sempre mensal (12m).
+- Mesma UI do Funil: cards `animate-in`, `ChartCard`/`StatCard`/`ChartTooltip` compartilhados, eixos com tokens, séries com `animationDuration={700}`.
+- Eixos com valores em milhares usam `fmtCompact` (ex.: `15k`) para não cortar dígitos.
+
 ## Client HTTP (`lib/api.ts`)
 
 Thin wrapper sobre `fetch`. Lança `Error` com `body.message` em respostas não-2xx. Todos os endpoints expostos como `api.clients.*`. URL base via `VITE_API_URL` (`.env`).
 
 ## Tipos (`types/client.ts`)
 
-- `ClientStatus` — union type com os 10 valores do enum
-- `CLIENT_STATUS_LABELS` — mapa status → label em pt-BR
-- `CLIENT_STATUS_COLORS` — mapa status → variante de Badge
-- `Client` — interface completa incluindo `hasDuplicate?`
+- `ClientPhase` — union type com 3 valores: `PROSPECTING | NEGOTIATING | CLOSED`
+- `CloseReason` — union type com 7 valores (CLIENT, TRIAL, CUSTOM_TRIAL, PRICE_OBJECTION, NO_FIT, GHOST, UNREACHABLE)
+- `CLIENT_PHASE_LABELS` — mapa phase → label em pt-BR
+- `CLOSE_REASON_LABELS` — mapa closeReason → label em pt-BR
+- `CLIENT_PHASE_HEX` — mapa phase → cor hex
+- `CLOSE_REASON_HEX` — mapa closeReason → cor hex (fonte única dos gráficos do funil)
+- `Client` — interface completa incluindo `phase`, `closeReason`, timestamps de transição, `hasDuplicate?`
 - `ClientsResponse` — wrapper com `data[]` + `meta`
+
+Em `lib/api.ts`: `StatsPeriod`, `StatsParams`, `ClientStats` (com `phaseCounts`, `closeReasonCounts`, `contacted`) + método `api.clients.stats(params)`.
 
 ## Variáveis de ambiente
 

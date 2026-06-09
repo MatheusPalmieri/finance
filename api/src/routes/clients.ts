@@ -1,13 +1,14 @@
 import { Elysia, t } from "elysia"
-import { and, eq, ilike, isNull, or, sql } from "drizzle-orm"
+import { and, desc, eq, ilike, isNull, isNotNull, or, sql } from "drizzle-orm"
 import { db } from "../db"
-import { clientStatusEnum, clients } from "../db/schema"
+import { clientPhaseEnum, closeReasonEnum, clients } from "../db/schema"
 import { normalizePhone } from "../lib/phone"
 
-const CLIENT_STATUS_VALUES = clientStatusEnum.enumValues
+const CLIENT_PHASE_VALUES = clientPhaseEnum.enumValues
+const CLOSE_REASON_VALUES = closeReasonEnum.enumValues
 
 export const clientsRoute = new Elysia({ prefix: "/clients" })
-  // Lista clientes com paginação, busca, filtro de status e flag de duplicatas
+  // Lista clientes com paginação, busca, filtro de fase e flag de duplicatas
   .get(
     "/",
     async ({ query }) => {
@@ -26,8 +27,8 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
         )
       }
 
-      if (query.status) {
-        conditions.push(eq(clients.status, query.status as (typeof CLIENT_STATUS_VALUES)[number]))
+      if (query.phase) {
+        conditions.push(eq(clients.phase, query.phase as (typeof CLIENT_PHASE_VALUES)[number]))
       }
 
       // Subquery que detecta se o mesmo telefone existe em outro registro
@@ -53,13 +54,19 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
             responsiblePhoneAreaCode: clients.responsiblePhoneAreaCode,
             responsiblePhoneNumber: clients.responsiblePhoneNumber,
             city: clients.city,
-            status: clients.status,
+            phase: clients.phase,
+            closeReason: clients.closeReason,
+            messageSentAt: clients.messageSentAt,
+            negotiatingStartedAt: clients.negotiatingStartedAt,
+            closedAt: clients.closedAt,
+            deletedAt: clients.deletedAt,
             createdAt: clients.createdAt,
             updatedAt: clients.updatedAt,
             hasDuplicate: hasDuplicateSql,
           })
           .from(clients)
           .where(and(...conditions))
+          .orderBy(desc(clients.createdAt))
           .limit(limit)
           .offset(offset),
         db
@@ -78,8 +85,120 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
         page: t.Optional(t.String()),
         limit: t.Optional(t.String()),
         search: t.Optional(t.String()),
-        status: t.Optional(t.String()),
+        phase: t.Optional(t.String()),
         duplicates: t.Optional(t.String()),
+      }),
+    }
+  )
+
+  // Agrega métricas para o dashboard do funil (filtra por período e cidade)
+  .get(
+    "/stats",
+    async ({ query }) => {
+      const period = query.period ?? "30d"
+      const days =
+        period === "7d"
+          ? 7
+          : period === "90d"
+            ? 90
+            : period === "all"
+              ? null
+              : 30
+
+      const conditions = [isNull(clients.deletedAt)]
+      if (days !== null) {
+        conditions.push(
+          sql`${clients.createdAt} >= now() - make_interval(days => ${days})`
+        )
+      }
+      if (query.city) {
+        conditions.push(eq(clients.city, query.city))
+      }
+      const where = and(...conditions)
+
+      const [phaseRows, closeReasonRows, [{ contacted }], cityRows, timelineRows, cityList] =
+        await Promise.all([
+          // Contagem por fase
+          db
+            .select({
+              phase: clients.phase,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(clients)
+            .where(where)
+            .groupBy(clients.phase),
+          // Contagem por motivo de fechamento (apenas clientes fechados)
+          db
+            .select({
+              closeReason: clients.closeReason,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(clients)
+            .where(and(where, isNotNull(clients.closeReason)))
+            .groupBy(clients.closeReason),
+          // Contatados: mensagem enviada
+          db
+            .select({ contacted: sql<number>`count(*)::int` })
+            .from(clients)
+            .where(and(where, isNotNull(clients.messageSentAt))),
+          // Top cidades dentro do filtro
+          db
+            .select({
+              city: clients.city,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(clients)
+            .where(where)
+            .groupBy(clients.city)
+            .orderBy(sql`count(*) desc`)
+            .limit(8),
+          // Série temporal: leads criados por dia
+          db
+            .select({
+              date: sql<string>`to_char(${clients.createdAt}, 'YYYY-MM-DD')`,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(clients)
+            .where(where)
+            .groupBy(sql`to_char(${clients.createdAt}, 'YYYY-MM-DD')`)
+            .orderBy(sql`to_char(${clients.createdAt}, 'YYYY-MM-DD')`),
+          // Lista global de cidades (independe do filtro) para o dropdown
+          db
+            .selectDistinct({ city: clients.city })
+            .from(clients)
+            .where(isNull(clients.deletedAt))
+            .orderBy(clients.city),
+        ])
+
+      const phaseCounts = Object.fromEntries(
+        CLIENT_PHASE_VALUES.map((p) => [p, 0])
+      ) as Record<(typeof CLIENT_PHASE_VALUES)[number], number>
+
+      let total = 0
+      for (const row of phaseRows) {
+        phaseCounts[row.phase] = row.count
+        total += row.count
+      }
+
+      const closeReasonCounts: Partial<Record<(typeof CLOSE_REASON_VALUES)[number], number>> = {}
+      for (const row of closeReasonRows) {
+        if (row.closeReason) closeReasonCounts[row.closeReason] = row.count
+      }
+
+      return {
+        total,
+        phaseCounts,
+        closeReasonCounts,
+        contacted,
+        byCity: cityRows,
+        timeline: timelineRows,
+        cities: cityList.map((c) => c.city),
+      }
+    },
+    {
+      query: t.Object({
+        period: t.Optional(t.String()),
+        city: t.Optional(t.String()),
       }),
     }
   )
@@ -113,7 +232,6 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
           phoneAreaCode: body.phoneAreaCode.replace(/\D/g, "").slice(0, 2),
           phoneNumber,
           city: body.city,
-          status: body.status as (typeof CLIENT_STATUS_VALUES)[number] | undefined,
         })
         .returning()
 
@@ -125,7 +243,6 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
         phoneAreaCode: t.String({ minLength: 1, maxLength: 3 }),
         phoneNumber: t.String({ minLength: 7, maxLength: 11 }),
         city: t.String({ minLength: 1 }),
-        status: t.Optional(t.String()),
       }),
     }
   )
@@ -170,9 +287,9 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
     }
   )
 
-  // Atualiza apenas o status
+  // Atualiza fase do cliente e define timestamps de transição automaticamente
   .patch(
-    "/:id/status",
+    "/:id/phase",
     async ({ params, body, error }) => {
       const existing = await db
         .select()
@@ -182,9 +299,28 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
 
       if (!existing[0]) return error(404, { message: "Client not found" })
 
+      const current = existing[0]
+      const updates: Partial<typeof clients.$inferInsert> = {
+        phase: body.phase as (typeof CLIENT_PHASE_VALUES)[number],
+        closeReason:
+          body.phase === "CLOSED"
+            ? (body.closeReason as (typeof CLOSE_REASON_VALUES)[number])
+            : null,
+      }
+
+      if (body.phase === "NEGOTIATING" && current.phase !== "NEGOTIATING") {
+        updates.negotiatingStartedAt = new Date()
+      }
+      if (body.phase === "CLOSED" && current.phase !== "CLOSED") {
+        updates.closedAt = new Date()
+      }
+      if (body.messageSent && !current.messageSentAt) {
+        updates.messageSentAt = new Date()
+      }
+
       const [updated] = await db
         .update(clients)
-        .set({ status: body.status as (typeof CLIENT_STATUS_VALUES)[number] })
+        .set(updates)
         .where(eq(clients.id, params.id))
         .returning()
 
@@ -192,7 +328,9 @@ export const clientsRoute = new Elysia({ prefix: "/clients" })
     },
     {
       body: t.Object({
-        status: t.String(),
+        phase: t.String(),
+        closeReason: t.Optional(t.String()),
+        messageSent: t.Optional(t.Boolean()),
       }),
     }
   )

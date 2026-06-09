@@ -1,10 +1,13 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom"
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+} from "react-router-dom"
 
 import { AppLayout } from "@/components/layout/AppLayout"
 import { Home } from "@/pages/Home"
 import { Clients } from "@/pages/Clients"
 import { Funnel } from "@/pages/Funnel"
-import { Reports } from "@/pages/Reports"
 import { Dashboard } from "@/pages/Dashboard"
 
 const router = createBrowserRouter([
@@ -14,8 +17,9 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "clients", element: <Clients /> },
       { path: "funnel", element: <Funnel /> },
-      { path: "reports", element: <Reports /> },
       { path: "dashboard", element: <Dashboard /> },
+      // /reports foi unificado ao dashboard
+      { path: "reports", element: <Navigate to="/dashboard" replace /> },
     ],
   },
 ])

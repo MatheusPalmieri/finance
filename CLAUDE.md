@@ -36,6 +36,7 @@ Docs existentes:
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida
 - `.claude/docs/decisions/phone-normalization.md` — ADR do telefone sem 9 inicial
+- `.claude/docs/decisions/phase-system.md` — proposta de phase + closeReason + timestamps de transição (PROPOSTO)
 
 ---
 

@@ -18,7 +18,6 @@ const DEFAULT: ClientFormValues = {
   phoneAreaCode: "",
   phoneNumber: "",
   city: "",
-  status: "NOT_STARTED",
 }
 
 interface CreateClientModalProps {

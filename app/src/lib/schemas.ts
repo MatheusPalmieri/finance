@@ -1,18 +1,5 @@
 import { z } from "zod"
 
-const CLIENT_STATUSES = [
-  "NOT_STARTED",
-  "MESSAGE_SENT",
-  "NEGOTIATING",
-  "HAS_SYSTEM",
-  "NO_RESPONSE",
-  "REJECTED",
-  "DISLIKED",
-  "TRIAL",
-  "CUSTOM_TRIAL",
-  "INVALID_CONTACT",
-] as const
-
 export const clientSchema = z.object({
   name: z.string().min(1, "Nome obrigatório").max(120),
   phoneAreaCode: z
@@ -25,16 +12,33 @@ export const clientSchema = z.object({
     .max(9, "Máximo 9 dígitos")
     .regex(/^\d+$/, "Apenas números"),
   city: z.string().min(1, "Cidade obrigatória").max(80),
-  status: z.enum(CLIENT_STATUSES),
 })
 
 export type ClientFormValues = z.infer<typeof clientSchema>
 
-export const statusSchema = z.object({
-  status: z.enum(CLIENT_STATUSES),
-})
+const CLIENT_PHASES = ["PROSPECTING", "NEGOTIATING", "CLOSED"] as const
+const CLOSE_REASONS = [
+  "CLIENT",
+  "TRIAL",
+  "CUSTOM_TRIAL",
+  "PRICE_OBJECTION",
+  "NO_FIT",
+  "GHOST",
+  "UNREACHABLE",
+] as const
 
-export type StatusFormValues = z.infer<typeof statusSchema>
+export const phaseSchema = z
+  .object({
+    phase: z.enum(CLIENT_PHASES),
+    closeReason: z.enum(CLOSE_REASONS).optional(),
+    messageSent: z.boolean().optional(),
+  })
+  .refine((data) => data.phase !== "CLOSED" || !!data.closeReason, {
+    message: "Motivo de fechamento obrigatório",
+    path: ["closeReason"],
+  })
+
+export type PhaseFormValues = z.infer<typeof phaseSchema>
 
 export const responsibleSchema = z.object({
   responsiblePhoneAreaCode: z

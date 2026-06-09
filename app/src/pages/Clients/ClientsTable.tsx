@@ -37,24 +37,44 @@ import {
   Users,
 } from "lucide-react"
 import {
-  CLIENT_STATUS_LABELS,
+  CLIENT_PHASE_LABELS,
+  CLOSE_REASON_LABELS,
   type Client,
-  type ClientStatus,
+  type ClientPhase,
+  type CloseReason,
 } from "@/types/client"
 
 const LIMIT_OPTIONS = [10, 25, 50, 100]
 
-const STATUS_VARIANT: Record<ClientStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  NOT_STARTED: "secondary",
-  MESSAGE_SENT: "outline",
+const PHASE_VARIANT: Record<ClientPhase, "default" | "secondary" | "destructive" | "outline"> = {
+  PROSPECTING: "secondary",
   NEGOTIATING: "default",
-  HAS_SYSTEM: "destructive",
-  NO_RESPONSE: "secondary",
-  REJECTED: "destructive",
-  DISLIKED: "destructive",
-  TRIAL: "default",
-  CUSTOM_TRIAL: "default",
-  INVALID_CONTACT: "destructive",
+  CLOSED: "secondary",
+}
+
+const CLOSE_REASON_VARIANT: Record<CloseReason, "default" | "secondary" | "destructive" | "outline"> = {
+  CLIENT: "default",
+  TRIAL: "outline",
+  CUSTOM_TRIAL: "outline",
+  PRICE_OBJECTION: "destructive",
+  NO_FIT: "destructive",
+  GHOST: "secondary",
+  UNREACHABLE: "secondary",
+}
+
+function PhaseBadge({ client }: { client: Client }) {
+  if (client.closeReason) {
+    return (
+      <Badge variant={CLOSE_REASON_VARIANT[client.closeReason]} className="text-xs">
+        {CLOSE_REASON_LABELS[client.closeReason]}
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant={PHASE_VARIANT[client.phase]} className="text-xs">
+      {CLIENT_PHASE_LABELS[client.phase]}
+    </Badge>
+  )
 }
 
 function formatPhone(areaCode: string, number: string) {
@@ -70,7 +90,7 @@ interface ClientsTableProps {
   onPageChange: (page: number) => void
   onLimitChange: (limit: number) => void
   onEdit: (client: Client) => void
-  onChangeStatus: (client: Client) => void
+  onChangePhase: (client: Client) => void
   onChangeResponsible: (client: Client) => void
   onDelete: (client: Client) => void
 }
@@ -101,7 +121,7 @@ export function ClientsTable({
   onPageChange,
   onLimitChange,
   onEdit,
-  onChangeStatus,
+  onChangePhase,
   onChangeResponsible,
   onDelete,
 }: ClientsTableProps) {
@@ -118,7 +138,7 @@ export function ClientsTable({
               <TableHead className="font-medium">Nome</TableHead>
               <TableHead className="font-medium">Telefone</TableHead>
               <TableHead className="font-medium">Cidade</TableHead>
-              <TableHead className="font-medium">Status</TableHead>
+              <TableHead className="font-medium">Fase</TableHead>
               <TableHead className="font-medium">Responsável</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -161,9 +181,7 @@ export function ClientsTable({
                   <TableCell className="text-muted-foreground">{client.city}</TableCell>
 
                   <TableCell>
-                    <Badge variant={STATUS_VARIANT[client.status]} className="text-xs">
-                      {CLIENT_STATUS_LABELS[client.status]}
-                    </Badge>
+                    <PhaseBadge client={client} />
                   </TableCell>
 
                   <TableCell className="font-mono text-sm text-muted-foreground">
@@ -185,9 +203,9 @@ export function ClientsTable({
                           <Pencil size={13} className="mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onChangeStatus(client)}>
+                        <DropdownMenuItem onClick={() => onChangePhase(client)}>
                           <UserCheck size={13} className="mr-2" />
-                          Alterar status
+                          Alterar fase
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onChangeResponsible(client)}>
                           <Phone size={13} className="mr-2" />
@@ -212,7 +230,6 @@ export function ClientsTable({
       </div>
 
       <div className="flex items-center justify-between gap-4 px-1 text-sm text-muted-foreground">
-        {/* Lado esquerdo: contagem + linhas por página */}
         <div className="flex items-center gap-3">
           {isLoading ? (
             <Skeleton className="h-4 w-32" />
@@ -241,7 +258,6 @@ export function ClientsTable({
           </div>
         </div>
 
-        {/* Lado direito: navegação de páginas */}
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
