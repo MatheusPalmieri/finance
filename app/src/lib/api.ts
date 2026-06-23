@@ -5,7 +5,7 @@ import type {
   CloseReason,
 } from "@/types/client"
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -66,7 +66,10 @@ export const api = {
       if (params.contacted && params.contacted !== "all")
         q.set("contacted", params.contacted === "yes" ? "true" : "false")
       if (params.hasResponsible && params.hasResponsible !== "all")
-        q.set("hasResponsible", params.hasResponsible === "yes" ? "true" : "false")
+        q.set(
+          "hasResponsible",
+          params.hasResponsible === "yes" ? "true" : "false"
+        )
       if (params.createdWithin) q.set("createdWithin", params.createdWithin)
       if (params.duplicates) q.set("duplicates", "true")
       return request<ClientsResponse>(`/clients?${q}`)

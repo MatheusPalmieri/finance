@@ -1,6 +1,6 @@
-# crm
+# finance
 
-CRM monorepo para Odonto Reativa.
+Monorepo de finanças pessoais.
 
 ## Estrutura
 

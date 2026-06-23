@@ -144,7 +144,7 @@ cd app && bun run dev
 
 ### Infra
 
-- **Docker Compose** — PostgreSQL 16-alpine na porta `5433` (credenciais: `crm/crm/crm`)
+- **Docker Compose** — PostgreSQL 16-alpine na porta `5433` (credenciais: `finance/finance/finance`)
 
 ## Business Rules
 

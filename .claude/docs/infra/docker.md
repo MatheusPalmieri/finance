@@ -20,14 +20,14 @@ A porta do host é **5433** (não 5432) para evitar conflito com instâncias loc
 
 | Variável | Valor |
 |----------|-------|
-| `POSTGRES_USER` | `crm` |
-| `POSTGRES_PASSWORD` | `crm` |
-| `POSTGRES_DB` | `crm` |
+| `POSTGRES_USER` | `finance` |
+| `POSTGRES_PASSWORD` | `finance` |
+| `POSTGRES_DB` | `finance` |
 
 ## DATABASE_URL
 
 ```
-postgresql://crm:crm@localhost:5433/crm
+postgresql://finance:finance@localhost:5433/finance
 ```
 
 Este valor já está em `api/.env.example`. Copie para `api/.env` antes de rodar o backend.
