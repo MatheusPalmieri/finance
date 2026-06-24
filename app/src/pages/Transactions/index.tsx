@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
+import { ErrorState } from "@/components/ui/error-state"
 import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
 import {
   useAccounts,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { FINANCE, tint } from "@/lib/tokens"
 import { RECURRENCE_LABELS, type Recurrence, type Transaction } from "@/types/finance"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -66,7 +68,7 @@ export function Transactions() {
     recurrence: filterRecurrence || undefined,
   }
 
-  const { data, isLoading } = useTransactions(params)
+  const { data, isLoading, isError, refetch } = useTransactions(params)
   const { data: categories } = useCategories()
 
   const deleteMutation = useDeleteTransaction()
@@ -138,6 +140,8 @@ export function Transactions() {
             <Skeleton key={i} className="h-14 rounded-lg" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState message="Não foi possível carregar as transações." onRetry={() => refetch()} />
       ) : grouped.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <p className="text-muted-foreground">Nenhuma transação encontrada</p>
@@ -235,14 +239,14 @@ function TransactionRow({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const color = tx.category?.color ?? "#6b7280"
+  const color = tx.category?.color ?? FINANCE.neutral
 
   return (
     <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
       {/* Ícone com a cor da categoria */}
       <div
         className="flex size-8 shrink-0 items-center justify-center rounded-lg"
-        style={{ backgroundColor: `${color}1a` }}
+        style={{ backgroundColor: tint(color) }}
       >
         <ArrowDownRight size={14} style={{ color }} />
       </div>
@@ -271,23 +275,23 @@ function TransactionRow({
         −{formatCurrency(tx.amount)}
       </span>
 
-      {/* Ações no hover */}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
+      <div className="flex shrink-0 items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
         <button
           type="button"
           onClick={onEdit}
           aria-label="Editar transação"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
         >
-          <Pencil size={13} />
+          <Pencil size={15} className="lg:size-3.5" />
         </button>
         <button
           type="button"
           onClick={onDelete}
           aria-label="Excluir transação"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
         >
-          <Trash2 size={13} />
+          <Trash2 size={15} className="lg:size-3.5" />
         </button>
       </div>
     </div>
@@ -455,10 +459,10 @@ function TransactionModal({
         <div className="flex flex-col gap-1.5">
           <Label>Tipo de gasto</Label>
           <div className="flex gap-2">
-            <SegButton active={isEssential} onClick={() => setValue("isEssential", true)} color="#f59e0b">
+            <SegButton active={isEssential} onClick={() => setValue("isEssential", true)} color={FINANCE.essential}>
               Essencial
             </SegButton>
-            <SegButton active={!isEssential} onClick={() => setValue("isEssential", false)} color="#6b7280">
+            <SegButton active={!isEssential} onClick={() => setValue("isEssential", false)} color={FINANCE.nonEssential}>
               Não essencial
             </SegButton>
           </div>
@@ -468,13 +472,13 @@ function TransactionModal({
         <div className="flex flex-col gap-1.5">
           <Label>Recorrência</Label>
           <div className="flex gap-2">
-            <SegButton active={recurrence === "fixed"} onClick={() => setValue("recurrence", "fixed")} color="#6366f1">
+            <SegButton active={recurrence === "fixed"} onClick={() => setValue("recurrence", "fixed")} color={FINANCE.fixed}>
               Fixo
             </SegButton>
             <SegButton
               active={recurrence === "variable"}
               onClick={() => { setValue("recurrence", "variable"); setValue("budgetId", undefined) }}
-              color="#8b5cf6"
+              color={FINANCE.variable}
             >
               Variável
             </SegButton>

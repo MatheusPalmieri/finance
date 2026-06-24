@@ -20,7 +20,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
+import { ErrorState } from "@/components/ui/error-state"
 import { cn } from "@/lib/utils"
+import { DEFAULT_PICKER_COLOR, PICKER_SWATCHES, tint } from "@/lib/tokens"
 
 // Entidade mínima compartilhada pelos módulos de categoria, forma de pagamento e banco
 export interface ColorEntity {
@@ -53,21 +55,6 @@ interface ColorEntityCrudProps<T extends ColorEntity> {
   useDelete: () => UseMutationResult<{ success: boolean }, Error, string>
 }
 
-const PRESET_COLORS = [
-  "#6366f1",
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-  "#14b8a6",
-  "#f97316",
-  "#06b6d4",
-  "#a855f7",
-  "#6b7280",
-]
-
 // ── Página genérica ─────────────────────────────────────────────────────────────
 export function ColorEntityCrud<T extends ColorEntity>({
   title,
@@ -85,7 +72,7 @@ export function ColorEntityCrud<T extends ColorEntity>({
   const [editing, setEditing] = useState<T | null>(null)
   const [deleting, setDeleting] = useState<T | null>(null)
 
-  const { data: items, isLoading } = useList()
+  const { data: items, isLoading, isError, refetch } = useList()
   const deleteMutation = useDelete()
 
   const count = items?.length ?? 0
@@ -115,6 +102,11 @@ export function ColorEntityCrud<T extends ColorEntity>({
             <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState
+          message={`Não foi possível carregar ${gender === "f" ? "as" : "os"} ${nounPlural}.`}
+          onRetry={() => refetch()}
+        />
       ) : count === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <EmptyIcon size={40} className="text-muted-foreground/40" />
@@ -204,30 +196,30 @@ function EntityCard<T extends ColorEntity>({
 
       <div
         className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-        style={{ backgroundColor: `${item.color}1a` }}
+        style={{ backgroundColor: tint(item.color) }}
       >
         <span className="size-3.5 rounded-full" style={{ backgroundColor: item.color }} />
       </div>
 
       <p className="min-w-0 flex-1 truncate font-medium">{item.name}</p>
 
-      {/* Ações no hover */}
-      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
+      <div className="flex items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
         <button
           type="button"
           onClick={onEdit}
           aria-label={`Editar ${item.name}`}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
         >
-          <Pencil size={13} />
+          <Pencil size={15} className="lg:size-3.5" />
         </button>
         <button
           type="button"
           onClick={onDelete}
           aria-label={`Excluir ${item.name}`}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
         >
-          <Trash2 size={13} />
+          <Trash2 size={15} className="lg:size-3.5" />
         </button>
       </div>
     </div>
@@ -274,10 +266,10 @@ function EntityModal<T extends ColorEntity>({
     resolver: zodResolver(schema),
     defaultValues: defaultValues
       ? { name: defaultValues.name, color: defaultValues.color }
-      : { name: "", color: "#6366f1" },
+      : { name: "", color: DEFAULT_PICKER_COLOR },
   })
 
-  const selectedColor = watch("color") || "#6366f1"
+  const selectedColor = watch("color") || DEFAULT_PICKER_COLOR
 
   const onSubmit = handleSubmit((values) => {
     const finish = () => {
@@ -315,7 +307,7 @@ function EntityModal<T extends ColorEntity>({
         <div className="flex flex-col gap-2">
           <Label>Cor</Label>
           <div className="flex flex-wrap items-center gap-2">
-            {PRESET_COLORS.map((c) => {
+            {PICKER_SWATCHES.map((c) => {
               const active = selectedColor.toLowerCase() === c.toLowerCase()
               return (
                 <button
@@ -324,7 +316,7 @@ function EntityModal<T extends ColorEntity>({
                   onClick={() => setValue("color", c)}
                   aria-label={`Selecionar cor ${c}`}
                   className={cn(
-                    "flex size-7 items-center justify-center rounded-full transition-transform hover:scale-110",
+                    "flex size-9 items-center justify-center rounded-full transition-transform hover:scale-110 sm:size-7",
                     active && "scale-110"
                   )}
                   style={{ backgroundColor: c }}
@@ -336,7 +328,7 @@ function EntityModal<T extends ColorEntity>({
 
             {/* Cor personalizada */}
             <label
-              className="relative flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-muted-foreground/40"
+              className="relative flex size-9 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-muted-foreground/40 sm:size-7"
               title="Cor personalizada"
               style={{ backgroundColor: selectedColor }}
             >

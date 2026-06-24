@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
+import { ErrorState } from "@/components/ui/error-state"
 import { useCreateBudget, useBudgets, useDeleteBudget, useUpdateBudget } from "@/lib/queries"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { FINANCE } from "@/lib/tokens"
 import {
   BUDGET_TYPE_HEX,
   BUDGET_TYPE_LABELS,
@@ -56,7 +58,7 @@ export function Budgets() {
   const [editing, setEditing] = useState<Budget | null>(null)
   const [deleting, setDeleting] = useState<Budget | null>(null)
 
-  const { data: budgets, isLoading } = useBudgets(search || undefined)
+  const { data: budgets, isLoading, isError, refetch } = useBudgets(search || undefined)
   const deleteMutation = useDeleteBudget()
 
   const grouped = TYPE_ORDER.map((type) => ({
@@ -93,6 +95,8 @@ export function Budgets() {
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState message="Não foi possível carregar os orçamentos." onRetry={() => refetch()} />
       ) : !budgets?.length ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <PiggyBank size={40} className="text-muted-foreground/40" />
@@ -194,22 +198,22 @@ function BudgetCard({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex shrink-0 items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
           <button
             type="button"
             onClick={onEdit}
             aria-label={`Editar ${budget.name}`}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
           >
-            <Pencil size={13} />
+            <Pencil size={15} className="lg:size-3.5" />
           </button>
           <button
             type="button"
             onClick={onDelete}
             aria-label={`Excluir ${budget.name}`}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
           >
-            <Trash2 size={13} />
+            <Trash2 size={15} className="lg:size-3.5" />
           </button>
         </div>
       </div>
@@ -317,10 +321,10 @@ function BudgetModal({
         <div className="flex flex-col gap-1.5">
           <Label>Forma do valor</Label>
           <div className="flex gap-2">
-            <SegButton active={amountType === "fixed"} onClick={() => setValue("amountType", "fixed")} color="#6366f1">
+            <SegButton active={amountType === "fixed"} onClick={() => setValue("amountType", "fixed")} color={FINANCE.fixed}>
               Fixo
             </SegButton>
-            <SegButton active={amountType === "variable"} onClick={() => setValue("amountType", "variable")} color="#8b5cf6">
+            <SegButton active={amountType === "variable"} onClick={() => setValue("amountType", "variable")} color={FINANCE.variable}>
               Variável (faixa)
             </SegButton>
           </div>

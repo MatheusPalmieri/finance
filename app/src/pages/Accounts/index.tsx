@@ -22,9 +22,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
+import { ErrorState } from "@/components/ui/error-state"
 import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from "@/lib/queries"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { DEFAULT_PICKER_COLOR, PICKER_SWATCHES, tint } from "@/lib/tokens"
 import { ACCOUNT_TYPE_LABELS, type Account, type AccountType } from "@/types/finance"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -47,18 +49,13 @@ const ACCOUNT_ICONS: Record<AccountType, typeof Wallet> = {
   OTHER: Wallet,
 }
 
-const PRESET_COLORS = [
-  "#6366f1", "#3b82f6", "#10b981", "#f59e0b",
-  "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6",
-]
-
 // ── Página ────────────────────────────────────────────────────────────────────
 export function Accounts() {
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
   const [deleting, setDeleting] = useState<Account | null>(null)
 
-  const { data: accounts, isLoading } = useAccounts()
+  const { data: accounts, isLoading, isError, refetch } = useAccounts()
   const deleteMutation = useDeleteAccount()
 
   const netWorth = accounts?.reduce((sum, a) => sum + Number(a.balance), 0) ?? 0
@@ -97,6 +94,8 @@ export function Accounts() {
             <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState message="Não foi possível carregar as contas." onRetry={() => refetch()} />
       ) : accounts?.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <Landmark size={40} className="text-muted-foreground/40" />
@@ -181,26 +180,28 @@ function AccountCard({
       <div className="flex items-start justify-between">
         <div
           className="flex size-10 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `${account.color}1a` }}
+          style={{ backgroundColor: tint(account.color) }}
         >
           <Icon size={20} style={{ color: account.color }} />
         </div>
 
-        {/* Ações no hover */}
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
+        <div className="flex items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
           <button
             type="button"
             onClick={onEdit}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={`Editar ${account.name}`}
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
           >
-            <Pencil size={13} />
+            <Pencil size={15} className="lg:size-3.5" />
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            aria-label={`Excluir ${account.name}`}
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
           >
-            <Trash2 size={13} />
+            <Trash2 size={15} className="lg:size-3.5" />
           </button>
         </div>
       </div>
@@ -249,10 +250,10 @@ function AccountModal({
           color: defaultValues.color,
           isDefault: defaultValues.isDefault,
         }
-      : { type: "CHECKING", color: "#6366f1", isDefault: false },
+      : { type: "CHECKING", color: DEFAULT_PICKER_COLOR, isDefault: false },
   })
 
-  const selectedColor = watch("color") ?? "#6366f1"
+  const selectedColor = watch("color") ?? DEFAULT_PICKER_COLOR
 
   const onSubmit = handleSubmit((values) => {
     const finish = () => { onClose(); reset() }
@@ -313,16 +314,18 @@ function AccountModal({
         <div className="flex flex-col gap-1.5">
           <Label>Cor</Label>
           <div className="flex flex-wrap gap-2">
-            {PRESET_COLORS.map((c) => (
+            {PICKER_SWATCHES.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setValue("color", c)}
+                aria-label={`Selecionar cor ${c}`}
                 className={cn(
-                  "size-7 rounded-full transition-transform hover:scale-110",
-                  selectedColor === c && "ring-2 ring-offset-2 ring-offset-background scale-110"
+                  "size-9 rounded-full transition-transform hover:scale-110 sm:size-7",
+                  selectedColor === c &&
+                    "ring-2 ring-ring ring-offset-2 ring-offset-background scale-110"
                 )}
-                style={{ backgroundColor: c, ringColor: c }}
+                style={{ backgroundColor: c }}
               />
             ))}
           </div>

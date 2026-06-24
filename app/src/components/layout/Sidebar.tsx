@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/components/theme-provider"
 import { Logo } from "./Logo"
+import { isRouteActive, navItems, type IconType } from "./nav"
 import {
   Tooltip,
   TooltipContent,
@@ -9,31 +10,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-  ArrowLeftRight,
-  Building2,
-  CreditCard,
-  Home,
-  Landmark,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  PiggyBank,
   Sun,
-  Tag,
-  TrendingUp,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
-
-const navItems = [
-  { to: "/", icon: Home, label: "Início" },
-  { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
-  { to: "/accounts", icon: Landmark, label: "Contas" },
-  { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
-  { to: "/investments", icon: TrendingUp, label: "Investimentos" },
-  { to: "/categories", icon: Tag, label: "Categorias" },
-  { to: "/payment-methods", icon: CreditCard, label: "Formas de pagamento" },
-  { to: "/banks", icon: Building2, label: "Bancos" },
-]
 
 const STORAGE_KEY = "sidebar-collapsed"
 
@@ -41,11 +23,6 @@ function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true
   return !!target.closest("input, textarea, select, [contenteditable='true']")
-}
-
-// Retorna true se a rota atual corresponde ao item de navegação
-function isRouteActive(pathname: string, to: string) {
-  return to === "/" ? pathname === "/" : pathname.startsWith(to)
 }
 
 export function Sidebar() {
@@ -77,7 +54,7 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "hidden h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex",
           collapsed ? "w-18" : "w-60"
         )}
       >
@@ -159,9 +136,6 @@ export function Sidebar() {
     </TooltipProvider>
   )
 }
-
-// Tipo estrutural para ícones (lucide-react)
-type IconType = React.ComponentType<{ size?: number; className?: string }>
 
 // ── Item de navegação ────────────────────────────────────────────────────────
 function NavItem({

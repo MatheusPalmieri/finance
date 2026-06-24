@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { FormModal } from "@/components/forms/FormModal"
+import { ErrorState } from "@/components/ui/error-state"
 import {
   useContributions,
   useCreateContribution,
@@ -92,7 +93,7 @@ export function Investments() {
   } | null>(null)
   const [viewingHistory, setViewingHistory] = useState<Investment | null>(null)
 
-  const { data: investments, isLoading } = useInvestments(search || undefined)
+  const { data: investments, isLoading, isError, refetch } = useInvestments(search || undefined)
   const deleteMutation = useDeleteInvestment()
 
   return (
@@ -132,6 +133,8 @@ export function Investments() {
             <Skeleton key={i} className="h-14 rounded-lg" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState message="Não foi possível carregar os investimentos." onRetry={() => refetch()} />
       ) : !investments?.length ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <TrendingUp size={40} className="text-muted-foreground/40" />
@@ -358,7 +361,7 @@ function IconButton({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors",
+        "flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors lg:size-7",
         variant === "destructive"
           ? "hover:bg-destructive/10 hover:text-destructive"
           : "hover:bg-muted hover:text-foreground"

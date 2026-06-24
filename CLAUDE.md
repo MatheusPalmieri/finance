@@ -43,6 +43,9 @@ Docs existentes:
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
 - `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render
+- `.claude/docs/frontend/design-tokens.md` — paleta esmeralda, lib/tokens.ts, tint(), regras de cor
+- `.claude/docs/frontend/responsive.md` — sidebar desktop + drawer mobile, breakpoints, touch targets
+- `.claude/docs/frontend/states.md` — estados loading/erro/vazio/sucesso e ErrorState
 - `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida

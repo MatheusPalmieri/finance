@@ -1,3 +1,5 @@
+import { FINANCE, PALETTE } from "@/lib/tokens"
+
 export type AccountType = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "INVESTMENT" | "CASH" | "OTHER"
 export type Recurrence = "fixed" | "variable"
 export type BudgetType = "essential" | "desire" | "investment"
@@ -138,12 +140,12 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
 }
 
 export const ACCOUNT_TYPE_HEX: Record<AccountType, string> = {
-  CHECKING: "#3b82f6",
-  SAVINGS: "#10b981",
-  CREDIT_CARD: "#ef4444",
-  INVESTMENT: "#8b5cf6",
-  CASH: "#6b7280",
-  OTHER: "#6b7280",
+  CHECKING: PALETTE.blue,
+  SAVINGS: PALETTE.emerald,
+  CREDIT_CARD: PALETTE.red,
+  INVESTMENT: PALETTE.violet,
+  CASH: PALETTE.gray,
+  OTHER: PALETTE.gray,
 }
 
 export const RECURRENCE_LABELS: Record<Recurrence, string> = {
@@ -159,9 +161,9 @@ export const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
 
 // Cores por tipo, refletindo a regra 50/30/20
 export const BUDGET_TYPE_HEX: Record<BudgetType, string> = {
-  essential: "#f59e0b",
-  desire: "#8b5cf6",
-  investment: "#10b981",
+  essential: FINANCE.essential,
+  desire: FINANCE.nonEssential,
+  investment: FINANCE.income,
 }
 
 export const BUDGET_TYPE_TARGET: Record<BudgetType, number> = {
@@ -180,12 +182,12 @@ export const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
 }
 
 export const INVESTMENT_TYPE_HEX: Record<InvestmentType, string> = {
-  stock: "#3b82f6",
-  cdi: "#10b981",
-  fii: "#f59e0b",
-  treasury: "#8b5cf6",
-  crypto: "#f97316",
-  fund: "#6366f1",
+  stock: PALETTE.blue,
+  cdi: PALETTE.emerald,
+  fii: PALETTE.amber,
+  treasury: PALETTE.violet,
+  crypto: PALETTE.orange,
+  fund: PALETTE.indigo,
 }
 
 export const INVESTMENT_TYPE_ORDER: InvestmentType[] = [

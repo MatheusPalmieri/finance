@@ -1,31 +1,8 @@
-// Constantes e formatadores compartilhados pelos gráficos (Funil + Dashboard).
+// Formatadores e helpers de eixo compartilhados pelos gráficos.
 // Mantidos fora de components/charts.tsx para não misturar exports de valores
 // com exports de componentes (regra react-refresh/only-export-components).
-
-// ── Paleta de gráficos (fonte única) ────────────────────────────────────────
-export const CHART_COLORS = {
-  blue: "#3b82f6",
-  violet: "#8b5cf6",
-  amber: "#f59e0b",
-  emerald: "#10b981",
-  indigo: "#6366f1",
-  rose: "#f43f5e",
-  cyan: "#06b6d4",
-  purple: "#a855f7",
-  slate: "#64748b",
-  red: "#ef4444",
-} as const
-
-export const CHART_PALETTE = [
-  CHART_COLORS.blue,
-  CHART_COLORS.violet,
-  CHART_COLORS.amber,
-  CHART_COLORS.emerald,
-  CHART_COLORS.indigo,
-  CHART_COLORS.rose,
-  CHART_COLORS.cyan,
-  CHART_COLORS.purple,
-]
+// A paleta vive em lib/tokens.ts (fonte única) — reexportada aqui por conveniência.
+export { CHART_PALETTE, PALETTE as CHART_COLORS } from "./tokens"
 
 // ── Formatadores (pt-BR) ─────────────────────────────────────────────────────
 export const fmtBRL = (n: number) =>

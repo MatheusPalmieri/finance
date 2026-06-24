@@ -22,10 +22,11 @@ import {
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ErrorState } from "@/components/ui/error-state"
 import { ChartCard, ChartTooltip, StatCard } from "@/components/charts"
 import { useDashboardSummary } from "@/lib/queries"
 import { formatCurrency, formatCurrencyCompact, formatDate, formatMonthLabel } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { FINANCE, tint } from "@/lib/tokens"
 import { MONTHS, type NamedAmount, type Transaction } from "@/types/finance"
 
 function greeting() {
@@ -44,7 +45,7 @@ export function Home() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
 
-  const { data, isLoading } = useDashboardSummary({ month, year })
+  const { data, isLoading, isError, refetch } = useDashboardSummary({ month, year })
 
   function prevMonth() {
     if (month === 1) { setMonth(12); setYear((y) => y - 1) }
@@ -75,7 +76,8 @@ export function Home() {
           <button
             type="button"
             onClick={prevMonth}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Mês anterior"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-7"
           >
             <ChevronLeft size={14} />
           </button>
@@ -86,13 +88,21 @@ export function Home() {
             type="button"
             onClick={nextMonth}
             disabled={isCurrentMonth}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            aria-label="Próximo mês"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:size-7"
           >
             <ChevronRight size={14} />
           </button>
         </div>
       </div>
 
+      {isError ? (
+        <ErrorState
+          message="Não foi possível carregar o resumo do mês."
+          onRetry={() => refetch()}
+        />
+      ) : (
+      <>
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {isLoading ? (
@@ -104,7 +114,7 @@ export function Home() {
               value={formatCurrencyCompact(total)}
               hint={`${data?.transactionCount ?? 0} lançamentos`}
               icon={Receipt}
-              accent="#ef4444"
+              accent={FINANCE.expense}
               delay={0}
             />
             <StatCard
@@ -112,7 +122,7 @@ export function Home() {
               value={formatCurrencyCompact(essential)}
               hint={`${pct(essential, total).toFixed(0)}% do total`}
               icon={ShieldCheck}
-              accent="#f59e0b"
+              accent={FINANCE.essential}
               delay={60}
             />
             <StatCard
@@ -120,7 +130,7 @@ export function Home() {
               value={formatCurrencyCompact(nonEssential)}
               hint={`${pct(nonEssential, total).toFixed(0)}% do total`}
               icon={Sparkles}
-              accent="#8b5cf6"
+              accent={FINANCE.nonEssential}
               delay={120}
             />
             <StatCard
@@ -128,7 +138,7 @@ export function Home() {
               value={formatCurrencyCompact(fixed)}
               hint={`${pct(fixed, total).toFixed(0)}% do total`}
               icon={Repeat}
-              accent="#6366f1"
+              accent={FINANCE.fixed}
               delay={180}
             />
           </>
@@ -152,8 +162,8 @@ export function Home() {
               <AreaChart data={data.monthlyTrend}>
                 <defs>
                   <linearGradient id="gradExpenses" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    <stop offset="5%" stopColor={FINANCE.expense} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={FINANCE.expense} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis
@@ -175,7 +185,7 @@ export function Home() {
                   type="monotone"
                   dataKey="total"
                   name="Despesas"
-                  stroke="#ef4444"
+                  stroke={FINANCE.expense}
                   strokeWidth={2}
                   fill="url(#gradExpenses)"
                   dot={false}
@@ -208,13 +218,13 @@ export function Home() {
             <div className="flex flex-col gap-4">
               <SplitBar
                 label="Essencial vs não essencial"
-                left={{ label: "Essencial", value: essential, color: "#f59e0b" }}
-                right={{ label: "Não essencial", value: nonEssential, color: "#8b5cf6" }}
+                left={{ label: "Essencial", value: essential, color: FINANCE.essential }}
+                right={{ label: "Não essencial", value: nonEssential, color: FINANCE.nonEssential }}
               />
               <SplitBar
                 label="Fixo vs variável"
-                left={{ label: "Fixo", value: fixed, color: "#6366f1" }}
-                right={{ label: "Variável", value: variable, color: "#14b8a6" }}
+                left={{ label: "Fixo", value: fixed, color: FINANCE.fixed }}
+                right={{ label: "Variável", value: variable, color: FINANCE.variable }}
               />
             </div>
           )}
@@ -282,6 +292,8 @@ export function Home() {
           </div>
         </ChartCard>
       </div>
+      </>
+      )}
     </div>
   )
 }
@@ -386,11 +398,11 @@ function RankedBars({ items, total }: { items: NamedAmount[]; total: number }) {
 }
 
 function RecentTransactionRow({ tx }: { tx: Transaction }) {
-  const color = tx.category?.color ?? "#6b7280"
+  const color = tx.category?.color ?? FINANCE.neutral
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-md px-1 py-2.5 transition-colors hover:bg-muted/40">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1a` }}>
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: tint(color) }}>
         <ArrowDownRight size={14} style={{ color }} />
       </div>
 

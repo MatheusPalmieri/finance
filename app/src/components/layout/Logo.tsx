@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { PALETTE } from "@/lib/tokens"
 
 export function LogoMark({ className }: { className?: string }) {
   return (
@@ -11,8 +12,8 @@ export function LogoMark({ className }: { className?: string }) {
     >
       <defs>
         <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40">
-          <stop offset="0%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#3b82f6" />
+          <stop offset="0%" stopColor={PALETTE.emerald} />
+          <stop offset="100%" stopColor={PALETTE.blue} />
         </linearGradient>
       </defs>
       <rect width="40" height="40" rx="11" fill="url(#logo-grad)" />
