@@ -1,8 +1,22 @@
-// Formatadores de domínio compartilhados pela UI.
+// Formata valor em reais: "R$ 1.234,56"
+export function formatCurrency(value: number | string) {
+  return Number(value).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  })
+}
 
-// Telefone para exibição: "(11) 9999-9999"
-export function formatPhone(areaCode: string, number: string) {
-  return `(${areaCode}) ${number.slice(0, 4)}-${number.slice(4)}`
+// Formata valor compacto: "R$ 1,2k", "R$ 34,5k", "R$ 2,1M"
+export function formatCurrencyCompact(value: number | string) {
+  const n = Number(value)
+  if (Math.abs(n) >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)}M`
+  if (Math.abs(n) >= 1_000) return `R$ ${(n / 1_000).toFixed(1)}k`
+  return formatCurrency(n)
+}
+
+// Data no formato "dd/MM/yyyy"
+export function formatDate(iso: string) {
+  return new Date(iso + "T00:00:00").toLocaleDateString("pt-BR")
 }
 
 // Data e hora absolutas em pt-BR ("08/06/2026 14:30")
@@ -26,4 +40,11 @@ export function relativeTime(iso: string) {
   const months = Math.floor(days / 30)
   if (months < 12) return `há ${months}m`
   return `há ${Math.floor(months / 12)}a`
+}
+
+// "YYYY-MM" → "Jun 2026"
+export function formatMonthLabel(ym: string) {
+  const [year, month] = ym.split("-")
+  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+  return `${months[Number(month) - 1]} ${year}`
 }

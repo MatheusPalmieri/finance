@@ -9,22 +9,28 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-  Filter,
+  ArrowLeftRight,
+  Building2,
+  CreditCard,
   Home,
-  LayoutDashboard,
+  Landmark,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  PiggyBank,
   Sun,
-  Users,
+  Tag,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
 const navItems = [
-  { to: "/", icon: Home, label: "Home" },
-  { to: "/clients", icon: Users, label: "Clientes" },
-  { to: "/funnel", icon: Filter, label: "Funil" },
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/", icon: Home, label: "Início" },
+  { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
+  { to: "/accounts", icon: Landmark, label: "Contas" },
+  { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
+  { to: "/categories", icon: Tag, label: "Categorias" },
+  { to: "/payment-methods", icon: CreditCard, label: "Formas de pagamento" },
+  { to: "/banks", icon: Building2, label: "Bancos" },
 ]
 
 const STORAGE_KEY = "sidebar-collapsed"

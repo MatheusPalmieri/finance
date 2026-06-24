@@ -1,21 +1,26 @@
 import { lazy } from "react"
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
+import { createBrowserRouter, RouterProvider } from "react-router-dom"
 
 import { AppLayout } from "@/components/layout/AppLayout"
 
-// Cada página é carregada sob demanda (code-splitting por rota).
-// Componentes pesados (ex.: gráficos do Dashboard) só baixam quando acessados.
-const Home = lazy(() =>
-  import("@/pages/Home").then((m) => ({ default: m.Home }))
+const Home = lazy(() => import("@/pages/Home").then((m) => ({ default: m.Home })))
+const Transactions = lazy(() =>
+  import("@/pages/Transactions").then((m) => ({ default: m.Transactions }))
 )
-const Clients = lazy(() =>
-  import("@/pages/Clients").then((m) => ({ default: m.Clients }))
+const Accounts = lazy(() =>
+  import("@/pages/Accounts").then((m) => ({ default: m.Accounts }))
 )
-const Funnel = lazy(() =>
-  import("@/pages/Funnel").then((m) => ({ default: m.Funnel }))
+const Budgets = lazy(() =>
+  import("@/pages/Budgets").then((m) => ({ default: m.Budgets }))
 )
-const Dashboard = lazy(() =>
-  import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard }))
+const Categories = lazy(() =>
+  import("@/pages/Categories").then((m) => ({ default: m.Categories }))
+)
+const PaymentMethods = lazy(() =>
+  import("@/pages/PaymentMethods").then((m) => ({ default: m.PaymentMethods }))
+)
+const Banks = lazy(() =>
+  import("@/pages/Banks").then((m) => ({ default: m.Banks }))
 )
 
 const router = createBrowserRouter([
@@ -23,11 +28,12 @@ const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { index: true, element: <Home /> },
-      { path: "clients", element: <Clients /> },
-      { path: "funnel", element: <Funnel /> },
-      { path: "dashboard", element: <Dashboard /> },
-      // /reports foi unificado ao dashboard
-      { path: "reports", element: <Navigate to="/dashboard" replace /> },
+      { path: "transactions", element: <Transactions /> },
+      { path: "accounts", element: <Accounts /> },
+      { path: "budgets", element: <Budgets /> },
+      { path: "categories", element: <Categories /> },
+      { path: "payment-methods", element: <PaymentMethods /> },
+      { path: "banks", element: <Banks /> },
     ],
   },
 ])

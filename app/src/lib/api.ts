@@ -1,9 +1,17 @@
 import type {
-  Client,
-  ClientPhase,
-  ClientsResponse,
-  CloseReason,
-} from "@/types/client"
+  Account,
+  AccountType,
+  Bank,
+  Budget,
+  BudgetAmountType,
+  BudgetType,
+  Category,
+  DashboardSummary,
+  PaymentMethod,
+  Recurrence,
+  Transaction,
+  TransactionsResponse,
+} from "@/types/finance"
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001"
 
@@ -19,127 +27,141 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export type ContactedFilter = "all" | "yes" | "no"
-export type ResponsibleFilter = "all" | "yes" | "no"
-export type CreatedWithin = "" | "7d" | "30d" | "90d"
-
-export interface ListClientsParams {
+export interface ListTransactionsParams {
   page?: number
   limit?: number
   search?: string
-  phase?: ClientPhase | ""
-  closeReason?: CloseReason | ""
-  city?: string
-  contacted?: ContactedFilter
-  hasResponsible?: ResponsibleFilter
-  createdWithin?: CreatedWithin
-  duplicates?: boolean
+  accountId?: string
+  categoryId?: string
+  paymentMethodId?: string
+  recurrence?: Recurrence | ""
+  isEssential?: "true" | "false" | ""
+  from?: string
+  to?: string
 }
 
-export type StatsPeriod = "7d" | "30d" | "90d" | "all"
-
-export interface StatsParams {
-  period?: StatsPeriod
-  city?: string
+export interface TransactionInput {
+  name: string
+  amount: number
+  categoryId: string
+  paymentMethodId: string
+  accountId: string
+  isEssential: boolean
+  recurrence: Recurrence
+  budgetId?: string | null
+  date: string
+  notes?: string | null
 }
 
-export interface ClientStats {
-  total: number
-  phaseCounts: Record<ClientPhase, number>
-  closeReasonCounts: Partial<Record<CloseReason, number>>
-  contacted: number
-  byCity: { city: string; count: number }[]
-  timeline: { date: string; count: number }[]
-  cities: string[]
+export interface BudgetInput {
+  name: string
+  type: BudgetType
+  amountType: BudgetAmountType
+  amount?: number | null
+  amountMin?: number | null
+  amountMax?: number | null
+}
+
+export interface DashboardParams {
+  month?: number
+  year?: number
 }
 
 export const api = {
-  clients: {
-    list: (params: ListClientsParams = {}) => {
+  accounts: {
+    list: () => request<Account[]>("/accounts"),
+    get: (id: string) => request<Account>(`/accounts/${id}`),
+    default: () => request<Account | null>("/accounts/default"),
+    create: (body: {
+      name: string
+      type: AccountType
+      balance?: number
+      color?: string
+      icon?: string
+      isDefault?: boolean
+    }) => request<Account>("/accounts", { method: "POST", body: JSON.stringify(body) }),
+    update: (
+      id: string,
+      body: { name: string; type: AccountType; color?: string; icon?: string; isDefault?: boolean }
+    ) => request<Account>(`/accounts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/accounts/${id}`, { method: "DELETE" }),
+  },
+
+  categories: {
+    list: () => request<Category[]>("/categories"),
+    create: (body: { name: string; color?: string }) =>
+      request<Category>("/categories", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: { name: string; color?: string }) =>
+      request<Category>(`/categories/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/categories/${id}`, { method: "DELETE" }),
+  },
+
+  paymentMethods: {
+    list: () => request<PaymentMethod[]>("/payment-methods"),
+    create: (body: { name: string; color?: string }) =>
+      request<PaymentMethod>("/payment-methods", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: { name: string; color?: string }) =>
+      request<PaymentMethod>(`/payment-methods/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/payment-methods/${id}`, { method: "DELETE" }),
+  },
+
+  banks: {
+    list: () => request<Bank[]>("/banks"),
+    create: (body: { name: string; color?: string }) =>
+      request<Bank>("/banks", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: { name: string; color?: string }) =>
+      request<Bank>(`/banks/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/banks/${id}`, { method: "DELETE" }),
+  },
+
+  transactions: {
+    list: (params: ListTransactionsParams = {}) => {
       const q = new URLSearchParams()
       if (params.page) q.set("page", String(params.page))
       if (params.limit) q.set("limit", String(params.limit))
       if (params.search) q.set("search", params.search)
-      if (params.phase) q.set("phase", params.phase)
-      if (params.closeReason) q.set("closeReason", params.closeReason)
-      if (params.city) q.set("city", params.city)
-      if (params.contacted && params.contacted !== "all")
-        q.set("contacted", params.contacted === "yes" ? "true" : "false")
-      if (params.hasResponsible && params.hasResponsible !== "all")
-        q.set(
-          "hasResponsible",
-          params.hasResponsible === "yes" ? "true" : "false"
-        )
-      if (params.createdWithin) q.set("createdWithin", params.createdWithin)
-      if (params.duplicates) q.set("duplicates", "true")
-      return request<ClientsResponse>(`/clients?${q}`)
+      if (params.accountId) q.set("accountId", params.accountId)
+      if (params.categoryId) q.set("categoryId", params.categoryId)
+      if (params.paymentMethodId) q.set("paymentMethodId", params.paymentMethodId)
+      if (params.recurrence) q.set("recurrence", params.recurrence)
+      if (params.isEssential) q.set("isEssential", params.isEssential)
+      if (params.from) q.set("from", params.from)
+      if (params.to) q.set("to", params.to)
+      return request<TransactionsResponse>(`/transactions?${q}`)
     },
-
-    get: (id: string) => request<Client>(`/clients/${id}`),
-
-    cities: () => request<string[]>("/clients/cities"),
-
-    stats: (params: StatsParams = {}) => {
-      const q = new URLSearchParams()
-      if (params.period) q.set("period", params.period)
-      if (params.city) q.set("city", params.city)
-      return request<ClientStats>(`/clients/stats?${q}`)
-    },
-
-    create: (body: {
-      name: string
-      phoneAreaCode: string
-      phoneNumber: string
-      city: string
-      phase?: ClientPhase
-      closeReason?: CloseReason
-      messageSent?: boolean
-    }) =>
-      request<Client>("/clients", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-
-    update: (
-      id: string,
-      body: {
-        name: string
-        phoneAreaCode: string
-        phoneNumber: string
-        city: string
-      }
-    ) =>
-      request<Client>(`/clients/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      }),
-
-    updatePhase: (
-      id: string,
-      body: {
-        phase: ClientPhase
-        closeReason?: CloseReason
-        messageSent?: boolean
-      }
-    ) =>
-      request<Client>(`/clients/${id}/phase`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
-
-    updateResponsible: (
-      id: string,
-      body: {
-        responsiblePhoneAreaCode: string
-        responsiblePhoneNumber: string
-      }
-    ) =>
-      request<Client>(`/clients/${id}/responsible`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-      }),
-
+    get: (id: string) => request<Transaction>(`/transactions/${id}`),
+    create: (body: TransactionInput) =>
+      request<Transaction>("/transactions", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: TransactionInput) =>
+      request<Transaction>(`/transactions/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: string) =>
-      request<{ success: boolean }>(`/clients/${id}`, { method: "DELETE" }),
+      request<{ success: boolean }>(`/transactions/${id}`, { method: "DELETE" }),
+  },
+
+  budgets: {
+    list: (name?: string) => {
+      const q = name ? `?name=${encodeURIComponent(name)}` : ""
+      return request<Budget[]>(`/budgets${q}`)
+    },
+    get: (id: string) => request<Budget>(`/budgets/${id}`),
+    create: (body: BudgetInput) =>
+      request<Budget>("/budgets", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: BudgetInput) =>
+      request<Budget>(`/budgets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
+  },
+
+  dashboard: {
+    summary: (params: DashboardParams = {}) => {
+      const q = new URLSearchParams()
+      if (params.month) q.set("month", String(params.month))
+      if (params.year) q.set("year", String(params.year))
+      return request<DashboardSummary>(`/dashboard/summary?${q}`)
+    },
   },
 }
