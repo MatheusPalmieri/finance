@@ -7,6 +7,10 @@ import type {
   BudgetType,
   Category,
   DashboardSummary,
+  Investment,
+  InvestmentContribution,
+  InvestmentMovementType,
+  InvestmentType,
   PaymentMethod,
   Recurrence,
   Transaction,
@@ -60,6 +64,20 @@ export interface BudgetInput {
   amount?: number | null
   amountMin?: number | null
   amountMax?: number | null
+}
+
+export interface InvestmentInput {
+  name: string
+  type: InvestmentType
+  goalAmount?: number | null
+  monthlyContribution?: number | null
+}
+
+export interface ContributionInput {
+  type?: InvestmentMovementType
+  amount: number
+  date?: string
+  notes?: string | null
 }
 
 export interface DashboardParams {
@@ -154,6 +172,34 @@ export const api = {
       request<Budget>(`/budgets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
+  },
+
+  investments: {
+    list: (name?: string) => {
+      const q = name ? `?name=${encodeURIComponent(name)}` : ""
+      return request<Investment[]>(`/investments${q}`)
+    },
+    get: (id: string) => request<Investment>(`/investments/${id}`),
+    create: (body: InvestmentInput) =>
+      request<Investment>("/investments", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: InvestmentInput) =>
+      request<Investment>(`/investments/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/investments/${id}`, { method: "DELETE" }),
+    contributions: {
+      list: (investmentId: string) =>
+        request<InvestmentContribution[]>(`/investments/${investmentId}/contributions`),
+      create: (investmentId: string, body: ContributionInput) =>
+        request<InvestmentContribution>(`/investments/${investmentId}/contributions`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      delete: (investmentId: string, contributionId: string) =>
+        request<{ success: boolean }>(
+          `/investments/${investmentId}/contributions/${contributionId}`,
+          { method: "DELETE" }
+        ),
+    },
   },
 
   dashboard: {

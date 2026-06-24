@@ -32,11 +32,14 @@ Docs existentes:
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
+- `.claude/docs/domain/investment.md` — entidade Investimento, aportes/retiradas e projeção de prazo
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
 - `.claude/docs/api/lookups.md` — endpoints /categories, /payment-methods, /banks
 - `.claude/docs/api/transactions.md` — endpoints /transactions, /accounts (padrão) e /dashboard
 - `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
+- `.claude/docs/api/investments.md` — endpoints /investments e /investments/:id/contributions
 - `.claude/docs/frontend/lookups.md` — páginas CRUD de categorias, formas de pagamento e bancos
+- `.claude/docs/frontend/investments.md` — página de investimentos, aportes e projeção em tempo real
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
 - `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render

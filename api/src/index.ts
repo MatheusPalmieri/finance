@@ -5,6 +5,7 @@ import { banksRoute } from "./routes/banks"
 import { budgetsRoute } from "./routes/budgets"
 import { categoriesRoute } from "./routes/categories"
 import { dashboardRoute } from "./routes/dashboard"
+import { investmentsRoute } from "./routes/investments"
 import { paymentMethodsRoute } from "./routes/payment-methods"
 import { transactionsRoute } from "./routes/transactions"
 
@@ -16,6 +17,7 @@ const app = new Elysia()
   .use(banksRoute)
   .use(transactionsRoute)
   .use(budgetsRoute)
+  .use(investmentsRoute)
   .use(dashboardRoute)
   .listen(3001)
 

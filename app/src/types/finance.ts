@@ -2,6 +2,8 @@ export type AccountType = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "INVESTMENT" 
 export type Recurrence = "fixed" | "variable"
 export type BudgetType = "essential" | "desire" | "investment"
 export type BudgetAmountType = "fixed" | "variable"
+export type InvestmentType = "stock" | "cdi" | "fii" | "treasury" | "crypto" | "fund"
+export type InvestmentMovementType = "deposit" | "withdrawal"
 
 export interface Account {
   id: string
@@ -66,6 +68,35 @@ export interface Budget {
   amountMax: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface InvestmentProjection {
+  remainingAmount: number
+  estimatedMonths: number | null
+  estimatedLabel: string
+  goalReached: boolean
+}
+
+export interface Investment {
+  id: string
+  name: string
+  type: InvestmentType
+  currentAmount: string
+  goalAmount: string | null
+  monthlyContribution: string | null
+  createdAt: string
+  updatedAt: string
+  projection: InvestmentProjection | null
+}
+
+export interface InvestmentContribution {
+  id: string
+  investmentId: string
+  type: InvestmentMovementType
+  amount: string
+  date: string
+  notes: string | null
+  createdAt: string
 }
 
 export interface TransactionsResponse {
@@ -138,6 +169,33 @@ export const BUDGET_TYPE_TARGET: Record<BudgetType, number> = {
   desire: 30,
   investment: 20,
 }
+
+export const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
+  stock: "Ações",
+  cdi: "CDI",
+  fii: "Fundo Imobiliário",
+  treasury: "Tesouro Direto",
+  crypto: "Criptomoedas",
+  fund: "Fundo de Investimento",
+}
+
+export const INVESTMENT_TYPE_HEX: Record<InvestmentType, string> = {
+  stock: "#3b82f6",
+  cdi: "#10b981",
+  fii: "#f59e0b",
+  treasury: "#8b5cf6",
+  crypto: "#f97316",
+  fund: "#6366f1",
+}
+
+export const INVESTMENT_TYPE_ORDER: InvestmentType[] = [
+  "stock",
+  "cdi",
+  "fii",
+  "treasury",
+  "crypto",
+  "fund",
+]
 
 export const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",

@@ -8,7 +8,9 @@ import { toast } from "sonner"
 import {
   api,
   type BudgetInput,
+  type ContributionInput,
   type DashboardParams,
+  type InvestmentInput,
   type ListTransactionsParams,
   type TransactionInput,
 } from "./api"
@@ -41,6 +43,12 @@ export const keys = {
   budgets: {
     all: ["budgets"] as const,
     list: (name?: string) => [...keys.budgets.all, "list", name ?? ""] as const,
+  },
+  investments: {
+    all: ["investments"] as const,
+    list: (name?: string) => [...keys.investments.all, "list", name ?? ""] as const,
+    detail: (id: string) => [...keys.investments.all, "detail", id] as const,
+    contributions: (id: string) => [...keys.investments.all, "contributions", id] as const,
   },
   dashboard: {
     all: ["dashboard"] as const,
@@ -341,6 +349,100 @@ export function useDeleteBudget() {
       toast.success("Orçamento excluído")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir orçamento"),
+  })
+}
+
+// ── Investments ───────────────────────────────────────────────────────────────
+export function useInvestments(name?: string) {
+  return useQuery({
+    queryKey: keys.investments.list(name),
+    queryFn: () => api.investments.list(name),
+  })
+}
+
+export function useInvestment(id: string) {
+  return useQuery({
+    queryKey: keys.investments.detail(id),
+    queryFn: () => api.investments.get(id),
+  })
+}
+
+export function useCreateInvestment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: InvestmentInput) => api.investments.create(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.investments.all })
+      toast.success("Investimento criado")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar investimento"),
+  })
+}
+
+export function useUpdateInvestment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & InvestmentInput) =>
+      api.investments.update(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.investments.all })
+      toast.success("Investimento atualizado")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar investimento"),
+  })
+}
+
+export function useDeleteInvestment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.investments.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.investments.all })
+      toast.success("Investimento excluído")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir investimento"),
+  })
+}
+
+// ── Aportes ─────────────────────────────────────────────────────────────────
+export function useContributions(investmentId: string) {
+  return useQuery({
+    queryKey: keys.investments.contributions(investmentId),
+    queryFn: () => api.investments.contributions.list(investmentId),
+  })
+}
+
+export function useCreateContribution() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ investmentId, ...body }: { investmentId: string } & ContributionInput) =>
+      api.investments.contributions.create(investmentId, body),
+    onSuccess: (_data, { investmentId, type }) => {
+      // O movimento altera o current_amount → invalida lista, detalhe e histórico
+      qc.invalidateQueries({ queryKey: keys.investments.all })
+      qc.invalidateQueries({ queryKey: keys.investments.contributions(investmentId) })
+      toast.success(type === "withdrawal" ? "Retirada registrada" : "Aporte registrado")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao registrar movimento"),
+  })
+}
+
+export function useDeleteContribution() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      investmentId,
+      contributionId,
+    }: {
+      investmentId: string
+      contributionId: string
+    }) => api.investments.contributions.delete(investmentId, contributionId),
+    onSuccess: (_data, { investmentId }) => {
+      qc.invalidateQueries({ queryKey: keys.investments.all })
+      qc.invalidateQueries({ queryKey: keys.investments.contributions(investmentId) })
+      toast.success("Aporte removido")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao remover aporte"),
   })
 }
 
