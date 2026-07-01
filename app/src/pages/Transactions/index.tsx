@@ -520,11 +520,24 @@ function TransactionModal({
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
 
-        {/* Valor e data */}
+        {/* Data e valor */}
         <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Data</Label>
+            <Input type="date" {...register("date")} />
+            {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
+          </div>
           <div className="flex flex-col gap-1.5">
             <Label>Valor (R$)</Label>
             <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0,00"
+                className="flex-1 min-w-0"
+                {...register("amount", { valueAsNumber: true })}
+              />
               <button
                 type="button"
                 onClick={() => setValue("isIncome", !isIncome)}
@@ -536,21 +549,8 @@ function TransactionModal({
               >
                 {isIncome ? <Plus size={16} /> : <Minus size={16} />}
               </button>
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0,00"
-                className="flex-1"
-                {...register("amount", { valueAsNumber: true })}
-              />
             </div>
             {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Data</Label>
-            <Input type="date" {...register("date")} />
-            {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
           </div>
         </div>
 
