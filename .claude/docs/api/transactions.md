@@ -1,12 +1,12 @@
 ---
 title: API — Transações, Contas (padrão) e Dashboard
 area: api
-updated: 2026-06-23
+updated: 2026-07-01
 ---
 
 ## Transações — `api/src/routes/transactions.ts` (prefixo `/transactions`)
 
-Toda transação é uma despesa. Ver regras de domínio em `.claude/docs/domain/transaction.md`.
+`amount` positivo = despesa, negativo = entrada (não há campo `type`). Ver regras de domínio e a UI do toggle em `.claude/docs/domain/transaction.md`.
 
 | Método | Path | Descrição |
 |--------|------|-----------|
@@ -33,7 +33,7 @@ Toda transação é uma despesa. Ver regras de domínio em `.claude/docs/domain/
   "notes": null
 }
 ```
-Validações: `name` minLength 1; `amount` ≥ 0.01; `categoryId`/`paymentMethodId`/`accountId` strings obrigatórias; `isEssential` boolean; `recurrence` ∈ {`fixed`,`variable`}; `date` string; `notes` opcional/nullable.
+Validações: `name` minLength 1; `amount` qualquer número diferente de zero (positivo = despesa, negativo = entrada); `categoryId`/`paymentMethodId`/`accountId` strings obrigatórias; `isEssential` boolean; `recurrence` ∈ {`fixed`,`variable`}; `date` string; `notes` opcional/nullable.
 
 **`budgetId`** (FK → budgets, nullable): obrigatório quando `recurrence = fixed` (400 se ausente); forçado a `null` quando `recurrence = variable`. As respostas trazem a relation `budget`. Ver `.claude/docs/api/budgets.md`.
 
@@ -46,11 +46,12 @@ Além do CRUD, ganhou suporte a conta padrão:
 | GET | `/accounts/default` | Retorna a conta com `isDefault = true` (ou `null`) |
 
 - `POST` e `PUT` aceitam `isDefault?: boolean`. Ao definir `true`, as demais contas são desmarcadas (apenas uma padrão por vez).
+- `PUT` também aceita `balance?: number` — permite corrigir manualmente o saldo atual da conta (ex: reconciliação com o extrato do banco). No frontend, o campo aparece como "Saldo atual (R$)" no modal de edição (`app/src/pages/Accounts/index.tsx`).
 - A rota estática `/accounts/default` é declarada **antes** de `/accounts/:id` para não colidir.
 
 ## Dashboard — `api/src/routes/dashboard.ts` (`GET /dashboard/summary`)
 
-Painel de despesas. Query params `month`, `year` (default: mês atual). Resposta:
+Painel só de despesas: todas as agregações filtram `amount > 0` (constante `isExpense`), então entradas (`amount < 0`) não entram nesses totais. `recentTransactions` é a exceção — não filtra, mostra despesas e entradas juntas. Query params `month`, `year` (default: mês atual). Resposta:
 
 ```jsonc
 {

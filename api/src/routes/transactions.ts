@@ -3,8 +3,9 @@ import { and, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, transactions } from "../db/schema"
 
-// Toda transação é uma despesa: ao criar, subtrai do saldo da conta;
-// ao reverter (editar/excluir), devolve o valor.
+// Valor positivo = despesa (subtrai do saldo); valor negativo = entrada (soma ao saldo).
+// Subtrair um valor negativo soma ao saldo, então a mesma função cobre os dois casos
+// tanto ao aplicar quanto ao reverter (editar/excluir).
 async function adjustBalance(
   accountId: string,
   amount: string,
@@ -19,7 +20,7 @@ async function adjustBalance(
 
 const transactionBody = t.Object({
   name: t.String({ minLength: 1 }),
-  amount: t.Number({ minimum: 0.01 }),
+  amount: t.Number(),
   categoryId: t.String({ minLength: 1 }),
   paymentMethodId: t.String({ minLength: 1 }),
   accountId: t.String({ minLength: 1 }),
@@ -104,6 +105,8 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .post(
     "/",
     async ({ body, status }) => {
+      if (body.amount === 0) return status(400, { message: "Informe um valor diferente de zero" })
+
       const resolved = resolveBudgetId(body)
       if ("message" in resolved) return status(400, { message: resolved.message })
 
@@ -134,6 +137,8 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .put(
     "/:id",
     async ({ params, body, status }) => {
+      if (body.amount === 0) return status(400, { message: "Informe um valor diferente de zero" })
+
       const existing = await db.query.transactions.findFirst({
         where: eq(transactions.id, params.id),
       })

@@ -1,21 +1,21 @@
-import { useEffect, useState } from "react"
-import { cn } from "@/lib/utils"
 import { useTheme } from "@/components/theme-provider"
-import { Logo } from "./Logo"
-import { isRouteActive, navItems, type IconType } from "./nav"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
 } from "lucide-react"
+import { useEffect, useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
+import { Logo } from "./Logo"
+import { isRouteActive, navItems, type IconType } from "./nav"
 
 const STORAGE_KEY = "sidebar-collapsed"
 
@@ -70,12 +70,6 @@ export function Sidebar() {
 
         {/* Navegação */}
         <nav className="flex flex-col gap-1 p-3">
-          {!collapsed && (
-            <span className="px-3 pt-1 pb-1 text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
-              Navegação
-            </span>
-          )}
-
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavItem
               key={to}

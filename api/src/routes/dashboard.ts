@@ -1,7 +1,11 @@
 import { Elysia, t } from "elysia"
-import { between, desc, eq, sql } from "drizzle-orm"
+import { and, between, desc, eq, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, categories, paymentMethods, transactions } from "../db/schema"
+
+// Valor negativo = entrada (ver routes/transactions.ts). Este painel é só de
+// despesas, então as agregações abaixo ignoram entradas.
+const isExpense = sql`amount::numeric > 0`
 
 export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
   .get(
@@ -13,7 +17,7 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
 
       const firstDay = `${year}-${String(month).padStart(2, "0")}-01`
       const lastDay = `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`
-      const inMonth = between(transactions.date, firstDay, lastDay)
+      const inMonth = and(between(transactions.date, firstDay, lastDay), isExpense)
 
       // Totais do mês (despesas), com cortes por essencial e por recorrência
       const [totals] = await db
@@ -78,6 +82,7 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
         FROM transactions
         WHERE date >= (${firstDay}::date - INTERVAL '5 months')
           AND date <= ${lastDay}::date
+          AND amount::numeric > 0
         GROUP BY TO_CHAR(date::date, 'YYYY-MM')
         ORDER BY month
       `)

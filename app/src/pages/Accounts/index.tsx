@@ -299,17 +299,15 @@ function AccountModal({
           </Select>
         </div>
 
-        {!defaultValues && (
-          <div className="flex flex-col gap-1.5">
-            <Label>Saldo inicial (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="0,00"
-              {...register("balance", { valueAsNumber: true })}
-            />
-          </div>
-        )}
+        <div className="flex flex-col gap-1.5">
+          <Label>{defaultValues ? "Saldo atual (R$)" : "Saldo inicial (R$)"}</Label>
+          <Input
+            type="number"
+            step="0.01"
+            placeholder="0,00"
+            {...register("balance", { valueAsNumber: true })}
+          />
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <Label>Cor</Label>

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod/v4"
-import { ArrowDownRight, Pencil, Plus, Repeat, Search, Trash2, Zap } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, Minus, Pencil, Plus, Repeat, Search, Trash2, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,6 +32,7 @@ const schema = z
   .object({
     name: z.string().min(1, "Informe o nome"),
     amount: z.number({ error: "Informe o valor" }).positive("Valor deve ser positivo"),
+    isIncome: z.boolean(),
     categoryId: z.string().min(1, "Selecione a categoria"),
     paymentMethodId: z.string().min(1, "Selecione a forma de pagamento"),
     accountId: z.string().min(1, "Selecione a conta"),
@@ -82,7 +83,7 @@ export function Transactions() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Transações</h1>
           <p className="text-sm text-muted-foreground">
-            {data?.total ?? 0} {data?.total === 1 ? "despesa registrada" : "despesas registradas"}
+            {data?.total ?? 0} {data?.total === 1 ? "transação registrada" : "transações registradas"}
           </p>
         </div>
         <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
@@ -239,16 +240,18 @@ function TransactionRow({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const color = tx.category?.color ?? FINANCE.neutral
+  const amount = Number(tx.amount)
+  const isIncome = amount < 0
+  const color = isIncome ? FINANCE.income : (tx.category?.color ?? FINANCE.neutral)
 
   return (
     <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-      {/* Ícone com a cor da categoria */}
+      {/* Ícone com a cor da categoria (ou verde para entrada) */}
       <div
         className="flex size-8 shrink-0 items-center justify-center rounded-lg"
         style={{ backgroundColor: tint(color) }}
       >
-        <ArrowDownRight size={14} style={{ color }} />
+        {isIncome ? <ArrowUpRight size={14} style={{ color }} /> : <ArrowDownRight size={14} style={{ color }} />}
       </div>
 
       {/* Nome e meta */}
@@ -270,9 +273,14 @@ function TransactionRow({
         </p>
       </div>
 
-      {/* Valor (despesa) */}
-      <span className="shrink-0 text-sm font-semibold tabular-nums">
-        −{formatCurrency(tx.amount)}
+      {/* Valor (despesa ou entrada) */}
+      <span
+        className={cn(
+          "shrink-0 text-sm font-semibold tabular-nums",
+          isIncome && "text-emerald-600 dark:text-emerald-400"
+        )}
+      >
+        {isIncome ? "+" : "−"}{formatCurrency(Math.abs(amount))}
       </span>
 
       {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
@@ -331,7 +339,8 @@ function TransactionModal({
     defaultValues: defaultValues
       ? {
           name: defaultValues.name,
-          amount: Number(defaultValues.amount),
+          amount: Math.abs(Number(defaultValues.amount)),
+          isIncome: Number(defaultValues.amount) < 0,
           categoryId: defaultValues.categoryId,
           paymentMethodId: defaultValues.paymentMethodId,
           accountId: defaultValues.accountId,
@@ -343,6 +352,7 @@ function TransactionModal({
         }
       : {
           isEssential: true,
+          isIncome: false,
           recurrence: "variable",
           date: today,
           accountId: defaultAccount?.id ?? "",
@@ -350,11 +360,13 @@ function TransactionModal({
   })
 
   const isEssential = watch("isEssential")
+  const isIncome = watch("isIncome")
   const recurrence = watch("recurrence")
 
-  const onSubmit = handleSubmit((values) => {
+  const onSubmit = handleSubmit(({ isIncome: income, amount, ...values }) => {
     const payload = {
       ...values,
+      amount: income ? -amount : amount,
       budgetId: values.recurrence === "fixed" ? values.budgetId : null,
       notes: values.notes || null,
     }
@@ -389,13 +401,27 @@ function TransactionModal({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>Valor (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="0,00"
-              {...register("amount", { valueAsNumber: true })}
-            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setValue("isIncome", !isIncome)}
+                aria-pressed={isIncome}
+                aria-label={isIncome ? "Entrada — clique para marcar como despesa" : "Despesa — clique para marcar como entrada"}
+                title={isIncome ? "Entrada — clique para marcar como despesa" : "Despesa — clique para marcar como entrada"}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-white transition-colors"
+                style={{ backgroundColor: isIncome ? FINANCE.income : FINANCE.expense }}
+              >
+                {isIncome ? <Plus size={16} /> : <Minus size={16} />}
+              </button>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0,00"
+                className="flex-1"
+                {...register("amount", { valueAsNumber: true })}
+              />
+            </div>
             {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">

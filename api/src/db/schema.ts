@@ -36,22 +36,6 @@ export const budgetAmountTypeEnum = pgEnum("budget_amount_type", [
   "variable",
 ])
 
-// Movimento do investimento: aporte (entra) ou retirada (sai)
-export const investmentMovementTypeEnum = pgEnum("investment_movement_type", [
-  "deposit", // Aporte — soma ao current_amount
-  "withdrawal", // Retirada — subtrai do current_amount
-])
-
-// Tipo do investimento — extensível no futuro; foco atual em stock e cdi
-export const investmentTypeEnum = pgEnum("investment_type", [
-  "stock", // Ações
-  "cdi", // CDI (CDB, LCI, LCA atrelados ao CDI)
-  "fii", // Fundo Imobiliário
-  "treasury", // Tesouro Direto
-  "crypto", // Criptomoedas
-  "fund", // Fundo de Investimento
-])
-
 export const accounts = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -132,38 +116,6 @@ export const budgets = pgTable("budgets", {
     .notNull(),
 })
 
-export const investments = pgTable("investments", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  type: investmentTypeEnum("type").notNull(),
-  // Valor atual — atualizado SOMENTE via aportes (nunca por PUT ou transações).
-  // Cada aporte é somado a este valor; ao remover um aporte, é subtraído.
-  currentAmount: numeric("current_amount", { precision: 10, scale: 2 })
-    .default("0")
-    .notNull(),
-  goalAmount: numeric("goal_amount", { precision: 10, scale: 2 }),
-  monthlyContribution: numeric("monthly_contribution", { precision: 10, scale: 2 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdateFn(() => new Date())
-    .notNull(),
-})
-
-export const investmentContributions = pgTable("investment_contributions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  investmentId: uuid("investment_id")
-    .references(() => investments.id, { onDelete: "cascade" })
-    .notNull(),
-  // deposit soma ao current_amount; withdrawal subtrai
-  type: investmentMovementTypeEnum("type").default("deposit").notNull(),
-  // Valor do movimento (sempre positivo); o sinal vem do `type`
-  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
-  date: date("date").default(sql`CURRENT_DATE`).notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-})
-
 // ── Relations ────────────────────────────────────────────────────────────────
 export const accountsRelations = relations(accounts, ({ many }) => ({
   transactions: many(transactions),
@@ -200,20 +152,6 @@ export const budgetsRelations = relations(budgets, ({ many }) => ({
   transactions: many(transactions),
 }))
 
-export const investmentsRelations = relations(investments, ({ many }) => ({
-  contributions: many(investmentContributions),
-}))
-
-export const investmentContributionsRelations = relations(
-  investmentContributions,
-  ({ one }) => ({
-    investment: one(investments, {
-      fields: [investmentContributions.investmentId],
-      references: [investments.id],
-    }),
-  })
-)
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type Account = typeof accounts.$inferSelect
 export type NewAccount = typeof accounts.$inferInsert
@@ -236,12 +174,3 @@ export type Budget = typeof budgets.$inferSelect
 export type NewBudget = typeof budgets.$inferInsert
 export type BudgetType = (typeof budgetTypeEnum.enumValues)[number]
 export type BudgetAmountType = (typeof budgetAmountTypeEnum.enumValues)[number]
-
-export type Investment = typeof investments.$inferSelect
-export type NewInvestment = typeof investments.$inferInsert
-export type InvestmentType = (typeof investmentTypeEnum.enumValues)[number]
-
-export type InvestmentContribution = typeof investmentContributions.$inferSelect
-export type NewInvestmentContribution = typeof investmentContributions.$inferInsert
-export type InvestmentMovementType =
-  (typeof investmentMovementTypeEnum.enumValues)[number]

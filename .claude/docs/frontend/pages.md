@@ -1,8 +1,12 @@
 ---
 title: Frontend — Páginas e estrutura
 area: frontend
-updated: 2026-06-08
+updated: 2026-07-01
 ---
+
+> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/accounts`, `/budgets`, `/categories`, `/payment-methods`, `/banks`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
+>
+> A feature de Investimentos (`/investments`, aportes, projeção de prazo) foi **removida** do sistema em 2026-07-01 — rota, página, tabelas `investments`/`investment_contributions`, tipos e hooks foram todos apagados. Não confundir com o tipo de orçamento `investment` (regra 50/30/20 em `budgets`), que continua existindo.
 
 ## Visão geral
 
@@ -74,7 +78,11 @@ Stack de dados/formulários: **TanStack Query v5** (cache + mutations), **React 
 
 - `components/layout/Sidebar.tsx` — colapsável, usa os tokens `sidebar-*` (`bg-sidebar`, `border-sidebar-border`, etc). Largura `w-60` (expandida) ↔ `w-17` (colapsada) com `transition-[width]`.
   - **Colapso persistido**: estado `collapsed` salvo no `localStorage` (`sidebar-collapsed`); atalho de teclado **`B`** alterna (com guarda `isEditableTarget` para não disparar dentro de inputs). Quando colapsada, labels somem (`w-0 opacity-0`) e cada item ganha um **tooltip** à direita (radix `Tooltip`, `side="right"`).
-  - **Logo** (`components/layout/Logo.tsx`): `LogoMark` é um SVG próprio — dente estilizado branco sobre quadrado arredondado com gradiente azul→ciano (`#3b82f6`→`#06b6d4`). `Logo` mostra o wordmark "Odonto Reativa / CRM" que colapsa junto com a sidebar.
+  - **Logo** (`components/layout/Logo.tsx`): `LogoMark` é um SVG próprio — gráfico de linha crescente (branco) sobre quadrado arredondado com gradiente esmeralda→azul (`PALETTE.emerald` `#10b981` → `PALETTE.blue` `#3b82f6`). `Logo` mostra o wordmark "Finance / Pessoal" que colapsa junto com a sidebar. O mesmo símbolo/gradiente é usado em `public/favicon.svg` (ícone da aba do navegador) e no splash screen (`index.html`) — os três eram inconsistentes (favicon tinha um ícone de dente azul→ciano, resquício de outro projeto do monorepo) e foram unificados em 2026-07-01.
+
+### Título da página (`hooks/usePageTitle.ts`)
+
+`usePageTitle()`, chamado em `AppLayout`, atualiza `document.title` a cada troca de rota usando `navItems` (`components/layout/nav.ts`) como fonte única dos labels: `"{label} | Finance"` (ex.: `"Categorias | Finance"`). Rota sem correspondência em `navItems` mantém apenas `"Finance"`.
   - **Indicador ativo deslizante**: um `<div>` absoluto (`bg-sidebar-primary`) animado com `translateY(activeIndex * ITEM_HEIGHT)` + `transition-all` (easing `cubic-bezier(0.22,1,0.36,1)`), que escorrega entre os itens. `activeIndex` derivado de `useLocation().pathname` via `getActiveIndex()` (match exato em `/`, `startsWith` no resto). Itens `h-10` (`ITEM_HEIGHT = 40`) num container `relative`.
   - **Micro-interações**: ícone com `group-hover:scale-110`, hover com `bg-sidebar-accent`.
   - **Rodapé** (`FooterButton` reutilizável): toggle de tema (Sun/Moon com cross-fade via `dark:` variants, hint `D`) + toggle de colapso (`PanelLeftClose`/`PanelLeftOpen`, hint `B`). Ambos viram ícone centralizado + tooltip quando colapsada.

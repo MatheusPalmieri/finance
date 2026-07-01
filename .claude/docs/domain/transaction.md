@@ -1,12 +1,12 @@
 ---
 title: Domínio — Transação
 area: domain
-updated: 2026-06-23
+updated: 2026-07-01
 ---
 
 ## Visão geral
 
-A transação é o módulo central do sistema. **Toda transação é uma despesa** — não há mais receita, transferência nem campo `type`. O modelo gira em torno de classificar gastos.
+A transação é o módulo central do sistema. Não há campo `type` nem entidade de transferência — a distinção entre despesa e entrada é feita pelo **sinal de `amount`** (positivo = despesa, negativo = entrada). O modelo gira em torno de classificar gastos, com entradas tratadas como caso especial (ver "Entradas" abaixo).
 
 ## Campos
 
@@ -14,7 +14,7 @@ A transação é o módulo central do sistema. **Toda transação é uma despesa
 |-------|------|-------------|-----------|
 | `id` | uuid | — | PK gerada |
 | `name` | varchar(255) | sim | Nome/descrição curta |
-| `amount` | numeric(10,2) | sim | Valor em reais (positivo) |
+| `amount` | numeric(10,2) | sim | Valor em reais. Positivo = despesa; negativo = entrada (ver "Entradas") |
 | `categoryId` | uuid FK → categories | sim | Categoria do gasto |
 | `paymentMethodId` | uuid FK → payment_methods | sim | Forma de pagamento |
 | `accountId` | uuid FK → accounts | sim | Conta de onde saiu o dinheiro |
@@ -30,13 +30,19 @@ A transação é o módulo central do sistema. **Toda transação é uma despesa
 
 ## Regras de negócio
 
-### Efeito no saldo da conta
-Como toda transação é uma despesa, ela **subtrai** `amount` do `balance` da `accounts` escolhida:
-- **Criar** → subtrai do saldo.
-- **Editar** → devolve o valor antigo à conta antiga e subtrai o novo da conta nova.
-- **Excluir** → devolve o valor ao saldo.
+### Entradas (receita pontual)
+Adicionado em 2026-07-01. Não existe campo `type`: o formulário (`app/src/pages/Transactions/index.tsx`) tem um botão redondo ao lado do campo "Valor" que alterna `isIncome` (estado só de UI, nunca enviado à API). No submit, o valor digitado (sempre positivo no input) é invertido para negativo quando `isIncome = true` — é esse `amount` com sinal que vai para a API.
+- `amount > 0` → despesa (ícone `ArrowDownRight`, vermelho `FINANCE.expense`)
+- `amount < 0` → entrada (ícone `ArrowUpRight`, verde `FINANCE.income`)
+- A listagem de transações e "Recentes" (Home) exibem o sinal e a cor conforme o valor de `amount`, usando `Math.abs()` para formatar.
+- `GET /dashboard/summary` continua sendo um **painel só de despesas**: toda agregação (`totalExpenses`, por categoria, por forma de pagamento, por conta, tendência mensal) filtra `amount > 0` (constante `isExpense` em `api/src/routes/dashboard.ts`), então entradas não distorcem essas métricas. `recentTransactions` não é filtrado — mostra despesas e entradas juntas.
+- Zero não é um valor válido (`amount === 0` retorna 400 em POST/PUT).
 
-Lógica em `adjustBalance()` (`api/src/routes/transactions.ts`).
+### Efeito no saldo da conta
+`adjustBalance()` (`api/src/routes/transactions.ts`) sempre **subtrai** `amount` do `balance`; como subtrair um valor negativo soma, a mesma função cobre despesa e entrada sem `if`:
+- **Criar** → subtrai `amount` do saldo (soma, se `amount` for negativo).
+- **Editar** → devolve o valor antigo à conta antiga (soma `amount` antigo) e subtrai o novo da conta nova.
+- **Excluir** → devolve o valor ao saldo (soma `amount`).
 
 ### Conta padrão (`accounts.isDefault`)
 - Apenas **uma** conta pode ser padrão por vez. Ao marcar uma como padrão (criar/editar), as demais são desmarcadas (`unsetOtherDefaults` em `api/src/routes/accounts.ts`).

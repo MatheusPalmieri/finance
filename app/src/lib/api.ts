@@ -7,10 +7,6 @@ import type {
   BudgetType,
   Category,
   DashboardSummary,
-  Investment,
-  InvestmentContribution,
-  InvestmentMovementType,
-  InvestmentType,
   PaymentMethod,
   Recurrence,
   Transaction,
@@ -66,20 +62,6 @@ export interface BudgetInput {
   amountMax?: number | null
 }
 
-export interface InvestmentInput {
-  name: string
-  type: InvestmentType
-  goalAmount?: number | null
-  monthlyContribution?: number | null
-}
-
-export interface ContributionInput {
-  type?: InvestmentMovementType
-  amount: number
-  date?: string
-  notes?: string | null
-}
-
 export interface DashboardParams {
   month?: number
   year?: number
@@ -100,7 +82,14 @@ export const api = {
     }) => request<Account>("/accounts", { method: "POST", body: JSON.stringify(body) }),
     update: (
       id: string,
-      body: { name: string; type: AccountType; color?: string; icon?: string; isDefault?: boolean }
+      body: {
+        name: string
+        type: AccountType
+        balance?: number
+        color?: string
+        icon?: string
+        isDefault?: boolean
+      }
     ) => request<Account>(`/accounts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/accounts/${id}`, { method: "DELETE" }),
@@ -172,34 +161,6 @@ export const api = {
       request<Budget>(`/budgets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
-  },
-
-  investments: {
-    list: (name?: string) => {
-      const q = name ? `?name=${encodeURIComponent(name)}` : ""
-      return request<Investment[]>(`/investments${q}`)
-    },
-    get: (id: string) => request<Investment>(`/investments/${id}`),
-    create: (body: InvestmentInput) =>
-      request<Investment>("/investments", { method: "POST", body: JSON.stringify(body) }),
-    update: (id: string, body: InvestmentInput) =>
-      request<Investment>(`/investments/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/investments/${id}`, { method: "DELETE" }),
-    contributions: {
-      list: (investmentId: string) =>
-        request<InvestmentContribution[]>(`/investments/${investmentId}/contributions`),
-      create: (investmentId: string, body: ContributionInput) =>
-        request<InvestmentContribution>(`/investments/${investmentId}/contributions`, {
-          method: "POST",
-          body: JSON.stringify(body),
-        }),
-      delete: (investmentId: string, contributionId: string) =>
-        request<{ success: boolean }>(
-          `/investments/${investmentId}/contributions/${contributionId}`,
-          { method: "DELETE" }
-        ),
-    },
   },
 
   dashboard: {

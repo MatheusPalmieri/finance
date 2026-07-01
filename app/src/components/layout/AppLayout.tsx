@@ -2,10 +2,13 @@ import { Suspense } from "react"
 import { Outlet } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 
+import { usePageTitle } from "@/hooks/usePageTitle"
 import { Sidebar } from "./Sidebar"
 import { MobileTopbar } from "./MobileTopbar"
 
 export function AppLayout() {
+  usePageTitle()
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Navegação fixa no desktop (escondida no mobile) */}

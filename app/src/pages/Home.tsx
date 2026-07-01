@@ -398,12 +398,14 @@ function RankedBars({ items, total }: { items: NamedAmount[]; total: number }) {
 }
 
 function RecentTransactionRow({ tx }: { tx: Transaction }) {
-  const color = tx.category?.color ?? FINANCE.neutral
+  const amount = Number(tx.amount)
+  const isIncome = amount < 0
+  const color = isIncome ? FINANCE.income : (tx.category?.color ?? FINANCE.neutral)
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-md px-1 py-2.5 transition-colors hover:bg-muted/40">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: tint(color) }}>
-        <ArrowDownRight size={14} style={{ color }} />
+        {isIncome ? <ArrowUpRight size={14} style={{ color }} /> : <ArrowDownRight size={14} style={{ color }} />}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -413,7 +415,15 @@ function RecentTransactionRow({ tx }: { tx: Transaction }) {
         </p>
       </div>
 
-      <span className="shrink-0 text-sm font-semibold tabular-nums">−{formatCurrency(tx.amount)}</span>
+      <span
+        className={
+          isIncome
+            ? "shrink-0 text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400"
+            : "shrink-0 text-sm font-semibold tabular-nums"
+        }
+      >
+        {isIncome ? "+" : "−"}{formatCurrency(Math.abs(amount))}
+      </span>
     </div>
   )
 }

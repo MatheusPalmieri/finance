@@ -78,6 +78,7 @@ export const accountsRoute = new Elysia({ prefix: "/accounts" })
         .set({
           name: body.name,
           type: body.type,
+          balance: body.balance !== undefined ? String(body.balance) : undefined,
           color: body.color,
           icon: body.icon,
           isDefault: body.isDefault,
@@ -94,6 +95,7 @@ export const accountsRoute = new Elysia({ prefix: "/accounts" })
       body: t.Object({
         name: t.String({ minLength: 1 }),
         type: accountTypeUnion,
+        balance: t.Optional(t.Number()),
         color: t.Optional(t.String()),
         icon: t.Optional(t.String()),
         isDefault: t.Optional(t.Boolean()),
