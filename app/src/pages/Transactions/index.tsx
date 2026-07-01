@@ -2,12 +2,27 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod/v4"
-import { ArrowDownRight, ArrowUpRight, Minus, Pencil, Plus, Repeat, Search, Trash2, Zap } from "lucide-react"
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Pencil,
+  Plus,
+  Repeat,
+  Search,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
@@ -25,7 +40,15 @@ import {
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE, tint } from "@/lib/tokens"
-import { RECURRENCE_LABELS, type Recurrence, type Transaction } from "@/types/finance"
+import { MONTHS, RECURRENCE_LABELS, type Recurrence, type Transaction } from "@/types/finance"
+
+// Primeiro e último dia (ISO) do mês informado (1-indexado)
+function monthRange(month: number, year: number) {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const from = `${year}-${pad(month)}-01`
+  const to = `${year}-${pad(month)}-${new Date(year, month, 0).getDate()}`
+  return { from, to }
+}
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const schema = z
@@ -53,13 +76,45 @@ type FormValues = z.infer<typeof schema>
 
 // ── Página ────────────────────────────────────────────────────────────────────
 export function Transactions() {
+  const now = new Date()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [filterCategoryId, setFilterCategoryId] = useState("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
+  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [year, setYear] = useState(now.getFullYear())
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null)
+  const [draftFrom, setDraftFrom] = useState("")
+  const [draftTo, setDraftTo] = useState("")
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
+
+  const { from, to } = customRange ?? monthRange(month, year)
+  const isCurrentMonth = !customRange && month === now.getMonth() + 1 && year === now.getFullYear()
+  const isSingleDay = customRange !== null && customRange.from === customRange.to
+
+  function prevMonth() {
+    setCustomRange(null)
+    if (month === 1) { setMonth(12); setYear((y) => y - 1) } else setMonth((m) => m - 1)
+    setPage(1)
+  }
+  function nextMonth() {
+    setCustomRange(null)
+    if (month === 12) { setMonth(1); setYear((y) => y + 1) } else setMonth((m) => m + 1)
+    setPage(1)
+  }
+  function applyCustomRange() {
+    if (!draftFrom || !draftTo) return
+    // Se o usuário inverter as datas, normaliza para não quebrar o filtro
+    const [rangeFrom, rangeTo] = draftFrom <= draftTo ? [draftFrom, draftTo] : [draftTo, draftFrom]
+    setCustomRange({ from: rangeFrom, to: rangeTo })
+    setPage(1)
+  }
+  function clearCustomRange() {
+    setCustomRange(null)
+    setPage(1)
+  }
 
   const params = {
     page,
@@ -67,6 +122,8 @@ export function Transactions() {
     search: search || undefined,
     categoryId: filterCategoryId || undefined,
     recurrence: filterRecurrence || undefined,
+    from,
+    to,
   }
 
   const { data, isLoading, isError, refetch } = useTransactions(params)
@@ -90,6 +147,72 @@ export function Transactions() {
           <Plus size={15} />
           Nova transação
         </Button>
+      </div>
+
+      {/* Navegação por mês + período personalizado */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1 rounded-lg border bg-card px-1 py-1">
+          <button
+            type="button"
+            onClick={prevMonth}
+            aria-label="Mês anterior"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-7"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="min-w-27.5 text-center text-sm font-medium">
+            {customRange
+              ? isSingleDay
+                ? formatDate(customRange.from)
+                : `${formatDate(customRange.from)} – ${formatDate(customRange.to)}`
+              : `${MONTHS[month - 1]} ${year}`}
+          </span>
+          <button
+            type="button"
+            onClick={nextMonth}
+            disabled={isCurrentMonth}
+            aria-label="Próximo mês"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:size-7"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        <Popover onOpenChange={(open) => { if (open) { setDraftFrom(from); setDraftTo(to) } }}>
+          <PopoverTrigger asChild>
+            <Button variant={customRange ? "default" : "outline"} size="sm" className="gap-2">
+              <CalendarRange size={14} />
+              Período específico
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>De</Label>
+              <Input type="date" value={draftFrom} onChange={(e) => setDraftFrom(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Até</Label>
+              <Input type="date" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Para um dia específico, use a mesma data em "De" e "Até".
+            </p>
+            <Button size="sm" onClick={applyCustomRange} disabled={!draftFrom || !draftTo}>
+              Aplicar
+            </Button>
+          </PopoverContent>
+        </Popover>
+
+        {customRange && (
+          <button
+            type="button"
+            onClick={clearCustomRange}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <X size={12} />
+            Voltar para navegação por mês
+          </button>
+        )}
       </div>
 
       {/* Filtros */}
