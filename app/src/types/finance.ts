@@ -4,6 +4,8 @@ export type AccountType = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "INVESTMENT" 
 export type Recurrence = "fixed" | "variable"
 export type BudgetType = "essential" | "desire" | "investment"
 export type BudgetAmountType = "fixed" | "variable"
+// Lista fixa do sistema — não é mais CRUD do usuário (ver .claude/docs/domain/transaction.md)
+export type PaymentMethod = "cash" | "pix" | "credit_card" | "debit_card" | "boleto" | "transfer"
 
 export interface Account {
   id: string
@@ -24,26 +26,12 @@ export interface Category {
   createdAt: string
 }
 
-export interface PaymentMethod {
-  id: string
-  name: string
-  color: string
-  createdAt: string
-}
-
-export interface Bank {
-  id: string
-  name: string
-  color: string
-  createdAt: string
-}
-
 export interface Transaction {
   id: string
   name: string
   amount: string
   categoryId: string
-  paymentMethodId: string
+  paymentMethod: PaymentMethod
   accountId: string
   isEssential: boolean
   recurrence: Recurrence
@@ -54,7 +42,6 @@ export interface Transaction {
   updatedAt: string
   account?: Account
   category?: Category | null
-  paymentMethod?: PaymentMethod | null
   budget?: Budget | null
 }
 
@@ -140,6 +127,33 @@ export const BUDGET_TYPE_TARGET: Record<BudgetType, number> = {
   desire: 30,
   investment: 20,
 }
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  credit_card: "Cartão de crédito",
+  debit_card: "Cartão de débito",
+  pix: "Pix",
+  cash: "Dinheiro",
+  boleto: "Boleto",
+  transfer: "Transferência",
+}
+
+export const PAYMENT_METHOD_HEX: Record<PaymentMethod, string> = {
+  credit_card: PALETTE.red,
+  debit_card: PALETTE.blue,
+  pix: PALETTE.cyan,
+  cash: PALETTE.emerald,
+  boleto: PALETTE.amber,
+  transfer: PALETTE.violet,
+}
+
+export const PAYMENT_METHOD_ORDER: PaymentMethod[] = [
+  "credit_card",
+  "debit_card",
+  "pix",
+  "cash",
+  "boleto",
+  "transfer",
+]
 
 export const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",

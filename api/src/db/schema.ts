@@ -36,6 +36,16 @@ export const budgetAmountTypeEnum = pgEnum("budget_amount_type", [
   "variable",
 ])
 
+// Forma de pagamento — lista fixa do sistema, não é mais CRUD do usuário
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "cash", // Dinheiro
+  "pix", // Pix
+  "credit_card", // Cartão de crédito
+  "debit_card", // Cartão de débito
+  "boleto", // Boleto
+  "transfer", // Transferência
+])
+
 export const accounts = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -59,20 +69,6 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
-export const paymentMethods = pgTable("payment_methods", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 100 }).notNull(),
-  color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-})
-
-export const banks = pgTable("banks", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 100 }).notNull(),
-  color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-})
-
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -80,9 +76,7 @@ export const transactions = pgTable("transactions", {
   categoryId: uuid("category_id")
     .references(() => categories.id)
     .notNull(),
-  paymentMethodId: uuid("payment_method_id")
-    .references(() => paymentMethods.id)
-    .notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
   accountId: uuid("account_id")
     .references(() => accounts.id)
     .notNull(),
@@ -125,10 +119,6 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
   transactions: many(transactions),
 }))
 
-export const paymentMethodsRelations = relations(paymentMethods, ({ many }) => ({
-  transactions: many(transactions),
-}))
-
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   account: one(accounts, {
     fields: [transactions.accountId],
@@ -137,10 +127,6 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   category: one(categories, {
     fields: [transactions.categoryId],
     references: [categories.id],
-  }),
-  paymentMethod: one(paymentMethods, {
-    fields: [transactions.paymentMethodId],
-    references: [paymentMethods.id],
   }),
   budget: one(budgets, {
     fields: [transactions.budgetId],
@@ -160,11 +146,7 @@ export type AccountType = (typeof accountTypeEnum.enumValues)[number]
 export type Category = typeof categories.$inferSelect
 export type NewCategory = typeof categories.$inferInsert
 
-export type PaymentMethod = typeof paymentMethods.$inferSelect
-export type NewPaymentMethod = typeof paymentMethods.$inferInsert
-
-export type Bank = typeof banks.$inferSelect
-export type NewBank = typeof banks.$inferInsert
+export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number]
 
 export type Transaction = typeof transactions.$inferSelect
 export type NewTransaction = typeof transactions.$inferInsert

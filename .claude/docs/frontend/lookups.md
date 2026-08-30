@@ -1,20 +1,22 @@
 ---
-title: Frontend — CRUDs de cadastro (Categorias, Formas de pagamento, Bancos)
+title: Frontend — CRUD de cadastro (Categorias)
 area: frontend
-updated: 2026-06-23
+updated: 2026-07-01
 ---
 
 ## Visão geral
 
-Três páginas de CRUD estruturalmente idênticas (nome + cor), todas construídas sobre um único componente genérico para evitar duplicação.
+Uma página de CRUD (nome + cor), construída sobre um componente genérico pensado para múltiplos módulos desse tipo.
 
 | Rota | Página | Hooks (em `lib/queries.ts`) |
 |------|--------|------------------------------|
 | `/categories` | `pages/Categories/index.tsx` | `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory` |
-| `/payment-methods` | `pages/PaymentMethods/index.tsx` | `usePaymentMethods`, `useCreatePaymentMethod`, `useUpdatePaymentMethod`, `useDeletePaymentMethod` |
-| `/banks` | `pages/Banks/index.tsx` | `useBanks`, `useCreateBank`, `useUpdateBank`, `useDeleteBank` |
 
-Rotas registradas em `App.tsx` (lazy) e itens de navegação na `components/layout/Sidebar.tsx`.
+Rota registrada em `App.tsx` (lazy) e item de navegação na `components/layout/Sidebar.tsx`.
+
+> **Removidos em 2026-07-01:**
+> - **Bancos** (`/banks`, `pages/Banks/index.tsx`, `useBanks`/`useCreateBank`/`useUpdateBank`/`useDeleteBank`) — apagado por completo. Era um cadastro avulso sem nenhuma ligação real com o resto do sistema (nunca teve FK de `accounts` ou `transactions` apontando pra ele).
+> - **Formas de pagamento** (`/payment-methods`, `pages/PaymentMethods/index.tsx`, os 4 hooks `usePaymentMethods` etc.) — deixou de ser CRUD, virou lista fixa de 6 valores (`PAYMENT_METHOD_ORDER`/`PAYMENT_METHOD_LABELS`/`PAYMENT_METHOD_HEX` em `types/finance.ts`), usada diretamente nos `Select` de `Transactions/index.tsx` e `Transactions/ImportModal.tsx`. Ver `.claude/docs/domain/transaction.md`.
 
 ## Componente genérico
 

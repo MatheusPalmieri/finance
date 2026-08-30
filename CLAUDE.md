@@ -33,18 +33,19 @@ Docs existentes:
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
-- `.claude/docs/api/lookups.md` — endpoints /categories, /payment-methods, /banks
+- `.claude/docs/api/lookups.md` — endpoints /categories (bancos e formas de pagamento removidos como CRUD)
 - `.claude/docs/api/transactions.md` — endpoints /transactions, /accounts (padrão) e /dashboard
 - `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
-- `.claude/docs/frontend/lookups.md` — páginas CRUD de categorias, formas de pagamento e bancos
+- `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês e filtro de período específico em Transações
+- `.claude/docs/frontend/transactions-import.md` — importação de extrato CSV (Nubank) com revisão antes de salvar
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
 - `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render
 - `.claude/docs/frontend/design-tokens.md` — paleta esmeralda, lib/tokens.ts, tint(), regras de cor
 - `.claude/docs/frontend/responsive.md` — sidebar desktop + drawer mobile, breakpoints, touch targets
 - `.claude/docs/frontend/states.md` — estados loading/erro/vazio/sucesso e ErrorState
-- `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos
+- `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos, seed padrão vs seed de desenvolvimento
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida
 - `.claude/docs/decisions/phone-normalization.md` — ADR do telefone sem 9 inicial

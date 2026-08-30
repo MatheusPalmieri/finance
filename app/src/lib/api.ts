@@ -1,7 +1,6 @@
 import type {
   Account,
   AccountType,
-  Bank,
   Budget,
   BudgetAmountType,
   BudgetType,
@@ -33,7 +32,7 @@ export interface ListTransactionsParams {
   search?: string
   accountId?: string
   categoryId?: string
-  paymentMethodId?: string
+  paymentMethod?: PaymentMethod | ""
   recurrence?: Recurrence | ""
   isEssential?: "true" | "false" | ""
   from?: string
@@ -44,7 +43,7 @@ export interface TransactionInput {
   name: string
   amount: number
   categoryId: string
-  paymentMethodId: string
+  paymentMethod: PaymentMethod
   accountId: string
   isEssential: boolean
   recurrence: Recurrence
@@ -105,26 +104,6 @@ export const api = {
       request<{ success: boolean }>(`/categories/${id}`, { method: "DELETE" }),
   },
 
-  paymentMethods: {
-    list: () => request<PaymentMethod[]>("/payment-methods"),
-    create: (body: { name: string; color?: string }) =>
-      request<PaymentMethod>("/payment-methods", { method: "POST", body: JSON.stringify(body) }),
-    update: (id: string, body: { name: string; color?: string }) =>
-      request<PaymentMethod>(`/payment-methods/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/payment-methods/${id}`, { method: "DELETE" }),
-  },
-
-  banks: {
-    list: () => request<Bank[]>("/banks"),
-    create: (body: { name: string; color?: string }) =>
-      request<Bank>("/banks", { method: "POST", body: JSON.stringify(body) }),
-    update: (id: string, body: { name: string; color?: string }) =>
-      request<Bank>(`/banks/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/banks/${id}`, { method: "DELETE" }),
-  },
-
   transactions: {
     list: (params: ListTransactionsParams = {}) => {
       const q = new URLSearchParams()
@@ -133,7 +112,7 @@ export const api = {
       if (params.search) q.set("search", params.search)
       if (params.accountId) q.set("accountId", params.accountId)
       if (params.categoryId) q.set("categoryId", params.categoryId)
-      if (params.paymentMethodId) q.set("paymentMethodId", params.paymentMethodId)
+      if (params.paymentMethod) q.set("paymentMethod", params.paymentMethod)
       if (params.recurrence) q.set("recurrence", params.recurrence)
       if (params.isEssential) q.set("isEssential", params.isEssential)
       if (params.from) q.set("from", params.from)
@@ -147,6 +126,11 @@ export const api = {
       request<Transaction>(`/transactions/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/transactions/${id}`, { method: "DELETE" }),
+    bulkCreate: (items: TransactionInput[]) =>
+      request<{ created: number }>("/transactions/bulk", {
+        method: "POST",
+        body: JSON.stringify({ transactions: items }),
+      }),
   },
 
   budgets: {

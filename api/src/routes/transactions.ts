@@ -2,11 +2,16 @@ import { Elysia, t } from "elysia"
 import { and, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, transactions } from "../db/schema"
+import { isPaymentMethod } from "../lib/payment-methods"
+
+// Aceita tanto `db` quanto o `tx` de uma `db.transaction()` — só precisa de `.update()`.
+type Executor = Pick<typeof db, "update">
 
 // Valor positivo = despesa (subtrai do saldo); valor negativo = entrada (soma ao saldo).
 // Subtrair um valor negativo soma ao saldo, então a mesma função cobre os dois casos
 // tanto ao aplicar quanto ao reverter (editar/excluir).
 async function adjustBalance(
+  exec: Executor,
   accountId: string,
   amount: string,
   direction: "add" | "subtract"
@@ -15,14 +20,23 @@ async function adjustBalance(
     direction === "add"
       ? sql`balance + ${amount}::numeric`
       : sql`balance - ${amount}::numeric`
-  await db.update(accounts).set({ balance: op }).where(eq(accounts.id, accountId))
+  await exec.update(accounts).set({ balance: op }).where(eq(accounts.id, accountId))
 }
+
+const paymentMethodUnion = t.Union([
+  t.Literal("cash"),
+  t.Literal("pix"),
+  t.Literal("credit_card"),
+  t.Literal("debit_card"),
+  t.Literal("boleto"),
+  t.Literal("transfer"),
+])
 
 const transactionBody = t.Object({
   name: t.String({ minLength: 1 }),
   amount: t.Number(),
   categoryId: t.String({ minLength: 1 }),
-  paymentMethodId: t.String({ minLength: 1 }),
+  paymentMethod: paymentMethodUnion,
   accountId: t.String({ minLength: 1 }),
   isEssential: t.Boolean(),
   recurrence: t.Union([t.Literal("fixed"), t.Literal("variable")]),
@@ -54,8 +68,8 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       const conditions = []
       if (query.accountId) conditions.push(eq(transactions.accountId, query.accountId))
       if (query.categoryId) conditions.push(eq(transactions.categoryId, query.categoryId))
-      if (query.paymentMethodId)
-        conditions.push(eq(transactions.paymentMethodId, query.paymentMethodId))
+      if (query.paymentMethod && isPaymentMethod(query.paymentMethod))
+        conditions.push(eq(transactions.paymentMethod, query.paymentMethod))
       if (query.recurrence === "fixed" || query.recurrence === "variable")
         conditions.push(eq(transactions.recurrence, query.recurrence))
       if (query.isEssential === "true") conditions.push(eq(transactions.isEssential, true))
@@ -69,7 +83,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       const [data, [{ total }]] = await Promise.all([
         db.query.transactions.findMany({
           where,
-          with: { account: true, category: true, paymentMethod: true, budget: true },
+          with: { account: true, category: true, budget: true },
           orderBy: [desc(transactions.date), desc(transactions.createdAt)],
           limit,
           offset,
@@ -86,7 +100,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         search: t.Optional(t.String()),
         accountId: t.Optional(t.String()),
         categoryId: t.Optional(t.String()),
-        paymentMethodId: t.Optional(t.String()),
+        paymentMethod: t.Optional(t.String()),
         recurrence: t.Optional(t.String()),
         isEssential: t.Optional(t.String()),
         from: t.Optional(t.String()),
@@ -97,7 +111,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .get("/:id", async ({ params, status }) => {
     const transaction = await db.query.transactions.findFirst({
       where: eq(transactions.id, params.id),
-      with: { account: true, category: true, paymentMethod: true },
+      with: { account: true, category: true },
     })
     if (!transaction) return status(404, { message: "Transação não encontrada" })
     return transaction
@@ -118,7 +132,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
           name: body.name,
           amount,
           categoryId: body.categoryId,
-          paymentMethodId: body.paymentMethodId,
+          paymentMethod: body.paymentMethod,
           accountId: body.accountId,
           isEssential: body.isEssential,
           recurrence: body.recurrence,
@@ -128,7 +142,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         })
         .returning()
 
-      await adjustBalance(body.accountId, amount, "subtract")
+      await adjustBalance(db, body.accountId, amount, "subtract")
 
       return transaction
     },
@@ -148,10 +162,10 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       if ("message" in resolved) return status(400, { message: resolved.message })
 
       // Reverte o efeito da transação antiga e aplica o da nova
-      await adjustBalance(existing.accountId, existing.amount, "add")
+      await adjustBalance(db, existing.accountId, existing.amount, "add")
 
       const newAmount = String(body.amount)
-      await adjustBalance(body.accountId, newAmount, "subtract")
+      await adjustBalance(db, body.accountId, newAmount, "subtract")
 
       const [transaction] = await db
         .update(transactions)
@@ -159,7 +173,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
           name: body.name,
           amount: newAmount,
           categoryId: body.categoryId,
-          paymentMethodId: body.paymentMethodId,
+          paymentMethod: body.paymentMethod,
           accountId: body.accountId,
           isEssential: body.isEssential,
           recurrence: body.recurrence,
@@ -180,7 +194,45 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
     })
     if (!existing) return status(404, { message: "Transação não encontrada" })
 
-    await adjustBalance(existing.accountId, existing.amount, "add")
+    await adjustBalance(db, existing.accountId, existing.amount, "add")
     await db.delete(transactions).where(eq(transactions.id, params.id))
     return { success: true }
   })
+  .post(
+    "/bulk",
+    async ({ body, status }) => {
+      const resolvedItems: { item: TransactionBody; budgetId: string | null }[] = []
+      for (const item of body.transactions) {
+        if (item.amount === 0) {
+          return status(400, { message: `Informe um valor diferente de zero em "${item.name}"` })
+        }
+        const resolved = resolveBudgetId(item)
+        if ("message" in resolved) return status(400, { message: resolved.message })
+        resolvedItems.push({ item, budgetId: resolved.budgetId })
+      }
+
+      // Transação única: se uma linha falhar no meio, nenhuma é aplicada
+      const created = await db.transaction(async (tx) => {
+        for (const { item, budgetId } of resolvedItems) {
+          const amount = String(item.amount)
+          await tx.insert(transactions).values({
+            name: item.name,
+            amount,
+            categoryId: item.categoryId,
+            paymentMethod: item.paymentMethod,
+            accountId: item.accountId,
+            isEssential: item.isEssential,
+            recurrence: item.recurrence,
+            budgetId,
+            date: item.date,
+            notes: item.notes ?? null,
+          })
+          await adjustBalance(tx, item.accountId, amount, "subtract")
+        }
+        return resolvedItems.length
+      })
+
+      return { created }
+    },
+    { body: t.Object({ transactions: t.Array(transactionBody, { minItems: 1 }) }) }
+  )

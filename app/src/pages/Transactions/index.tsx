@@ -14,6 +14,7 @@ import {
   Repeat,
   Search,
   Trash2,
+  Upload,
   X,
   Zap,
 } from "lucide-react"
@@ -27,20 +28,27 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
+import { ImportModal } from "./ImportModal"
 import {
   useAccounts,
   useCategories,
   useCreateTransaction,
   useDefaultAccount,
   useDeleteTransaction,
-  usePaymentMethods,
   useTransactions,
   useUpdateTransaction,
 } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE, tint } from "@/lib/tokens"
-import { MONTHS, RECURRENCE_LABELS, type Recurrence, type Transaction } from "@/types/finance"
+import {
+  MONTHS,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_ORDER,
+  RECURRENCE_LABELS,
+  type Recurrence,
+  type Transaction,
+} from "@/types/finance"
 
 // Primeiro e último dia (ISO) do mês informado (1-indexado)
 function monthRange(month: number, year: number) {
@@ -57,7 +65,9 @@ const schema = z
     amount: z.number({ error: "Informe o valor" }).positive("Valor deve ser positivo"),
     isIncome: z.boolean(),
     categoryId: z.string().min(1, "Selecione a categoria"),
-    paymentMethodId: z.string().min(1, "Selecione a forma de pagamento"),
+    paymentMethod: z.enum(["cash", "pix", "credit_card", "debit_card", "boleto", "transfer"], {
+      error: "Selecione a forma de pagamento",
+    }),
     accountId: z.string().min(1, "Selecione a conta"),
     isEssential: z.boolean(),
     recurrence: z.enum(["fixed", "variable"]),
@@ -87,6 +97,7 @@ export function Transactions() {
   const [draftFrom, setDraftFrom] = useState("")
   const [draftTo, setDraftTo] = useState("")
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
 
@@ -143,10 +154,16 @@ export function Transactions() {
             {data?.total ?? 0} {data?.total === 1 ? "transação registrada" : "transações registradas"}
           </p>
         </div>
-        <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
-          <Plus size={15} />
-          Nova transação
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setImporting(true)} size="sm" variant="outline" className="gap-2">
+            <Upload size={15} />
+            Importar CSV
+          </Button>
+          <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
+            <Plus size={15} />
+            Nova transação
+          </Button>
+        </div>
       </div>
 
       {/* Navegação por mês + período personalizado */}
@@ -318,6 +335,8 @@ export function Transactions() {
       {/* Modais */}
       {creating && <TransactionModal open onClose={() => setCreating(false)} title="Nova transação" />}
 
+      {importing && <ImportModal open onClose={() => setImporting(false)} />}
+
       {editing && (
         <TransactionModal
           open
@@ -392,7 +411,7 @@ function TransactionRow({
           </span>
         </div>
         <p className="truncate text-xs text-muted-foreground">
-          {tx.category?.name ?? "Sem categoria"} · {tx.paymentMethod?.name ?? "—"} · {tx.account?.name ?? "—"}
+          {tx.category?.name ?? "Sem categoria"} · {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
         </p>
       </div>
 
@@ -443,7 +462,6 @@ function TransactionModal({
 }) {
   const { data: accounts } = useAccounts()
   const { data: categories } = useCategories()
-  const { data: paymentMethods } = usePaymentMethods()
   const { data: defaultAccount } = useDefaultAccount()
   const create = useCreateTransaction()
   const update = useUpdateTransaction()
@@ -465,7 +483,7 @@ function TransactionModal({
           amount: Math.abs(Number(defaultValues.amount)),
           isIncome: Number(defaultValues.amount) < 0,
           categoryId: defaultValues.categoryId,
-          paymentMethodId: defaultValues.paymentMethodId,
+          paymentMethod: defaultValues.paymentMethod,
           accountId: defaultValues.accountId,
           isEssential: defaultValues.isEssential,
           recurrence: defaultValues.recurrence,
@@ -479,6 +497,8 @@ function TransactionModal({
           recurrence: "variable",
           date: today,
           accountId: defaultAccount?.id ?? "",
+          // "Cartão de crédito" é a forma de pagamento mais comum — pré-seleciona em transações novas
+          paymentMethod: "credit_card",
         },
   })
 
@@ -574,18 +594,21 @@ function TransactionModal({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>Forma de pagamento</Label>
-            <Select value={watch("paymentMethodId") ?? ""} onValueChange={(v) => setValue("paymentMethodId", v)}>
+            <Select
+              value={watch("paymentMethod")}
+              onValueChange={(v) => setValue("paymentMethod", v as FormValues["paymentMethod"])}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
-                {paymentMethods?.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                {PAYMENT_METHOD_ORDER.map((p) => (
+                  <SelectItem key={p} value={p}>{PAYMENT_METHOD_LABELS[p]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.paymentMethodId && (
-              <p className="text-xs text-destructive">{errors.paymentMethodId.message}</p>
+            {errors.paymentMethod && (
+              <p className="text-xs text-destructive">{errors.paymentMethod.message}</p>
             )}
           </div>
           <div className="flex flex-col gap-1.5">

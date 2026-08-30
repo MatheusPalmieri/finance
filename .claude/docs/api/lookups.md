@@ -1,36 +1,36 @@
 ---
-title: API — Categorias, Formas de pagamento e Bancos
+title: API — Categorias
 area: api
-updated: 2026-06-23
+updated: 2026-07-01
 ---
 
 ## Visão geral
 
-Três módulos de cadastro auxiliar ("lookups"), todos com a mesma estrutura mínima — `id`, `name`, `color`, `createdAt` — e o mesmo contrato CRUD. A validação de corpo usa `t` do Elysia (TypeBox).
+Um único módulo de cadastro auxiliar ("lookup"): Categorias — `id`, `name`, `color`, `createdAt`. A validação de corpo usa `t` do Elysia (TypeBox).
 
 | Módulo | Plugin | Prefixo | Tabela |
 |--------|--------|---------|--------|
 | Categorias | `api/src/routes/categories.ts` | `/categories` | `categories` |
-| Formas de pagamento | `api/src/routes/payment-methods.ts` | `/payment-methods` | `payment_methods` |
-| Bancos | `api/src/routes/banks.ts` | `/banks` | `banks` |
 
-Os três plugins são montados em `api/src/index.ts`.
+Montado em `api/src/index.ts`.
 
-## Contrato CRUD (idêntico nos três)
+> **Bancos foi removido por completo em 2026-07-01** (rota, página, tabela `banks`) — era um cadastro avulso sem nenhuma ligação real com `accounts`/`transactions` (nunca teve FK apontando pra ele). Se precisar de novo, é uma feature nova, não um "restaurar".
+>
+> **Formas de pagamento não é um lookup CRUD.** É uma lista fixa de 6 valores (enum `payment_method` no banco) — sem tela de cadastro, sem tabela `payment_methods`. Ver `.claude/docs/domain/transaction.md` (seção "Forma de pagamento") para a lista completa.
 
-Substitua `{prefix}` por `categories`, `payment-methods` ou `banks`.
+## Contrato CRUD
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/{prefix}` | Lista todos, ordenado por `name` |
-| POST | `/{prefix}` | Cria — body `{ name, color? }` |
-| PUT | `/{prefix}/:id` | Edita — body `{ name, color? }`; 404 se não existir |
-| DELETE | `/{prefix}/:id` | Remove (hard delete); 404 se não existir |
+| GET | `/categories` | Lista todos, ordenado por `name` |
+| POST | `/categories` | Cria — body `{ name, color? }` |
+| PUT | `/categories/:id` | Edita — body `{ name, color? }`; 404 se não existir |
+| DELETE | `/categories/:id` | Remove (hard delete); 404 se não existir |
 
 **Body (POST / PUT):**
 
 ```json
-{ "name": "Pix", "color": "#06b6d4" }
+{ "name": "Lazer", "color": "#f97316" }
 ```
 
 - `name` — obrigatório, `minLength: 1`.
@@ -41,9 +41,9 @@ Substitua `{prefix}` por `categories`, `payment-methods` ou `banks`.
 ```json
 {
   "id": "uuid",
-  "name": "Pix",
-  "color": "#06b6d4",
-  "createdAt": "2026-06-23T23:35:13.460Z"
+  "name": "Lazer",
+  "color": "#f97316",
+  "createdAt": "2026-07-01T23:35:13.460Z"
 }
 ```
 
@@ -51,5 +51,6 @@ Substitua `{prefix}` por `categories`, `payment-methods` ou `banks`.
 
 ## Notas
 
-- **Hard delete**: diferente de `clients`, estes módulos não usam soft delete — o registro é removido de fato.
-- **Categorias**: a tabela foi simplificada — os antigos campos `type` (INCOME/EXPENSE) e `icon` e o enum `category_type` foram removidos. `transactions.category_id` e `budgets.category_id` continuam referenciando `categories`; a seleção de categoria em transações/orçamentos agora lista todas as categorias, sem filtro por tipo.
+- **Hard delete**: diferente de `clients`, este módulo não usa soft delete — o registro é removido de fato.
+- A tabela foi simplificada — os antigos campos `type` (INCOME/EXPENSE), `icon` e o enum `category_type` foram removidos. `transactions.category_id` e `budgets.category_id` continuam referenciando `categories`; a seleção de categoria em transações/orçamentos lista todas, sem filtro por tipo.
+- As 13 categorias padrão (Lazer, Transporte, Estudos, Investimento, Alimentação, Office, Saúde, Compras, Música, Moradia, Assinaturas, Serviços, Outros) vêm do seed — ver `.claude/docs/infra/database.md`.

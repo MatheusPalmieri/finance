@@ -16,7 +16,7 @@ A transação é o módulo central do sistema. Não há campo `type` nem entidad
 | `name` | varchar(255) | sim | Nome/descrição curta |
 | `amount` | numeric(10,2) | sim | Valor em reais. Positivo = despesa; negativo = entrada (ver "Entradas") |
 | `categoryId` | uuid FK → categories | sim | Categoria do gasto |
-| `paymentMethodId` | uuid FK → payment_methods | sim | Forma de pagamento |
+| `paymentMethod` | enum `payment_method` | sim | Forma de pagamento — lista fixa do sistema, não é FK (ver "Forma de pagamento" abaixo) |
 | `accountId` | uuid FK → accounts | sim | Conta de onde saiu o dinheiro |
 | `isEssential` | boolean | sim | Gasto essencial (`true`) ou não (`false`) |
 | `recurrence` | enum `fixed` \| `variable` | sim | Gasto fixo (recorrente) ou variável (pontual) |
@@ -26,7 +26,7 @@ A transação é o módulo central do sistema. Não há campo `type` nem entidad
 
 `createdAt` / `updatedAt` são gerenciados automaticamente.
 
-> **Decisão técnica — "usar Contas em vez de Bancos":** o requisito original pedia `bank_id`, mas optou-se por referenciar o módulo de **Contas (accounts)**. O `is_default` ficou em `accounts`, e o módulo **Bancos** permanece como cadastro avulso, sem ligação com transações.
+> **Decisão técnica — "usar Contas em vez de Bancos":** o requisito original pedia `bank_id`, mas optou-se por referenciar o módulo de **Contas (accounts)**. O `is_default` ficou em `accounts`. O módulo **Bancos** (cadastro avulso, sem ligação com transações) foi **removido por completo em 2026-07-01** — nunca teve FK apontando pra ele, então a remoção não teve impacto em nenhuma outra tabela.
 
 ## Regras de negócio
 
@@ -49,9 +49,26 @@ Adicionado em 2026-07-01. Não existe campo `type`: o formulário (`app/src/page
 - O formulário de transação pré-preenche `accountId` com a conta padrão (`GET /accounts/default`).
 - O campo `date` do formulário é pré-preenchido com a data de hoje.
 
+### Forma de pagamento — lista fixa (não é mais CRUD)
+Migrado em 2026-07-01: **não existe mais a tabela `payment_methods`**. `transactions.payment_method` é o enum Postgres `payment_method` com 6 valores fixos, definidos no código — sem tela de cadastro, sem `isDefault`, sem cor/nome editável pelo usuário:
+
+| Valor no enum | Label (pt-BR) | Cor |
+|---|---|---|
+| `credit_card` | Cartão de crédito | `#ef4444` |
+| `debit_card` | Cartão de débito | `#3b82f6` |
+| `pix` | Pix | `#06b6d4` |
+| `cash` | Dinheiro | `#10b981` |
+| `boleto` | Boleto | `#f59e0b` |
+| `transfer` | Transferência | `#8b5cf6` |
+
+- **Backend**: enum `paymentMethodEnum` em `api/src/db/schema.ts`; labels/cores/validação centralizados em `api/src/lib/payment-methods.ts` (`PAYMENT_METHODS`, `PAYMENT_METHOD_LABELS`, `PAYMENT_METHOD_HEX`, `isPaymentMethod()`), usado por `routes/transactions.ts` (validação de filtro), `routes/dashboard.ts` (labels/cores do agrupamento `expensesByPaymentMethod`, sem mais `JOIN`) e `db/seed-dev.ts` (o seed padrão, `db/seed.ts`, não cria transações — ver `.claude/docs/infra/database.md`).
+- **Frontend**: mesmos labels/cores duplicados em `app/src/types/finance.ts` (`PaymentMethod`, `PAYMENT_METHOD_LABELS`, `PAYMENT_METHOD_HEX`, `PAYMENT_METHOD_ORDER`) — os dois lados precisam ficar em sincronia se a lista mudar.
+- **Padrão em transações novas**: `TransactionModal` (`app/src/pages/Transactions/index.tsx`) pré-preenche `paymentMethod: "credit_card"` diretamente (é um literal fixo agora, não precisa mais buscar por nome). Mesma lógica em `ImportModal` (ver `.claude/docs/frontend/transactions-import.md`).
+- **Mudar a lista exige migração de banco** (adicionar/remover valor de um enum Postgres, ou trocar `transactions.payment_method` de volta pra FK) — não é mais só editar uma tabela via UI.
+
 ## Impacto da migração (modelo antigo → novo)
 
 O modelo antigo (`type` INCOME/EXPENSE/TRANSFER, `description`, `toAccountId`) foi **substituído por completo**. Consequências:
 - **Dashboard** (`/dashboard/summary`) virou painel de despesas: total, essencial vs não-essencial, fixo vs variável, por categoria, por forma de pagamento e por conta. Não há mais receita, patrimônio nem taxa de poupança.
 - **Categorias** não têm mais `type`; a seleção no formulário lista todas.
-- **Bancos** deixaram de ser referenciados por transações.
+- **Bancos** foi removido do sistema por completo em 2026-07-01 (nunca chegou a ser referenciado por transações).

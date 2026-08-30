@@ -1,12 +1,4 @@
-import {
-  ArrowLeftRight,
-  Building2,
-  CreditCard,
-  Home,
-  Landmark,
-  PiggyBank,
-  Tag,
-} from "lucide-react"
+import { ArrowLeftRight, Home, Landmark, PiggyBank, Tag } from "lucide-react"
 
 // Tipo estrutural para ícones (lucide-react)
 export type IconType = React.ComponentType<{ size?: number; className?: string }>
@@ -25,8 +17,6 @@ export const navItems: NavItemDef[] = [
   { to: "/accounts", icon: Landmark, label: "Contas" },
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
   { to: "/categories", icon: Tag, label: "Categorias" },
-  { to: "/payment-methods", icon: CreditCard, label: "Formas de pagamento" },
-  { to: "/banks", icon: Building2, label: "Bancos" },
 ]
 
 // Retorna true se a rota atual corresponde ao item de navegação

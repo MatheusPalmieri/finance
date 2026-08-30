@@ -25,14 +25,6 @@ export const keys = {
     all: ["categories"] as const,
     list: () => [...keys.categories.all, "list"] as const,
   },
-  paymentMethods: {
-    all: ["payment-methods"] as const,
-    list: () => [...keys.paymentMethods.all, "list"] as const,
-  },
-  banks: {
-    all: ["banks"] as const,
-    list: () => [...keys.banks.all, "list"] as const,
-  },
   transactions: {
     all: ["transactions"] as const,
     lists: () => [...keys.transactions.all, "list"] as const,
@@ -153,100 +145,6 @@ export function useDeleteCategory() {
   })
 }
 
-// ── Payment methods ─────────────────────────────────────────────────────────────
-export function usePaymentMethods() {
-  return useQuery({
-    queryKey: keys.paymentMethods.list(),
-    queryFn: api.paymentMethods.list,
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCreatePaymentMethod() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: api.paymentMethods.create,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.paymentMethods.all })
-      toast.success("Forma de pagamento criada")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar forma de pagamento"),
-  })
-}
-
-export function useUpdatePaymentMethod() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name: string; color?: string }) =>
-      api.paymentMethods.update(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.paymentMethods.all })
-      toast.success("Forma de pagamento atualizada")
-    },
-    onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao atualizar forma de pagamento"),
-  })
-}
-
-export function useDeletePaymentMethod() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.paymentMethods.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.paymentMethods.all })
-      toast.success("Forma de pagamento excluída")
-    },
-    onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao excluir forma de pagamento"),
-  })
-}
-
-// ── Banks ─────────────────────────────────────────────────────────────────────
-export function useBanks() {
-  return useQuery({
-    queryKey: keys.banks.list(),
-    queryFn: api.banks.list,
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCreateBank() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: api.banks.create,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.banks.all })
-      toast.success("Banco criado")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar banco"),
-  })
-}
-
-export function useUpdateBank() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name: string; color?: string }) =>
-      api.banks.update(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.banks.all })
-      toast.success("Banco atualizado")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar banco"),
-  })
-}
-
-export function useDeleteBank() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.banks.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.banks.all })
-      toast.success("Banco excluído")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir banco"),
-  })
-}
-
 // ── Transactions ──────────────────────────────────────────────────────────────
 export function useTransactions(params: ListTransactionsParams) {
   return useQuery({
@@ -296,6 +194,20 @@ export function useDeleteTransaction() {
       toast.success("Transação excluída")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir transação"),
+  })
+}
+
+export function useBulkCreateTransactions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (items: TransactionInput[]) => api.transactions.bulkCreate(items),
+    onSuccess: ({ created }) => {
+      qc.invalidateQueries({ queryKey: keys.transactions.all })
+      qc.invalidateQueries({ queryKey: keys.accounts.all })
+      qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      toast.success(created === 1 ? "1 transação importada" : `${created} transações importadas`)
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao importar transações"),
   })
 }
 

@@ -1,7 +1,8 @@
 import { Elysia, t } from "elysia"
-import { and, between, desc, eq, sql } from "drizzle-orm"
+import { and, between, eq, desc, sql } from "drizzle-orm"
 import { db } from "../db"
-import { accounts, categories, paymentMethods, transactions } from "../db/schema"
+import { accounts, categories, transactions } from "../db/schema"
+import { PAYMENT_METHOD_HEX, PAYMENT_METHOD_LABELS } from "../lib/payment-methods"
 
 // Valor negativo = entrada (ver routes/transactions.ts). Este painel é só de
 // despesas, então as agregações abaixo ignoram entradas.
@@ -46,18 +47,15 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
         .groupBy(transactions.categoryId, categories.name, categories.color)
         .orderBy(sql`sum(amount::numeric) desc`)
 
-      // Despesas por forma de pagamento
+      // Despesas por forma de pagamento — lista fixa, sem join (não é mais tabela)
       const expensesByPaymentMethod = await db
         .select({
-          id: transactions.paymentMethodId,
-          name: paymentMethods.name,
-          color: paymentMethods.color,
+          paymentMethod: transactions.paymentMethod,
           amount: sql<string>`sum(amount::numeric)`,
         })
         .from(transactions)
-        .leftJoin(paymentMethods, eq(transactions.paymentMethodId, paymentMethods.id))
         .where(inMonth)
-        .groupBy(transactions.paymentMethodId, paymentMethods.name, paymentMethods.color)
+        .groupBy(transactions.paymentMethod)
         .orderBy(sql`sum(amount::numeric) desc`)
 
       // Despesas por conta
@@ -89,7 +87,7 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
 
       // Transações recentes
       const recentTransactions = await db.query.transactions.findMany({
-        with: { account: true, category: true, paymentMethod: true, budget: true },
+        with: { account: true, category: true, budget: true },
         orderBy: [desc(transactions.date), desc(transactions.createdAt)],
         limit: 10,
       })
@@ -108,9 +106,9 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
           amount: r.amount,
         })),
         expensesByPaymentMethod: expensesByPaymentMethod.map((r) => ({
-          id: r.id,
-          name: r.name ?? "—",
-          color: r.color ?? "#6b7280",
+          id: r.paymentMethod,
+          name: PAYMENT_METHOD_LABELS[r.paymentMethod],
+          color: PAYMENT_METHOD_HEX[r.paymentMethod],
           amount: r.amount,
         })),
         expensesByAccount: expensesByAccount.map((r) => ({

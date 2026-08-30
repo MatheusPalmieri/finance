@@ -4,9 +4,11 @@ area: frontend
 updated: 2026-07-01
 ---
 
-> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/accounts`, `/budgets`, `/categories`, `/payment-methods`, `/banks`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
+> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/accounts`, `/budgets`, `/categories`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
 >
 > A feature de Investimentos (`/investments`, aportes, projeção de prazo) foi **removida** do sistema em 2026-07-01 — rota, página, tabelas `investments`/`investment_contributions`, tipos e hooks foram todos apagados. Não confundir com o tipo de orçamento `investment` (regra 50/30/20 em `budgets`), que continua existindo.
+>
+> **Formas de pagamento** (`/payment-methods`) e **Bancos** (`/banks`) também foram removidos como CRUD em 2026-07-01. Formas de pagamento virou lista fixa (ver `.claude/docs/domain/transaction.md`); Bancos foi removido por completo — era um cadastro avulso sem nenhuma ligação real com o resto do sistema.
 
 ## Visão geral
 
