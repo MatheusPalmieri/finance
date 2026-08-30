@@ -59,6 +59,7 @@ Docs existentes:
 - `.claude/docs/frontend/responsive.md` — sidebar desktop + drawer mobile, breakpoints, touch targets
 - `.claude/docs/frontend/states.md` — estados loading/erro/vazio/sucesso e ErrorState
 - `.claude/docs/infra/dev-runner.md` — script `bun run dev` na raiz que sobe api + app juntos (concurrently)
+- `.claude/docs/infra/error-handler.md` — handler global `onError` que desembrulha `error.cause` (Drizzle) e loga o erro real do Postgres
 - `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos, seed padrão vs seed de desenvolvimento
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida
