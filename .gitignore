@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Extratos bancários (dados sensíveis)
+NU_*.csv
+
 # Build outputs
 dist/
 dist-ssr/

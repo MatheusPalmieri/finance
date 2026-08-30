@@ -4,6 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Regra de commit/push (OBRIGATÓRIA)
+
+**Ao finalizar cada interação/tarefa, sempre faça `git commit` das alterações pendentes e `git push`.**
+Nunca deixe trabalho concluído fora do controle de versão.
+
+- Commits seguem Conventional Commits.
+- Não commitar extratos bancários (`NU_*.csv`) nem segredos — usar `.gitignore`.
+- Se o usuário corrigir uma regra ou forma de trabalho, **atualize o harness**
+  (este `CLAUDE.md`, `.claude/settings.json` ou memória) e faça um novo commit
+  registrando a correção.
+
+---
+
 ## Skills disponíveis
 
 Este projeto tem skills configuradas em `.claude/skills/`. Use-as sempre que o contexto bater:
