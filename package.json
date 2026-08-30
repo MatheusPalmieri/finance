@@ -1,0 +1,13 @@
+{
+  "name": "finance",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently -n api,app -c blue,green \"cd api && bun run dev\" \"cd app && bun run dev\"",
+    "dev:api": "cd api && bun run dev",
+    "dev:app": "cd app && bun run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

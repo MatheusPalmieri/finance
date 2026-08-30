@@ -58,6 +58,7 @@ Docs existentes:
 - `.claude/docs/frontend/design-tokens.md` — paleta esmeralda, lib/tokens.ts, tint(), regras de cor
 - `.claude/docs/frontend/responsive.md` — sidebar desktop + drawer mobile, breakpoints, touch targets
 - `.claude/docs/frontend/states.md` — estados loading/erro/vazio/sucesso e ErrorState
+- `.claude/docs/infra/dev-runner.md` — script `bun run dev` na raiz que sobe api + app juntos (concurrently)
 - `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos, seed padrão vs seed de desenvolvimento
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida
@@ -105,6 +106,15 @@ api/src/
 
 All commands run from within the respective workspace directory (`app/` or `api/`).
 
+### raiz (`finance/`)
+
+```bash
+bun install        # Instala concurrently (única dep da raiz)
+bun run dev        # Sobe api + app juntos (concurrently) — precisa do Postgres no ar
+bun run dev:api    # Só a api
+bun run dev:app    # Só o app
+```
+
 ### app/
 
 ```bash
@@ -142,9 +152,8 @@ docker compose down -v  # Para e apaga volume (reseta banco)
 docker compose up -d
 cp api/.env.example api/.env
 cd api && bun run db:push
-cd api && bun run dev
-# outro terminal:
-cd app && bun run dev
+cd .. && bun install
+bun run dev   # sobe api + app juntos
 ```
 
 ## Tech Stack
