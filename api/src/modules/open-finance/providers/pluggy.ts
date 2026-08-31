@@ -80,6 +80,15 @@ interface Paged<T> {
   totalPages: number
 }
 
+// GET /v2/transactions usa paginação por cursor: enquanto `nextCursor` vier
+// preenchido, há mais páginas. Alguns conectores devolvem o cursor aninhado
+// em `page.nextCursor` — cobrimos os dois formatos.
+interface CursorPaged<T> {
+  results: T[]
+  nextCursor?: string | null
+  page?: { nextCursor?: string | null }
+}
+
 export class PluggyProvider implements OpenFinanceProvider {
   readonly name = "pluggy"
   #baseUrl = process.env.PLUGGY_BASE_URL ?? "https://api.pluggy.ai"
@@ -198,26 +207,27 @@ export class PluggyProvider implements OpenFinanceProvider {
     opts: ListTransactionsOptions = {}
   ): Promise<ProviderTransaction[]> {
     const all: ProviderTransaction[] = []
-    let page = 1
-    let totalPages = 1
+    let cursor: string | null = null
+    let pages = 0
 
     do {
       const params = new URLSearchParams({
         accountId: providerAccountId,
-        page: String(page),
         pageSize: String(PAGE_SIZE),
       })
       if (opts.from) params.set("from", opts.from)
       if (opts.to) params.set("to", opts.to)
+      if (cursor) params.set("cursor", cursor)
 
-      const res = await this.#req<Paged<PluggyTransaction>>(
-        `/transactions?${params}`,
+      // /transactions (offset) foi descontinuado — usamos /v2 com cursor.
+      const res = await this.#req<CursorPaged<PluggyTransaction>>(
+        `/v2/transactions?${params}`,
         { signal: opts.signal }
       )
-      totalPages = res.totalPages || 1
       for (const tx of res.results) all.push(this.#mapTransaction(tx))
-      page++
-    } while (page <= totalPages && page <= MAX_PAGES)
+      cursor = res.nextCursor ?? res.page?.nextCursor ?? null
+      pages++
+    } while (cursor && pages < MAX_PAGES)
 
     return all
   }
