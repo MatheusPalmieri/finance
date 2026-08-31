@@ -52,6 +52,10 @@ Docs existentes:
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês e filtro de período específico em Transações
 - `.claude/docs/frontend/transactions-import.md` — importação de extrato CSV (Nubank) com revisão antes de salvar
+- `.claude/docs/domain/open-finance.md` — integração Open Finance (leitura), tabelas open_finance_*, normalização e sincronização
+- `.claude/docs/api/open-finance.md` — endpoints /open-finance, provider interface, variáveis de ambiente
+- `.claude/docs/frontend/open-finance.md` — página /open-finance (conexões, sync, transações importadas)
+- `docs/open-finance-decision.md` — ADR: escolha do provedor (Pluggy vs Belvo)
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
 - `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render

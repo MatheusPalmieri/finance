@@ -34,6 +34,12 @@ export const keys = {
     all: ["budgets"] as const,
     list: (name?: string) => [...keys.budgets.all, "list", name ?? ""] as const,
   },
+  openFinance: {
+    all: ["open-finance"] as const,
+    connections: () => [...keys.openFinance.all, "connections"] as const,
+    transactions: (id: string, page: number) =>
+      [...keys.openFinance.all, "transactions", id, page] as const,
+  },
   dashboard: {
     all: ["dashboard"] as const,
     summary: (params: DashboardParams) => [...keys.dashboard.all, "summary", params] as const,
@@ -254,6 +260,65 @@ export function useDeleteBudget() {
       toast.success("Orçamento excluído")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir orçamento"),
+  })
+}
+
+// ── Open Finance ──────────────────────────────────────────────────────────────
+export function useOpenFinanceConnections() {
+  return useQuery({
+    queryKey: keys.openFinance.connections(),
+    queryFn: api.openFinance.listConnections,
+  })
+}
+
+export function useOpenFinanceTransactions(id: string, page: number) {
+  return useQuery({
+    queryKey: keys.openFinance.transactions(id, page),
+    queryFn: () => api.openFinance.transactions(id, { page }),
+    placeholderData: keepPreviousData,
+    enabled: !!id,
+  })
+}
+
+export function useCreateOpenFinanceConnection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.openFinance.createConnection,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.openFinance.all })
+      toast.success("Conexão criada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar conexão"),
+  })
+}
+
+export function useSyncOpenFinanceConnection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.openFinance.sync(id),
+    onSuccess: (run) => {
+      qc.invalidateQueries({ queryKey: keys.openFinance.all })
+      if (run.status === "ERROR") {
+        toast.error(run.errorMessage ?? "Falha na sincronização")
+      } else {
+        toast.success(
+          `Sincronizado: ${run.transactionsCreated} nova(s), ${run.transactionsUpdated} atualizada(s)`
+        )
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao sincronizar"),
+  })
+}
+
+export function useDeleteOpenFinanceConnection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.openFinance.deleteConnection(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.openFinance.all })
+      toast.success("Conexão removida")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao remover conexão"),
   })
 }
 

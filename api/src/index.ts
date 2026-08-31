@@ -5,6 +5,7 @@ import { budgetsRoute } from "./routes/budgets"
 import { categoriesRoute } from "./routes/categories"
 import { dashboardRoute } from "./routes/dashboard"
 import { transactionsRoute } from "./routes/transactions"
+import { openFinanceRoute } from "./modules/open-finance"
 
 const app = new Elysia()
   .use(cors({ origin: "http://localhost:5173" }))
@@ -26,6 +27,7 @@ const app = new Elysia()
   .use(transactionsRoute)
   .use(budgetsRoute)
   .use(dashboardRoute)
+  .use(openFinanceRoute)
   .listen(3001)
 
 console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`)

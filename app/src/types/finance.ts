@@ -57,6 +57,92 @@ export interface Budget {
   updatedAt: string
 }
 
+// ── Open Finance (somente leitura) ──────────────────────────────────────────
+export type OfConnectionStatus =
+  | "PENDING"
+  | "UPDATING"
+  | "ACTIVE"
+  | "LOGIN_ERROR"
+  | "ERROR"
+  | "DELETED"
+
+export type OfTxDirection = "INFLOW" | "OUTFLOW"
+export type OfSyncStatus = "RUNNING" | "SUCCESS" | "ERROR"
+
+export interface OpenFinanceAccount {
+  id: string
+  connectionId: string
+  providerAccountId: string
+  linkedAccountId: string | null
+  type: string | null
+  name: string | null
+  number: string | null
+  balance: string | null
+  currencyCode: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OpenFinanceSyncRun {
+  id: string
+  connectionId: string
+  status: OfSyncStatus
+  trigger: "INITIAL" | "MANUAL" | "WEBHOOK"
+  accountsSynced: number
+  transactionsCreated: number
+  transactionsUpdated: number
+  errorMessage: string | null
+  startedAt: string
+  finishedAt: string | null
+}
+
+export interface OpenFinanceConnection {
+  id: string
+  provider: string
+  providerItemId: string
+  connectorId: string | null
+  connectorName: string | null
+  status: OfConnectionStatus
+  statusDetail: string | null
+  lastSyncedAt: string | null
+  createdAt: string
+  updatedAt: string
+  accounts: OpenFinanceAccount[]
+  syncRuns: OpenFinanceSyncRun[]
+}
+
+export interface OpenFinanceTransaction {
+  id: string
+  connectionId: string
+  ofAccountId: string
+  providerTransactionId: string
+  description: string
+  amount: string
+  currencyCode: string | null
+  date: string
+  direction: OfTxDirection
+  status: string | null
+  category: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OpenFinanceTransactionsResponse {
+  data: OpenFinanceTransaction[]
+  total: number
+  page: number
+  limit: number
+}
+
+export const OF_CONNECTION_STATUS_LABELS: Record<OfConnectionStatus, string> = {
+  PENDING: "Pendente",
+  UPDATING: "Atualizando",
+  ACTIVE: "Ativa",
+  LOGIN_ERROR: "Erro de login",
+  ERROR: "Erro",
+  DELETED: "Desconectada",
+}
+
 export interface TransactionsResponse {
   data: Transaction[]
   total: number
