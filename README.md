@@ -48,6 +48,7 @@ Detalhes: `.claude/docs/{domain,api,frontend}/open-finance.md`.
 | `PLUGGY_CLIENT_SECRET` | — | Client Secret da app Pluggy |
 | `PLUGGY_BASE_URL` | `https://api.pluggy.ai` | Override da URL base |
 | `OPEN_FINANCE_DEFAULT_CONNECTOR_ID` | `2` | Conector padrão ao criar conexão pelo backend (`2` = Pluggy Bank sandbox) |
+| `OPEN_FINANCE_WEBHOOK_URL` | vazio | URL pública repassada à Pluggy ao criar o item (túnel local) |
 | `OPEN_FINANCE_WEBHOOK_SECRET` | vazio | Se definido, `POST /open-finance/webhooks` exige `x-webhook-secret` |
 
 `PLUGGY_CLIENT_ID/SECRET` são usados **apenas no backend** para gerar o

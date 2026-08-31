@@ -21,7 +21,22 @@ movimentam dinheiro). Toda chamada ao provedor sai do backend.
 | `PLUGGY_CLIENT_ID` / `PLUGGY_CLIENT_SECRET` | — | Credenciais da app Pluggy. Só backend. |
 | `PLUGGY_BASE_URL` | `https://api.pluggy.ai` | Override da API. |
 | `OPEN_FINANCE_DEFAULT_CONNECTOR_ID` | `2` | Conector usado quando `connectorId` não é enviado (`2` = Pluggy Bank sandbox). |
-| `OPEN_FINANCE_WEBHOOK_SECRET` | vazio | Se preenchido, valida o webhook. |
+| `OPEN_FINANCE_WEBHOOK_URL` | vazio | URL pública repassada à Pluggy no `POST /items` (túnel em ambiente local). |
+| `OPEN_FINANCE_WEBHOOK_SECRET` | vazio | Se preenchido, valida o webhook recebido (`x-webhook-secret`). |
+
+## Endpoints da Pluggy usados (somente leitura)
+
+Verificados na doc oficial (2026-08):
+
+| Chamada | Observação |
+|---|---|
+| `POST /auth` | `{ clientId, clientSecret }` → `{ apiKey }`. Header `X-API-KEY`, validade ~2h (renovado aos 90 min). |
+| `GET /items/:id` | `status`: `UPDATING`/`LOGIN_ERROR`/`OUTDATED`/`WAITING_USER_INPUT`/`UPDATED`. |
+| `POST /items` | `{ connectorId, parameters, avoidDuplicates, webhookUrl? }` — fluxo sandbox/backend. |
+| `PATCH /items/:id` | corpo `{}` reexecuta a coleta com as credenciais armazenadas. |
+| `DELETE /items/:id` | desconecta. |
+| `GET /accounts?itemId=&page=` | paginação por página: `{ results, page, totalPages }`. |
+| `GET /v2/transactions?accountId=&from=&to=&after=` | **cursor**: page size fixo 500, cursor em `next` (querystring `?...&after=<cursor>`). O antigo `GET /transactions` por página foi **descontinuado**. |
 
 ## Provider interface
 

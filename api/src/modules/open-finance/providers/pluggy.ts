@@ -1,6 +1,19 @@
 // Provedor Pluggy (https://docs.pluggy.ai). Somente leitura: itens, contas e
-// transações. Toda chamada sai do backend com o `X-API-KEY` de curta duração
-// derivado de CLIENT_ID/CLIENT_SECRET — nada disso vai para o frontend.
+// transações. Toda chamada sai do backend com o header `X-API-KEY` de curta
+// duração derivado de CLIENT_ID/CLIENT_SECRET — nada disso vai para o frontend.
+//
+// Endpoints usados (verificados na doc em 2026-08):
+//   POST   /auth                       -> { apiKey }
+//   GET    /items/{id}                 -> Item
+//   POST   /items                      -> Item   (fluxo sandbox/backend)
+//   PATCH  /items/{id}                 -> Item   (reexecuta a coleta)
+//   DELETE /items/{id}
+//   GET    /accounts?itemId=&page=     -> { results, page, totalPages }
+//   GET    /v2/transactions?accountId=&dateFrom=&dateTo=&after=  -> { results, next }
+//     (o antigo GET /transactions por página foi descontinuado; /v2 usa cursor
+//      via query param `after`, page size fixo de 500, cursor em `next`.
+//      Filtro de data: `dateFrom`/`dateTo` no formato yyyy-mm-dd. NÃO aceita
+//      `from`/`to` nem `pageSize`.)
 
 import { httpJson } from "../http"
 import type { OpenFinanceProvider } from "../provider"
@@ -14,8 +27,9 @@ import type {
   WebhookEvent,
 } from "../types"
 
-const PAGE_SIZE = 500
-const MAX_PAGES = 50 // teto de segurança (~25k transações por conta)
+// Teto de segurança para não paginar indefinidamente (500 itens/página).
+const MAX_TX_PAGES = 60
+const MAX_ACCOUNT_PAGES = 20
 
 function requireEnv(key: string): string {
   const value = process.env[key]
@@ -23,37 +37,46 @@ function requireEnv(key: string): string {
   return value
 }
 
-// Pluggy item.status → status agnóstico do projeto
-function mapStatus(status: string): OpenFinanceConnectionStatus {
+// Item.status da Pluggy (doc "Item lifecycle") -> status agnóstico do projeto.
+// Valores possíveis: UPDATING | LOGIN_ERROR | OUTDATED | WAITING_USER_INPUT | UPDATED
+function mapStatus(
+  status: string | undefined,
+  executionStatus: string | undefined
+): OpenFinanceConnectionStatus {
   switch (status) {
     case "UPDATED":
       return "ACTIVE"
     case "UPDATING":
-    case "LOGIN_IN_PROGRESS":
       return "UPDATING"
     case "WAITING_USER_INPUT":
-    case "CREATED":
       return "PENDING"
     case "LOGIN_ERROR":
       return "LOGIN_ERROR"
+    case "OUTDATED":
+      return "ERROR"
     default:
+      // Sem status conhecido: usa o executionStatus como pista de progresso.
+      if (executionStatus && executionStatus.endsWith("_IN_PROGRESS")) {
+        return "UPDATING"
+      }
+      if (executionStatus === "CREATED") return "PENDING"
       return "ERROR"
   }
 }
 
 interface PluggyItem {
   id: string
-  status: string
-  statusDetail?: unknown
+  status?: string
   executionStatus?: string
+  statusDetail?: unknown
   connector?: { id?: number; name?: string }
-  error?: { message?: string } | null
+  error?: { message?: string; code?: string } | null
 }
 
 interface PluggyAccount {
   id: string
-  type?: string
-  subtype?: string
+  type?: string // BANK | CREDIT
+  subtype?: string // CHECKING_ACCOUNT | SAVINGS_ACCOUNT | CREDIT_CARD
   name?: string
   marketingName?: string
   number?: string
@@ -61,32 +84,29 @@ interface PluggyAccount {
   currencyCode?: string
 }
 
+interface PluggyPagedAccounts {
+  results: PluggyAccount[]
+  page?: number
+  totalPages?: number
+}
+
 interface PluggyTransaction {
   id: string
   description?: string
-  descriptionRaw?: string
-  amount: number
-  amountInAccountCurrency?: number
+  descriptionRaw?: string | null
   currencyCode?: string
+  amount: number
   date: string
   category?: string | null
-  status?: string
+  status?: "PENDING" | "POSTED" | string
   type?: "DEBIT" | "CREDIT"
 }
 
-interface Paged<T> {
-  results: T[]
-  page: number
-  totalPages: number
-}
-
-// GET /v2/transactions usa paginação por cursor: enquanto `nextCursor` vier
-// preenchido, há mais páginas. Alguns conectores devolvem o cursor aninhado
-// em `page.nextCursor` — cobrimos os dois formatos.
-interface CursorPaged<T> {
-  results: T[]
-  nextCursor?: string | null
-  page?: { nextCursor?: string | null }
+// GET /v2/transactions: paginação por cursor. `next` vem como querystring
+// pronta (ex.: "?accountId=...&after=<cursor>") ou ausente/null na última página.
+interface PluggyV2Transactions {
+  results: PluggyTransaction[]
+  next?: string | null
 }
 
 export class PluggyProvider implements OpenFinanceProvider {
@@ -128,14 +148,16 @@ export class PluggyProvider implements OpenFinanceProvider {
   }
 
   #mapItem(item: PluggyItem): ProviderConnection {
+    const detail =
+      item.error?.message ??
+      (typeof item.statusDetail === "string" ? item.statusDetail : null)
     return {
       providerItemId: item.id,
-      connectorId: item.connector?.id != null ? String(item.connector.id) : null,
+      connectorId:
+        item.connector?.id != null ? String(item.connector.id) : null,
       connectorName: item.connector?.name ?? null,
-      status: mapStatus(item.status),
-      statusDetail:
-        item.error?.message ??
-        (typeof item.statusDetail === "string" ? item.statusDetail : null),
+      status: mapStatus(item.status, item.executionStatus),
+      statusDetail: detail,
       raw: item,
     }
   }
@@ -156,12 +178,18 @@ export class PluggyProvider implements OpenFinanceProvider {
         "Informe itemId (widget) ou connectorId / OPEN_FINANCE_DEFAULT_CONNECTOR_ID"
       )
     }
+    const body: Record<string, unknown> = {
+      connectorId,
+      parameters: input.parameters ?? {},
+      // Não recria o item se já existir um com as mesmas credenciais.
+      avoidDuplicates: true,
+    }
+    const webhookUrl = process.env.OPEN_FINANCE_WEBHOOK_URL
+    if (webhookUrl) body.webhookUrl = webhookUrl
+
     const item = await this.#req<PluggyItem>("/items", {
       method: "POST",
-      body: JSON.stringify({
-        connectorId,
-        parameters: input.parameters ?? {},
-      }),
+      body: JSON.stringify(body),
     })
     return this.#mapItem(item)
   }
@@ -180,7 +208,7 @@ export class PluggyProvider implements OpenFinanceProvider {
   }
 
   async triggerSync(providerItemId: string): Promise<void> {
-    // PATCH sem credenciais reexecuta a coleta do item já conectado.
+    // PATCH com corpo vazio reexecuta a coleta usando as credenciais já armazenadas.
     await this.#req(`/items/${encodeURIComponent(providerItemId)}`, {
       method: "PATCH",
       body: JSON.stringify({}),
@@ -188,18 +216,30 @@ export class PluggyProvider implements OpenFinanceProvider {
   }
 
   async listAccounts(providerItemId: string): Promise<ProviderAccount[]> {
-    const { results } = await this.#req<Paged<PluggyAccount>>(
-      `/accounts?itemId=${encodeURIComponent(providerItemId)}`
-    )
-    return results.map((acc) => ({
-      providerAccountId: acc.id,
-      type: acc.subtype ?? acc.type ?? null,
-      name: acc.name ?? acc.marketingName ?? null,
-      number: acc.number ?? null,
-      balance: acc.balance ?? null,
-      currencyCode: acc.currencyCode ?? "BRL",
-      raw: acc,
-    }))
+    const out: ProviderAccount[] = []
+    let page = 1
+    let totalPages = 1
+
+    do {
+      const res = await this.#req<PluggyPagedAccounts>(
+        `/accounts?itemId=${encodeURIComponent(providerItemId)}&page=${page}`
+      )
+      totalPages = res.totalPages ?? 1
+      for (const acc of res.results) {
+        out.push({
+          providerAccountId: acc.id,
+          type: acc.subtype ?? acc.type ?? null,
+          name: acc.name ?? acc.marketingName ?? null,
+          number: acc.number ?? null,
+          balance: acc.balance ?? null,
+          currencyCode: acc.currencyCode ?? "BRL",
+          raw: acc,
+        })
+      }
+      page++
+    } while (page <= totalPages && page <= MAX_ACCOUNT_PAGES)
+
+    return out
   }
 
   async listTransactions(
@@ -207,34 +247,31 @@ export class PluggyProvider implements OpenFinanceProvider {
     opts: ListTransactionsOptions = {}
   ): Promise<ProviderTransaction[]> {
     const all: ProviderTransaction[] = []
-    let cursor: string | null = null
+    let after: string | null = null
     let pages = 0
 
     do {
-      const params = new URLSearchParams({
-        accountId: providerAccountId,
-        pageSize: String(PAGE_SIZE),
-      })
-      if (opts.from) params.set("from", opts.from)
-      if (opts.to) params.set("to", opts.to)
-      if (cursor) params.set("cursor", cursor)
+      const params = new URLSearchParams({ accountId: providerAccountId })
+      if (opts.from) params.set("dateFrom", opts.from)
+      if (opts.to) params.set("dateTo", opts.to)
+      if (after) params.set("after", after)
 
-      // /transactions (offset) foi descontinuado — usamos /v2 com cursor.
-      const res = await this.#req<CursorPaged<PluggyTransaction>>(
+      const res = await this.#req<PluggyV2Transactions>(
         `/v2/transactions?${params}`,
         { signal: opts.signal }
       )
       for (const tx of res.results) all.push(this.#mapTransaction(tx))
-      cursor = res.nextCursor ?? res.page?.nextCursor ?? null
+
+      after = extractAfterCursor(res.next)
       pages++
-    } while (cursor && pages < MAX_PAGES)
+    } while (after && pages < MAX_TX_PAGES)
 
     return all
   }
 
   #mapTransaction(tx: PluggyTransaction): ProviderTransaction {
-    // A Pluggy pode devolver `amount` já com sinal ou sempre positivo + `type`.
-    // Normalizamos para: negativo = saída, positivo = entrada.
+    // A direção vem do campo `type`; o sinal de `amount` varia por conector,
+    // então derivamos o sinal do tipo quando ele existe.
     const raw = Number(tx.amount)
     let signed = raw
     if (tx.type === "DEBIT") signed = -Math.abs(raw)
@@ -253,15 +290,19 @@ export class PluggyProvider implements OpenFinanceProvider {
   }
 
   parseWebhook(payload: unknown): WebhookEvent {
-    const body = (payload ?? {}) as {
-      event?: string
-      itemId?: string
-      id?: string
-    }
+    // Payload padrão da Pluggy: { event, eventId, itemId, accountId?, ... }
+    const body = (payload ?? {}) as { event?: string; itemId?: string }
     return {
-      providerItemId: body.itemId ?? body.id ?? null,
+      providerItemId: body.itemId ?? null,
       event: body.event ?? "unknown",
       raw: payload,
     }
   }
+}
+
+// `next` vem como "?accountId=...&after=<cursor>" (ou null na última página).
+function extractAfterCursor(next: string | null | undefined): string | null {
+  if (!next) return null
+  const qs = next.includes("?") ? next.slice(next.indexOf("?") + 1) : next
+  return new URLSearchParams(qs).get("after")
 }

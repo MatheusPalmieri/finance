@@ -40,10 +40,12 @@ original independentemente do sinal.
 1. `getConnection` no provedor → atualiza `status`.
 2. `listAccounts` → upsert em `open_finance_accounts` por `provider_account_id`.
 3. Para cada conta: `listTransactions` (incremental a partir de
-   `last_synced_at − 5 dias`), `planSync()` separa inserts de updates pelo id do
-   provedor, grava em lote com `onConflictDoNothing` (corrida com webhook).
+   `last_synced_at − 5 dias`) — na Pluggy é `GET /v2/transactions` com paginação
+   por **cursor** (`after` / `next`), page size fixo de 500. `planSync()` separa
+   inserts de updates pelo id do provedor, grava em lote com `onConflictDoNothing`
+   (corrida com webhook).
 4. Atualiza `last_synced_at` e fecha o `sync_run` com contadores.
 
-Falhas: paginação com teto de 50 páginas/conta, timeout de 20s por request e
+Falhas: paginação com teto de 60 páginas/conta, timeout de 20s por request e
 retry com backoff só para 429/5xx/rede (`http.ts`). Erro numa sync marca o
 `sync_run` como ERROR sem derrubar a conexão.

@@ -27,7 +27,7 @@ um **agregador** que já é participante regulado e expõe uma API REST simples.
 |---|---|---|
 | Compatível com Bun / REST puro | Sim — API REST + `fetch`, sem SDK obrigatório | Sim — API REST, mas SDK/documentação priorizam Python/Node legado |
 | Open Finance regulado no Brasil | Sim, participante; produto "Open Finance regulado" documentado (`docs.pluggy.ai/docs/open-finance-regulated`) | Sim, participante; foco histórico em México/Colômbia, Brasil mais recente |
-| Leitura de contas e transações | `/accounts`, `/transactions` com paginação e categorização | `/accounts`, `/transactions`, `/owners` |
+| Leitura de contas e transações | `/accounts` (paginação por página) + `/v2/transactions` (paginação por cursor) com categorização | `/accounts`, `/transactions`, `/owners` |
 | Sandbox | "Pluggy Bank" e conectores sandbox dedicados, credenciais de teste fixas | Sandbox com instituições fictícias |
 | Simplicidade para uso pessoal | Alta — `clientId/clientSecret` → `apiKey` 2h → chamadas com `X-API-KEY`; widget opcional | Média — Basic Auth com `secretId/secretPassword`, modelo de "links" |
 | Documentação / estabilidade | Boa, em PT-BR, exemplos de Item/webhook claros | Boa, em PT/EN, porém mais densa |
@@ -57,6 +57,9 @@ um **agregador** que já é participante regulado e expõe uma API REST simples.
   e pela coluna `raw_payload` preservada em todas as tabelas.
 - `apiKey` de 2h exige renovação — resolvido com cache + renovação automática aos
   90 min dentro do `PluggyProvider`.
+- A API evolui (o `GET /transactions` por página foi descontinuado em favor de
+  `GET /v2/transactions` por cursor) — mitigado por manter o cliente Pluggy num
+  único arquivo (`providers/pluggy.ts`) atrás da interface.
 - Categorização e sinal de valor podem variar entre conectores — a normalização
   (`normalize.ts`) centraliza a conversão e é coberta por testes.
 

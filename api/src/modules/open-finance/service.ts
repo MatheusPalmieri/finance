@@ -2,7 +2,7 @@
 // sincroniza contas/transações externas e responde webhooks. Nunca escreve em
 // `transactions` — os dados externos vivem nas tabelas `open_finance_*`.
 
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm"
+import { and, count, desc, eq, gte, inArray, lte } from "drizzle-orm"
 import { db } from "../../db"
 import {
   openFinanceAccounts,
@@ -159,7 +159,15 @@ async function runSync(
     }
 
     const providerAccounts = await provider.listAccounts(connection.providerItemId)
-    const from = fromDateFor(connection)
+
+    // Só entra em modo incremental depois que já existe histórico armazenado.
+    // Evita perder transações antigas quando a 1ª sync termina antes de o
+    // provedor concluir a coleta.
+    const [{ stored }] = await db
+      .select({ stored: count() })
+      .from(openFinanceTransactions)
+      .where(eq(openFinanceTransactions.connectionId, connection.id))
+    const from = stored > 0 ? fromDateFor(connection) : undefined
 
     for (const pa of providerAccounts) {
       const [ofAccount] = await db
@@ -309,11 +317,14 @@ async function setConnectionStatus(
 
 // ── Webhooks ─────────────────────────────────────────────────────────────────
 
+// Eventos da Pluggy (doc "Webhooks") que devem disparar uma sincronização.
 const SYNC_EVENTS = [
   "item/updated",
   "item/created",
+  "item/login_succeeded",
   "transactions/created",
   "transactions/updated",
+  "transactions/deleted",
   "connector/status_updated",
 ]
 
@@ -337,15 +348,23 @@ export async function handleWebhook(payload: unknown) {
     return { received: true, handled: true }
   }
 
-  if (event.event.startsWith("item/error") || event.event.startsWith("item/login_error")) {
+  if (
+    event.event === "item/waiting_user_input" ||
+    event.event === "item/waiting_user_action"
+  ) {
     await db
       .update(openFinanceConnections)
-      .set({ status: "LOGIN_ERROR" })
+      .set({ status: "PENDING" })
       .where(eq(openFinanceConnections.id, connection.id))
     return { received: true, handled: true }
   }
 
-  if (SYNC_EVENTS.some((e) => event.event.startsWith(e))) {
+  // item/error e connector/status_updated também levam a re-sincronizar para
+  // capturar o statusDetail atual do provedor.
+  if (
+    event.event === "item/error" ||
+    SYNC_EVENTS.some((e) => event.event.startsWith(e))
+  ) {
     // Não bloqueia a resposta do webhook — o provedor só quer 200 rápido.
     void runSync(connection, "WEBHOOK").catch((err) =>
       log.error("sync via webhook falhou", {
@@ -392,12 +411,10 @@ export async function listConnectionTransactions(
     limit,
     offset: (page - 1) * limit,
   })
-  const total = (
-    await db
-      .select({ id: openFinanceTransactions.id })
-      .from(openFinanceTransactions)
-      .where(where)
-  ).length
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(openFinanceTransactions)
+    .where(where)
 
   return { data: rows, total, page, limit }
 }
