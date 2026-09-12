@@ -16,6 +16,9 @@ const Budgets = lazy(() =>
 const Categories = lazy(() =>
   import("@/pages/Categories").then((m) => ({ default: m.Categories }))
 )
+const Wallets = lazy(() =>
+  import("@/pages/Wallets").then((m) => ({ default: m.Wallets }))
+)
 const OpenFinance = lazy(() =>
   import("@/pages/OpenFinance").then((m) => ({ default: m.OpenFinance }))
 )
@@ -29,6 +32,7 @@ const router = createBrowserRouter([
       { path: "accounts", element: <Accounts /> },
       { path: "budgets", element: <Budgets /> },
       { path: "categories", element: <Categories /> },
+      { path: "wallets", element: <Wallets /> },
       { path: "open-finance", element: <OpenFinance /> },
     ],
   },

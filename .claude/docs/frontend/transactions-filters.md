@@ -1,7 +1,7 @@
 ---
 title: Frontend — Filtros e navegação por mês em Transações
 area: frontend
-updated: 2026-07-01
+updated: 2026-09-11
 ---
 
 ## Visão geral
@@ -24,6 +24,10 @@ Botão "Período específico" abre um `Popover` (`@/components/ui/popover`, Radi
 - Clicar nas setas de mês também sai do modo de período específico (`setCustomRange(null)`).
 
 Qualquer mudança de período (mês ou período específico) reseta `page` para 1.
+
+## Filtro por Carteira (2026-09-11)
+
+Além de Categoria e Recorrência, a barra de filtros ganhou o `Select` "Todas as carteiras" (`filterWalletId`, alimentado por `useWallets()`), enviado como `walletId` em `GET /transactions`. Segue o mesmo padrão dos demais filtros: opção `"all"` limpa o filtro e reseta `page` para 1. Ver `.claude/docs/domain/wallet.md`.
 
 ## Não confundir com o Dashboard (Home)
 

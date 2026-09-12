@@ -41,6 +41,7 @@ const transactionBody = t.Object({
   isEssential: t.Boolean(),
   recurrence: t.Union([t.Literal("fixed"), t.Literal("variable")]),
   budgetId: t.Optional(t.Nullable(t.String())),
+  walletId: t.Optional(t.Nullable(t.String())),
   date: t.String({ minLength: 1 }),
   notes: t.Optional(t.Nullable(t.String())),
 })
@@ -68,6 +69,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       const conditions = []
       if (query.accountId) conditions.push(eq(transactions.accountId, query.accountId))
       if (query.categoryId) conditions.push(eq(transactions.categoryId, query.categoryId))
+      if (query.walletId) conditions.push(eq(transactions.walletId, query.walletId))
       if (query.paymentMethod && isPaymentMethod(query.paymentMethod))
         conditions.push(eq(transactions.paymentMethod, query.paymentMethod))
       if (query.recurrence === "fixed" || query.recurrence === "variable")
@@ -83,7 +85,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       const [data, [{ total }]] = await Promise.all([
         db.query.transactions.findMany({
           where,
-          with: { account: true, category: true, budget: true },
+          with: { account: true, category: true, budget: true, wallet: true },
           orderBy: [desc(transactions.date), desc(transactions.createdAt)],
           limit,
           offset,
@@ -100,6 +102,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         search: t.Optional(t.String()),
         accountId: t.Optional(t.String()),
         categoryId: t.Optional(t.String()),
+        walletId: t.Optional(t.String()),
         paymentMethod: t.Optional(t.String()),
         recurrence: t.Optional(t.String()),
         isEssential: t.Optional(t.String()),
@@ -111,7 +114,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .get("/:id", async ({ params, status }) => {
     const transaction = await db.query.transactions.findFirst({
       where: eq(transactions.id, params.id),
-      with: { account: true, category: true },
+      with: { account: true, category: true, budget: true, wallet: true },
     })
     if (!transaction) return status(404, { message: "Transação não encontrada" })
     return transaction
@@ -137,6 +140,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
           isEssential: body.isEssential,
           recurrence: body.recurrence,
           budgetId: resolved.budgetId,
+          walletId: body.walletId ?? null,
           date: body.date,
           notes: body.notes ?? null,
         })
@@ -178,6 +182,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
           isEssential: body.isEssential,
           recurrence: body.recurrence,
           budgetId: resolved.budgetId,
+          walletId: body.walletId ?? null,
           date: body.date,
           notes: body.notes ?? null,
         })
@@ -224,6 +229,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
             isEssential: item.isEssential,
             recurrence: item.recurrence,
             budgetId,
+            walletId: item.walletId ?? null,
             date: item.date,
             notes: item.notes ?? null,
           })

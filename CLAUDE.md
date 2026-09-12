@@ -45,8 +45,9 @@ Docs existentes:
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
+- `.claude/docs/domain/wallet.md` — entidade Carteira (agrupamento livre/opcional, independente de Conta)
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
-- `.claude/docs/api/lookups.md` — endpoints /categories (bancos e formas de pagamento removidos como CRUD)
+- `.claude/docs/api/lookups.md` — endpoints /categories e /wallets (bancos e formas de pagamento removidos como CRUD)
 - `.claude/docs/api/transactions.md` — endpoints /transactions, /accounts (padrão) e /dashboard
 - `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)

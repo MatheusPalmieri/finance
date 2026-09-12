@@ -3,6 +3,7 @@ import { Elysia } from "elysia"
 import { accountsRoute } from "./routes/accounts"
 import { budgetsRoute } from "./routes/budgets"
 import { categoriesRoute } from "./routes/categories"
+import { walletsRoute } from "./routes/wallets"
 import { dashboardRoute } from "./routes/dashboard"
 import { transactionsRoute } from "./routes/transactions"
 import { openFinanceRoute } from "./modules/open-finance"
@@ -24,6 +25,7 @@ const app = new Elysia()
   })
   .use(accountsRoute)
   .use(categoriesRoute)
+  .use(walletsRoute)
   .use(transactionsRoute)
   .use(budgetsRoute)
   .use(dashboardRoute)

@@ -71,6 +71,15 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
+// Agrupamento livre e opcional para transações (ex: "Carteira Pessoal", "Carteira Empresa")
+// — independente de `accounts` (que representa banco/tipo de conta com saldo)
+export const wallets = pgTable("wallets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -86,6 +95,8 @@ export const transactions = pgTable("transactions", {
   recurrence: recurrenceEnum("recurrence").notNull(),
   // Obrigatório quando recurrence = 'fixed' (validado na rota); nulo se 'variable'
   budgetId: uuid("budget_id").references(() => budgets.id),
+  // Opcional — agrupamento livre, ver `wallets`
+  walletId: uuid("wallet_id").references(() => wallets.id),
   date: date("date").default(sql`CURRENT_DATE`).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -242,6 +253,10 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
   transactions: many(transactions),
 }))
 
+export const walletsRelations = relations(wallets, ({ many }) => ({
+  transactions: many(transactions),
+}))
+
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   account: one(accounts, {
     fields: [transactions.accountId],
@@ -254,6 +269,10 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   budget: one(budgets, {
     fields: [transactions.budgetId],
     references: [budgets.id],
+  }),
+  wallet: one(wallets, {
+    fields: [transactions.walletId],
+    references: [wallets.id],
   }),
 }))
 
@@ -316,6 +335,9 @@ export type AccountType = (typeof accountTypeEnum.enumValues)[number]
 
 export type Category = typeof categories.$inferSelect
 export type NewCategory = typeof categories.$inferInsert
+
+export type Wallet = typeof wallets.$inferSelect
+export type NewWallet = typeof wallets.$inferInsert
 
 export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number]
 

@@ -25,6 +25,10 @@ export const keys = {
     all: ["categories"] as const,
     list: () => [...keys.categories.all, "list"] as const,
   },
+  wallets: {
+    all: ["wallets"] as const,
+    list: () => [...keys.wallets.all, "list"] as const,
+  },
   transactions: {
     all: ["transactions"] as const,
     lists: () => [...keys.transactions.all, "list"] as const,
@@ -148,6 +152,52 @@ export function useDeleteCategory() {
       toast.success("Categoria excluída")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir categoria"),
+  })
+}
+
+// ── Wallets ───────────────────────────────────────────────────────────────────
+export function useWallets() {
+  return useQuery({
+    queryKey: keys.wallets.list(),
+    queryFn: api.wallets.list,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useCreateWallet() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.wallets.create,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.wallets.all })
+      toast.success("Carteira criada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar carteira"),
+  })
+}
+
+export function useUpdateWallet() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name: string; color?: string }) =>
+      api.wallets.update(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.wallets.all })
+      toast.success("Carteira atualizada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar carteira"),
+  })
+}
+
+export function useDeleteWallet() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.wallets.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.wallets.all })
+      toast.success("Carteira excluída")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir carteira"),
   })
 }
 

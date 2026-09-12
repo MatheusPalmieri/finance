@@ -37,6 +37,7 @@ import {
   useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
+  useWallets,
 } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -72,6 +73,7 @@ const schema = z
     isEssential: z.boolean(),
     recurrence: z.enum(["fixed", "variable"]),
     budgetId: z.string().optional(),
+    walletId: z.string().optional(),
     date: z.string().min(1, "Informe a data"),
     notes: z.string().optional(),
   })
@@ -90,6 +92,7 @@ export function Transactions() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [filterCategoryId, setFilterCategoryId] = useState("")
+  const [filterWalletId, setFilterWalletId] = useState("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
@@ -132,6 +135,7 @@ export function Transactions() {
     limit: 30,
     search: search || undefined,
     categoryId: filterCategoryId || undefined,
+    walletId: filterWalletId || undefined,
     recurrence: filterRecurrence || undefined,
     from,
     to,
@@ -139,6 +143,7 @@ export function Transactions() {
 
   const { data, isLoading, isError, refetch } = useTransactions(params)
   const { data: categories } = useCategories()
+  const { data: wallets } = useWallets()
 
   const deleteMutation = useDeleteTransaction()
 
@@ -270,6 +275,21 @@ export function Transactions() {
             <SelectItem value="all">Toda recorrência</SelectItem>
             <SelectItem value="fixed">Fixo</SelectItem>
             <SelectItem value="variable">Variável</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filterWalletId || "all"}
+          onValueChange={(v) => { setFilterWalletId(v === "all" ? "" : v); setPage(1) }}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Carteira" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as carteiras</SelectItem>
+            {wallets?.map((w) => (
+              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -412,6 +432,7 @@ function TransactionRow({
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {tx.category?.name ?? "Sem categoria"} · {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
+          {tx.wallet?.name ? ` · ${tx.wallet.name}` : ""}
         </p>
       </div>
 
@@ -462,6 +483,7 @@ function TransactionModal({
 }) {
   const { data: accounts } = useAccounts()
   const { data: categories } = useCategories()
+  const { data: wallets } = useWallets()
   const { data: defaultAccount } = useDefaultAccount()
   const create = useCreateTransaction()
   const update = useUpdateTransaction()
@@ -488,6 +510,7 @@ function TransactionModal({
           isEssential: defaultValues.isEssential,
           recurrence: defaultValues.recurrence,
           budgetId: defaultValues.budgetId ?? undefined,
+          walletId: defaultValues.walletId ?? undefined,
           date: defaultValues.date,
           notes: defaultValues.notes ?? undefined,
         }
@@ -511,6 +534,7 @@ function TransactionModal({
       ...values,
       amount: income ? -amount : amount,
       budgetId: values.recurrence === "fixed" ? values.budgetId : null,
+      walletId: values.walletId || null,
       notes: values.notes || null,
     }
     const finish = () => { onClose(); reset() }
@@ -588,6 +612,25 @@ function TransactionModal({
             </SelectContent>
           </Select>
           {errors.categoryId && <p className="text-xs text-destructive">{errors.categoryId.message}</p>}
+        </div>
+
+        {/* Carteira (opcional) */}
+        <div className="flex flex-col gap-1.5">
+          <Label>Carteira (opcional)</Label>
+          <Select
+            value={watch("walletId") || "none"}
+            onValueChange={(v) => setValue("walletId", v === "none" ? undefined : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Nenhuma" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Nenhuma</SelectItem>
+              {wallets?.map((w) => (
+                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Forma de pagamento e conta */}

@@ -26,6 +26,14 @@ export interface Category {
   createdAt: string
 }
 
+// Agrupamento livre e opcional para transações — independente de Account
+export interface Wallet {
+  id: string
+  name: string
+  color: string
+  createdAt: string
+}
+
 export interface Transaction {
   id: string
   name: string
@@ -36,6 +44,7 @@ export interface Transaction {
   isEssential: boolean
   recurrence: Recurrence
   budgetId: string | null
+  walletId: string | null
   date: string
   notes: string | null
   createdAt: string
@@ -43,6 +52,7 @@ export interface Transaction {
   account?: Account
   category?: Category | null
   budget?: Budget | null
+  wallet?: Wallet | null
 }
 
 export interface Budget {
