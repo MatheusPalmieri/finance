@@ -1,7 +1,7 @@
 ---
 title: Frontend — Importação de extrato CSV em Transações
 area: frontend
-updated: 2026-07-01
+updated: 2026-09-11
 ---
 
 ## Visão geral
@@ -36,7 +36,7 @@ Estado `step: "file" | "configure" | "review"`, indicador visual no topo do moda
 
 **Conta vale para o extrato inteiro** (campo único na etapa "Configurar", sem override por linha — todo lançamento de um extrato bancário sai da mesma conta). **Categoria e forma de pagamento são por linha**, na tabela de revisão. A diferença entre as duas: categoria nunca tem um valor plausível pré-preenchido (lançamentos de tipos muito diferentes num mesmo extrato), mas forma de pagamento normalmente é a mesma pra quase tudo — por isso a etapa "Configurar" tem uma "Forma de pagamento padrão" que **semeia** todas as linhas (`goToReview`) e cada linha continua editável individualmente na revisão, pra exceções (ex.: um Pix avulso no meio de um extrato de cartão).
 
-1. **Arquivo** — dropzone (clique ou arraste o `.csv`) → parse imediato → linhas viram `DraftRow[]` (`amount`/`isIncome` derivados do sinal cru do CSV, sem categoria/forma de pagamento ainda). Sucesso avança automaticamente para "Configurar"; erro de parse mostra mensagem e mantém nesta etapa. Se o usuário voltar pra esta etapa sem escolher um novo arquivo, um botão "Próximo" reaparece pra continuar com os dados já lidos.
+1. **Arquivo** — dropzone (clique ou arraste o `.csv`) → parse imediato → linhas viram `DraftRow[]` (`amount`/`isIncome` derivados do sinal cru do CSV; categoria/forma de pagamento já saem do de-para automático, ver seção abaixo). Sucesso avança automaticamente para "Configurar"; erro de parse mostra mensagem e mantém nesta etapa. Se o usuário voltar pra esta etapa sem escolher um novo arquivo, um botão "Próximo" reaparece pra continuar com os dados já lidos.
 2. **Configurar** — resumo (quantidade de linhas, período coberto, saldo líquido do período no sinal do extrato), **Conta de destino** (obrigatória, único gate pra avançar) e **Forma de pagamento padrão** (semeia as linhas, mas não bloqueia avançar):
    - Conta: a conta marcada como padrão (`useDefaultAccount()`, mesmo hook do `TransactionModal`) → `accountId`. Pré-selecionada via `useEffect` assim que a query carrega (só seta se `accountId` ainda estiver vazio).
    - Forma de pagamento padrão: como a lista agora é fixa (ver `.claude/docs/domain/transaction.md`), não precisa mais buscar nada — `defaultPaymentMethod` já nasce como o literal `"credit_card"` (`useState<PaymentMethod>("credit_card")`), sem efeito nem query.
@@ -47,6 +47,18 @@ Navegação: "Voltar" reaparece a partir da 2ª etapa; "Cancelar" sempre fecha e
 Validação (`canImport`, etapa Revisar): precisa de conta selecionada, e toda linha precisa ter nome, data, valor > 0, categoria **e** forma de pagamento (por linha — `r.paymentMethod`, não o padrão da etapa 2).
 
 Importar chama `useBulkCreateTransactions()` → `POST /transactions/bulk`, usando `r.paymentMethod` de cada linha (o `defaultPaymentMethod` da etapa Configurar só existe pra semear; não é usado direto no payload).
+
+## De-para automático (`pages/Transactions/depara.ts`)
+
+`matchDepara(description)` casa a descrição crua do CSV (a mesma string, sem qualquer normalização de CPF/CNPJ/agência) contra `DEPARA_RULES` — uma lista ordenada de `{ pattern, paymentMethod?, categoryName? }`. O match é por **substring**, comparando os dois lados sem acento (`NFD` + remoção de marcas combinantes) e em minúsculas; a ordem da lista importa — regras mais específicas (ex.: `"matheus andre palmieri ltda"`) vêm antes de regras genéricas que seriam substring delas (ex.: `"matheus andre palmieri"`), senão a genérica venceria por ser a primeira a bater.
+
+Em `handleFile` (etapa "Arquivo"), pra cada linha lida do CSV:
+- `paymentMethod` é preenchido sempre que alguma regra bate — não depende de nada existir no banco.
+- `categoryId` só é preenchido quando a regra tem `categoryName` **e** existe uma categoria com esse nome exato (comparação case-insensitive) na lista carregada por `useCategories()`. Nunca cria categoria nova automaticamente — se o nome não bater com nenhuma categoria existente, a linha fica sem categoria e o usuário escolhe manualmente na revisão.
+
+Tudo isso é só um ponto de partida: linha por linha continua 100% editável na etapa "Revisar", exatamente como antes.
+
+Regras atuais foram levantadas a partir dos extratos `NU_675343637` de nov/dez 2025 (padrões recorrentes: aplicação RDB, boletos de imobiliária/CELESC/financiamento, fatura de cartão, Pix pra Receita Federal e para algumas pessoas fixas, transferência entre contas próprias). Pra adicionar/ajustar um padrão, edite o array `DEPARA_RULES` em `depara.ts` diretamente — não há tela de administração para isso.
 
 ## Defaults aplicados a toda importação
 

@@ -1,9 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircle, ArrowLeft, ArrowRight, Minus, Plus, Trash2, UploadCloud } from "lucide-react"
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Minus,
+  Plus,
+  Trash2,
+  UploadCloud,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -11,13 +25,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useAccounts, useBulkCreateTransactions, useCategories, useDefaultAccount } from "@/lib/queries"
+import {
+  useAccounts,
+  useBulkCreateTransactions,
+  useCategories,
+  useDefaultAccount,
+} from "@/lib/queries"
 import type { TransactionInput } from "@/lib/api"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE } from "@/lib/tokens"
-import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ORDER, type PaymentMethod } from "@/types/finance"
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_ORDER,
+  type PaymentMethod,
+} from "@/types/finance"
 import { CsvImportError, parseStatementCsv } from "./csv"
+import { matchDepara } from "./depara"
 
 // `amount` é sempre a magnitude (positiva) e `isIncome` define o sinal —
 // mesmo padrão do botão redondo em "Nova transação" (Transactions/index.tsx).
@@ -45,7 +69,13 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "review", label: "Revisar" },
 ]
 
-export function ImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ImportModal({
+  open,
+  onClose,
+}: {
+  open: boolean
+  onClose: () => void
+}) {
   const { data: accounts } = useAccounts()
   const { data: defaultAccount } = useDefaultAccount()
   const { data: categories } = useCategories()
@@ -61,7 +91,8 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
   // Forma de pagamento "padrão" da etapa Configurar: só semeia cada linha ao
   // avançar pra revisão (goToReview) — o valor por linha é o que vai pro payload.
   // "Cartão de crédito" é o mais comum, já vem pré-selecionado.
-  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<PaymentMethod>("credit_card")
+  const [defaultPaymentMethod, setDefaultPaymentMethod] =
+    useState<PaymentMethod>("credit_card")
 
   // Pré-seleciona a conta padrão assim que carregar — o usuário ainda pode trocar
   useEffect(() => {
@@ -90,21 +121,36 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
       const text = await file.text()
       const parsed = parseStatementCsv(text)
       setRows(
-        parsed.map((r, i) => ({
-          key: r.identifier || `${r.date}-${i}`,
-          date: r.date,
-          name: r.name,
-          amount: Math.abs(r.amount),
-          isIncome: r.amount > 0,
-          identifier: r.identifier,
-          categoryId: "",
-          paymentMethod: "",
-        }))
+        parsed.map((r, i) => {
+          // De-para por padrão de descrição — pré-preenche forma de pagamento e,
+          // quando bate o nome exato de uma categoria existente, a categoria também.
+          // Tudo continua editável linha a linha na revisão.
+          const rule = matchDepara(r.name)
+          const category = rule?.categoryName
+            ? categories?.find(
+                (c) => c.name.toLowerCase() === rule.categoryName!.toLowerCase()
+              )
+            : undefined
+          return {
+            key: r.identifier || `${r.date}-${i}`,
+            date: r.date,
+            name: r.name,
+            amount: Math.abs(r.amount),
+            isIncome: r.amount > 0,
+            identifier: r.identifier,
+            categoryId: category?.id ?? "",
+            paymentMethod: rule?.paymentMethod ?? "",
+          }
+        })
       )
       setStep("configure")
     } catch (err) {
       setRows([])
-      setParseError(err instanceof CsvImportError ? err.message : "Não foi possível ler o arquivo.")
+      setParseError(
+        err instanceof CsvImportError
+          ? err.message
+          : "Não foi possível ler o arquivo."
+      )
     }
   }
 
@@ -120,7 +166,9 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
   // "Configurar" — cada linha continua editável individualmente depois
   function goToReview() {
     setRows((prev) =>
-      prev.map((r) => (r.paymentMethod ? r : { ...r, paymentMethod: defaultPaymentMethod }))
+      prev.map((r) =>
+        r.paymentMethod ? r : { ...r, paymentMethod: defaultPaymentMethod }
+      )
     )
     setStep("review")
   }
@@ -128,7 +176,10 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
   // Valor no sentido "extrato": entrada positiva, saída negativa (oposto do domínio interno)
   const signed = (r: DraftRow) => (r.isIncome ? r.amount : -r.amount)
 
-  const netTotal = useMemo(() => rows.reduce((sum, r) => sum + signed(r), 0), [rows])
+  const netTotal = useMemo(
+    () => rows.reduce((sum, r) => sum + signed(r), 0),
+    [rows]
+  )
   const dateSpan = useMemo(() => {
     if (rows.length === 0) return null
     const dates = rows.map((r) => r.date).sort()
@@ -137,7 +188,14 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
   const canImport =
     accountId !== "" &&
     rows.length > 0 &&
-    rows.every((r) => r.name.trim() && r.date && r.amount > 0 && r.categoryId && r.paymentMethod)
+    rows.every(
+      (r) =>
+        r.name.trim() &&
+        r.date &&
+        r.amount > 0 &&
+        r.categoryId &&
+        r.paymentMethod
+    )
 
   function handleImport() {
     const payload: TransactionInput[] = rows.map((r) => ({
@@ -202,7 +260,10 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setDragOver(true)
+                }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault()
@@ -212,12 +273,18 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
                 }}
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-14 text-sm text-muted-foreground transition-colors hover:bg-input/50 hover:text-foreground",
-                  dragOver ? "border-primary bg-primary/5 text-foreground" : "border-border bg-input/30"
+                  dragOver
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border bg-input/30"
                 )}
               >
                 <UploadCloud size={22} />
-                <span>{fileName || "Clique ou arraste o arquivo .csv aqui"}</span>
-                <span className="text-xs">Formato de extrato do Nubank — colunas Data, Valor, Descrição</span>
+                <span>
+                  {fileName || "Clique ou arraste o arquivo .csv aqui"}
+                </span>
+                <span className="text-xs">
+                  Formato de extrato do Nubank — colunas Data, Valor, Descrição
+                </span>
               </button>
               <input
                 ref={fileInputRef}
@@ -243,10 +310,19 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/40 px-4 py-3 text-sm">
                 <span>
-                  <strong>{rows.length}</strong> transaç{rows.length === 1 ? "ão encontrada" : "ões encontradas"}
-                  {dateSpan && ` · ${formatDate(dateSpan.from)} a ${formatDate(dateSpan.to)}`}
+                  <strong>{rows.length}</strong> transaç
+                  {rows.length === 1 ? "ão encontrada" : "ões encontradas"}
+                  {dateSpan &&
+                    ` · ${formatDate(dateSpan.from)} a ${formatDate(dateSpan.to)}`}
                 </span>
-                <span className={cn("font-semibold tabular-nums", netTotal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    netTotal >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-destructive"
+                  )}
+                >
                   Saldo do período: {formatCurrency(netTotal)}
                 </span>
               </div>
@@ -260,7 +336,9 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
                     </SelectTrigger>
                     <SelectContent>
                       {accounts?.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -270,14 +348,18 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
                   <Label>Forma de pagamento padrão</Label>
                   <Select
                     value={defaultPaymentMethod}
-                    onValueChange={(v) => setDefaultPaymentMethod(v as PaymentMethod)}
+                    onValueChange={(v) =>
+                      setDefaultPaymentMethod(v as PaymentMethod)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a forma de pagamento" />
                     </SelectTrigger>
                     <SelectContent>
                       {PAYMENT_METHOD_ORDER.map((p) => (
-                        <SelectItem key={p} value={p}>{PAYMENT_METHOD_LABELS[p]}</SelectItem>
+                        <SelectItem key={p} value={p}>
+                          {PAYMENT_METHOD_LABELS[p]}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -285,10 +367,12 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Conta vale para o extrato inteiro. Forma de pagamento aqui é só o padrão pra preencher
-                todas as linhas — dá pra trocar linha a linha na próxima etapa. Categoria também é definida
-                linha a linha na revisão. Toda linha importada entra como recorrência variável e gasto
-                essencial; ajuste isso depois pela edição normal, se precisar.
+                Conta vale para o extrato inteiro. Forma de pagamento aqui é só
+                o padrão pra preencher todas as linhas — dá pra trocar linha a
+                linha na próxima etapa. Categoria também é definida linha a
+                linha na revisão. Toda linha importada entra como recorrência
+                variável e gasto essencial; ajuste isso depois pela edição
+                normal, se precisar.
               </p>
             </div>
           )}
@@ -297,7 +381,7 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
           {step === "review" && (
             <div className="flex min-h-0 flex-1 flex-col gap-3">
               <div className="min-h-0 flex-1 overflow-auto rounded-2xl border">
-                <div className="grid grid-cols-[120px_1fr_190px_1fr_1fr_32px] gap-2 sticky top-0 z-10 border-b bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
+                <div className="sticky top-0 z-10 grid grid-cols-[120px_1fr_190px_1fr_1fr_32px] gap-2 border-b bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
                   <span>Data</span>
                   <span>Descrição</span>
                   <span>Valor (R$)</span>
@@ -308,7 +392,8 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
 
                 <div className="divide-y">
                   {rows.map((row) => {
-                    const invalid = !row.name.trim() || !row.categoryId || !row.paymentMethod
+                    const invalid =
+                      !row.name.trim() || !row.categoryId || !row.paymentMethod
                     return (
                       <div
                         key={row.key}
@@ -317,13 +402,20 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
                         <Input
                           type="date"
                           value={row.date}
-                          onChange={(e) => updateRow(row.key, { date: e.target.value })}
+                          onChange={(e) =>
+                            updateRow(row.key, { date: e.target.value })
+                          }
                           className="h-8 text-xs"
                         />
                         <Input
                           value={row.name}
-                          onChange={(e) => updateRow(row.key, { name: e.target.value })}
-                          className={cn("h-8 text-xs", invalid && !row.name.trim() && "border-destructive")}
+                          onChange={(e) =>
+                            updateRow(row.key, { name: e.target.value })
+                          }
+                          className={cn(
+                            "h-8 text-xs",
+                            invalid && !row.name.trim() && "border-destructive"
+                          )}
                         />
                         <div className="flex items-center gap-1.5">
                           <Input
@@ -331,44 +423,88 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
                             step="0.01"
                             min="0.01"
                             value={row.amount}
-                            onChange={(e) => updateRow(row.key, { amount: Number(e.target.value) })}
+                            onChange={(e) =>
+                              updateRow(row.key, {
+                                amount: Number(e.target.value),
+                              })
+                            }
                             className="h-8 min-w-0 flex-1 text-xs tabular-nums"
                           />
                           <button
                             type="button"
-                            onClick={() => updateRow(row.key, { isIncome: !row.isIncome })}
+                            onClick={() =>
+                              updateRow(row.key, { isIncome: !row.isIncome })
+                            }
                             aria-pressed={row.isIncome}
-                            aria-label={row.isIncome ? "Entrada — clique para marcar como despesa" : "Despesa — clique para marcar como entrada"}
-                            title={row.isIncome ? "Entrada — clique para marcar como despesa" : "Despesa — clique para marcar como entrada"}
+                            aria-label={
+                              row.isIncome
+                                ? "Entrada — clique para marcar como despesa"
+                                : "Despesa — clique para marcar como entrada"
+                            }
+                            title={
+                              row.isIncome
+                                ? "Entrada — clique para marcar como despesa"
+                                : "Despesa — clique para marcar como entrada"
+                            }
                             className="flex size-7 shrink-0 items-center justify-center rounded-full text-white transition-colors"
-                            style={{ backgroundColor: row.isIncome ? FINANCE.income : FINANCE.expense }}
+                            style={{
+                              backgroundColor: row.isIncome
+                                ? FINANCE.income
+                                : FINANCE.expense,
+                            }}
                           >
-                            {row.isIncome ? <Plus size={13} /> : <Minus size={13} />}
+                            {row.isIncome ? (
+                              <Plus size={13} />
+                            ) : (
+                              <Minus size={13} />
+                            )}
                           </button>
                         </div>
                         <Select
                           value={row.categoryId || undefined}
-                          onValueChange={(v) => updateRow(row.key, { categoryId: v })}
+                          onValueChange={(v) =>
+                            updateRow(row.key, { categoryId: v })
+                          }
                         >
-                          <SelectTrigger className={cn("h-8 text-xs", invalid && !row.categoryId && "border-destructive")}>
+                          <SelectTrigger
+                            className={cn(
+                              "h-8 text-xs",
+                              invalid && !row.categoryId && "border-destructive"
+                            )}
+                          >
                             <SelectValue placeholder="Categoria" />
                           </SelectTrigger>
                           <SelectContent>
                             {categories?.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <Select
                           value={row.paymentMethod || undefined}
-                          onValueChange={(v) => updateRow(row.key, { paymentMethod: v as PaymentMethod })}
+                          onValueChange={(v) =>
+                            updateRow(row.key, {
+                              paymentMethod: v as PaymentMethod,
+                            })
+                          }
                         >
-                          <SelectTrigger className={cn("h-8 text-xs", invalid && !row.paymentMethod && "border-destructive")}>
+                          <SelectTrigger
+                            className={cn(
+                              "h-8 text-xs",
+                              invalid &&
+                                !row.paymentMethod &&
+                                "border-destructive"
+                            )}
+                          >
                             <SelectValue placeholder="Forma" />
                           </SelectTrigger>
                           <SelectContent>
                             {PAYMENT_METHOD_ORDER.map((p) => (
-                              <SelectItem key={p} value={p}>{PAYMENT_METHOD_LABELS[p]}</SelectItem>
+                              <SelectItem key={p} value={p}>
+                                {PAYMENT_METHOD_LABELS[p]}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -388,7 +524,13 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
 
               <p className="text-xs text-muted-foreground">
                 {rows.length} linha{rows.length === 1 ? "" : "s"} · saldo{" "}
-                <span className={netTotal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}>
+                <span
+                  className={
+                    netTotal >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-destructive"
+                  }
+                >
                   {formatCurrency(netTotal)}
                 </span>
               </p>
@@ -403,7 +545,9 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
                 type="button"
                 variant="outline"
                 className="gap-2"
-                onClick={() => setStep(step === "review" ? "configure" : "file")}
+                onClick={() =>
+                  setStep(step === "review" ? "configure" : "file")
+                }
                 disabled={bulkCreate.isPending}
               >
                 <ArrowLeft size={14} />
@@ -412,24 +556,42 @@ export function ImportModal({ open, onClose }: { open: boolean; onClose: () => v
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleClose} disabled={bulkCreate.isPending}>
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              disabled={bulkCreate.isPending}
+            >
               Cancelar
             </Button>
             {step === "file" && rows.length > 0 && (
-              <Button type="button" className="gap-2" onClick={() => setStep("configure")}>
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={() => setStep("configure")}
+              >
                 Próximo
                 <ArrowRight size={14} />
               </Button>
             )}
             {step === "configure" && (
-              <Button type="button" className="gap-2" onClick={goToReview} disabled={!accountId}>
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={goToReview}
+                disabled={!accountId}
+              >
                 Próximo: revisar
                 <ArrowRight size={14} />
               </Button>
             )}
             {step === "review" && (
-              <Button onClick={handleImport} disabled={!canImport || bulkCreate.isPending}>
-                {bulkCreate.isPending ? "Importando..." : `Importar${rows.length ? ` (${rows.length})` : ""}`}
+              <Button
+                onClick={handleImport}
+                disabled={!canImport || bulkCreate.isPending}
+              >
+                {bulkCreate.isPending
+                  ? "Importando..."
+                  : `Importar${rows.length ? ` (${rows.length})` : ""}`}
               </Button>
             )}
           </div>
