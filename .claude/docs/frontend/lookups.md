@@ -15,7 +15,7 @@ Páginas de CRUD (nome + cor), construídas sobre um componente genérico pensad
 
 Rotas registradas em `App.tsx` (lazy) e itens de navegação em `components/layout/nav.ts` (fonte única, consumida por `Sidebar.tsx` e `MobileTopbar.tsx`).
 
-> **Carteira** é um cadastro novo (2026-09-11), independente de Conta (`accounts`) — ver `.claude/docs/domain/wallet.md`. Usado também como filtro e campo opcional em Transações (ver `.claude/docs/frontend/transactions-filters.md`).
+> **Carteira** é um cadastro independente de Conta (`accounts`) — ver `.claude/docs/domain/wallet.md`. Desde 2026-09-19 ela é o **escopo global do app**: a rota `/wallets` saiu da sidebar e é alcançada pelo item "Gerenciar carteiras" do seletor de carteira. Ver `.claude/docs/frontend/active-wallet.md`.
 
 > **Removidos em 2026-07-01:**
 > - **Bancos** (`/banks`, `pages/Banks/index.tsx`, `useBanks`/`useCreateBank`/`useUpdateBank`/`useDeleteBank`) — apagado por completo. Era um cadastro avulso sem nenhuma ligação real com o resto do sistema (nunca teve FK de `accounts` ou `transactions` apontando pra ele).

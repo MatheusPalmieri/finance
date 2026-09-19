@@ -56,8 +56,8 @@ import {
   useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
-  useWallets,
 } from "@/lib/queries"
+import { useActiveWallet } from "@/components/wallet-provider"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE, tint } from "@/lib/tokens"
@@ -120,7 +120,6 @@ export function Transactions() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [filterCategoryId, setFilterCategoryId] = useState("")
-  const [filterWalletId, setFilterWalletId] = useState("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
@@ -134,6 +133,18 @@ export function Transactions() {
   const [importing, setImporting] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
+
+  // Carteira ativa (sidebar) — escopa toda a listagem
+  const { walletId: activeWalletId } = useActiveWallet()
+
+  // Trocar de carteira reinicia a paginação — a lista muda por completo.
+  // Ajuste durante o render (em vez de effect) para não renderizar uma
+  // página inexistente antes de corrigir.
+  const [lastWalletId, setLastWalletId] = useState(activeWalletId)
+  if (lastWalletId !== activeWalletId) {
+    setLastWalletId(activeWalletId)
+    setPage(1)
+  }
 
   const { from, to } = customRange ?? monthRange(month, year)
   const isCurrentMonth =
@@ -175,7 +186,7 @@ export function Transactions() {
     limit: 30,
     search: search || undefined,
     categoryId: filterCategoryId || undefined,
-    walletId: filterWalletId || undefined,
+    walletId: activeWalletId ?? undefined,
     recurrence: filterRecurrence || undefined,
     from,
     to,
@@ -183,7 +194,6 @@ export function Transactions() {
 
   const { data, isLoading, isError, refetch } = useTransactions(params)
   const { data: categories } = useCategories()
-  const { data: wallets } = useWallets()
 
   const deleteMutation = useDeleteTransaction()
 
@@ -360,26 +370,6 @@ export function Transactions() {
             <SelectItem value="all">Toda recorrência</SelectItem>
             <SelectItem value="fixed">Fixo</SelectItem>
             <SelectItem value="variable">Variável</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filterWalletId || "all"}
-          onValueChange={(v) => {
-            setFilterWalletId(v === "all" ? "" : v)
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Carteira" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as carteiras</SelectItem>
-            {wallets?.map((w) => (
-              <SelectItem key={w.id} value={w.id}>
-                {w.name}
-              </SelectItem>
-            ))}
           </SelectContent>
         </Select>
       </div>
@@ -605,8 +595,8 @@ function TransactionModal({
 }) {
   const { data: accounts } = useAccounts()
   const { data: categories } = useCategories()
-  const { data: wallets } = useWallets()
   const { data: defaultAccount } = useDefaultAccount()
+  const { walletId: activeWalletId } = useActiveWallet()
   const create = useCreateTransaction()
   const update = useUpdateTransaction()
 
@@ -641,6 +631,8 @@ function TransactionModal({
           isIncome: false,
           recurrence: "variable",
           date: today,
+          // Novas transações nascem na carteira ativa da sidebar
+          walletId: activeWalletId ?? undefined,
           accountId: defaultAccount?.id ?? "",
           // "Cartão de crédito" é a forma de pagamento mais comum — pré-seleciona em transações novas
           paymentMethod: "credit_card",
@@ -771,29 +763,6 @@ function TransactionModal({
               {errors.categoryId.message}
             </p>
           )}
-        </div>
-
-        {/* Carteira (opcional) */}
-        <div className="flex flex-col gap-1.5">
-          <Label>Carteira (opcional)</Label>
-          <Select
-            value={watch("walletId") || "none"}
-            onValueChange={(v) =>
-              setValue("walletId", v === "none" ? undefined : v)
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Nenhuma" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhuma</SelectItem>
-              {wallets?.map((w) => (
-                <SelectItem key={w.id} value={w.id}>
-                  {w.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Forma de pagamento e conta */}

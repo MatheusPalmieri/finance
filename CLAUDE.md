@@ -45,7 +45,8 @@ Docs existentes:
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
-- `.claude/docs/domain/wallet.md` — entidade Carteira (agrupamento livre/opcional, independente de Conta)
+- `.claude/docs/domain/wallet.md` — entidade Carteira (escopo global do app, independente de Conta)
+- `.claude/docs/frontend/active-wallet.md` — carteira ativa: seletor na sidebar, WalletProvider e telas escopadas
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
 - `.claude/docs/api/lookups.md` — endpoints /categories e /wallets (bancos e formas de pagamento removidos como CRUD)
 - `.claude/docs/api/transactions.md` — endpoints /transactions, /accounts (padrão) e /dashboard

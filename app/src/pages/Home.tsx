@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 import { ChartCard, ChartTooltip, StatCard } from "@/components/charts"
 import { useDashboardSummary } from "@/lib/queries"
+import { useActiveWallet } from "@/components/wallet-provider"
 import {
   formatCurrency,
   formatCurrencyCompact,
@@ -50,9 +51,13 @@ export function Home() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
 
+  // Carteira ativa (sidebar) — escopa todo o painel
+  const { walletId } = useActiveWallet()
+
   const { data, isLoading, isError, refetch } = useDashboardSummary({
     month,
     year,
+    walletId: walletId ?? undefined,
   })
 
   function prevMonth() {

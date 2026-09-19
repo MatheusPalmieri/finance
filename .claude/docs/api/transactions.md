@@ -39,7 +39,9 @@ Validações: `name` minLength 1; `amount` qualquer número diferente de zero (p
 
 **`budgetId`** (FK → budgets, nullable): obrigatório quando `recurrence = fixed` (400 se ausente); forçado a `null` quando `recurrence = variable`. As respostas trazem a relation `budget`. Ver `.claude/docs/api/budgets.md`.
 
-**`walletId`** (FK → wallets, nullable): sempre opcional, sem regra condicional — agrupamento livre e independente de conta. Ver `.claude/docs/domain/wallet.md`.
+**`walletId`** (FK → wallets, nullable): sempre opcional, sem regra condicional — agrupamento livre e independente de conta. Na prática o frontend preenche com a carteira ativa da sidebar (`.claude/docs/frontend/active-wallet.md`). Ver `.claude/docs/domain/wallet.md`.
+
+`GET /dashboard/summary` também aceita `walletId` (2026-09-19): quando informado, **todas** as agregações (totais, por categoria, por forma de pagamento, por conta, tendência de 6 meses e transações recentes) ficam restritas a essa carteira.
 
 ### `POST /transactions/bulk` — importação em lote
 

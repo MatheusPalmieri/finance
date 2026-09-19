@@ -32,6 +32,7 @@ import {
   useDefaultAccount,
 } from "@/lib/queries"
 import type { TransactionInput } from "@/lib/api"
+import { useActiveWallet } from "@/components/wallet-provider"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE } from "@/lib/tokens"
@@ -80,6 +81,8 @@ export function ImportModal({
   const { data: defaultAccount } = useDefaultAccount()
   const { data: categories } = useCategories()
   const bulkCreate = useBulkCreateTransactions()
+  // Transações importadas entram na carteira ativa da sidebar
+  const { walletId } = useActiveWallet()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>("file")
@@ -208,6 +211,7 @@ export function ImportModal({
       isEssential: true,
       recurrence: "variable",
       budgetId: null,
+      walletId,
       date: r.date,
       notes: r.identifier ? `Importado via CSV — ID ${r.identifier}` : null,
     }))

@@ -5,7 +5,6 @@ import {
   Link2,
   PiggyBank,
   Tag,
-  Wallet,
 } from "lucide-react"
 
 // Tipo estrutural para ícones (lucide-react)
@@ -21,14 +20,14 @@ export interface NavItemDef {
 }
 
 // Fonte única dos itens de navegação — consumida pela Sidebar (desktop)
-// e pela MobileTopbar (drawer em telas pequenas).
+// e pela MobileTopbar (drawer em telas pequenas). Carteiras não entra aqui:
+// virou seletor global (WalletSwitcher), com o CRUD acessível pelo dropdown.
 export const navItems: NavItemDef[] = [
   { to: "/", icon: Home, label: "Início" },
   { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
   { to: "/accounts", icon: Landmark, label: "Contas" },
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
   { to: "/categories", icon: Tag, label: "Categorias" },
-  { to: "/wallets", icon: Wallet, label: "Carteiras" },
   { to: "/open-finance", icon: Link2, label: "Open Finance" },
 ]
 

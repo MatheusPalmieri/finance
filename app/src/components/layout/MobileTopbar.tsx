@@ -13,6 +13,7 @@ import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { Logo } from "./Logo"
 import { isRouteActive, navItems } from "./nav"
+import { WalletSwitcher } from "./WalletSwitcher"
 
 // Cabeçalho fixo exibido apenas em telas pequenas (< lg). Abre um drawer
 // lateral (Sheet) com a navegação completa. A Sidebar fixa cobre o desktop.
@@ -48,6 +49,11 @@ export function MobileTopbar() {
               </div>
             </SheetTitle>
           </SheetHeader>
+
+          {/* Carteira ativa — escopo global do app */}
+          <div className="px-3 pt-3">
+            <WalletSwitcher onNavigate={() => setOpen(false)} />
+          </div>
 
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
             {navItems.map(({ to, icon: Icon, label }) => {

@@ -70,6 +70,7 @@ export interface BudgetInput {
 export interface DashboardParams {
   month?: number
   year?: number
+  walletId?: string
 }
 
 export const api = {
@@ -239,6 +240,7 @@ export const api = {
       const q = new URLSearchParams()
       if (params.month) q.set("month", String(params.month))
       if (params.year) q.set("year", String(params.year))
+      if (params.walletId) q.set("walletId", params.walletId)
       return request<DashboardSummary>(`/dashboard/summary?${q}`)
     },
   },

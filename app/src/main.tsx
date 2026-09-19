@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner"
 import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
+import { WalletProvider } from "@/components/wallet-provider.tsx"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,8 +21,10 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <App />
-        <Toaster richColors position="top-right" />
+        <WalletProvider>
+          <App />
+          <Toaster richColors position="top-right" />
+        </WalletProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>

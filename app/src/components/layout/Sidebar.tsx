@@ -11,6 +11,7 @@ import { useEffect, useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { Logo } from "./Logo"
 import { isRouteActive, navItems, type IconType } from "./nav"
+import { WalletSwitcher } from "./WalletSwitcher"
 
 const STORAGE_KEY = "sidebar-collapsed"
 
@@ -61,6 +62,11 @@ export function Sidebar() {
           )}
         >
           <Logo collapsed={collapsed} />
+        </div>
+
+        {/* Carteira ativa — escopo global do app */}
+        <div className="px-3 pt-3">
+          <WalletSwitcher collapsed={collapsed} />
         </div>
 
         {/* Navegação */}
