@@ -153,6 +153,36 @@ export function __setLlm(p: LlmProvider | null) { cached = p }
 `qwen2.5:7b-instruct` (bom em pt-BR e em seguir schema JSON).
 `estimatedCostBrl` é sempre `0`. Timeout default de 60s (`AbortSignal.timeout`).
 
+**Sempre enviar `keep_alive: "30m"` no corpo da requisição.** O default do
+Ollama descarrega o modelo da memória após 5 minutos ociosos, e recarregar
+~5 GB custa vários segundos na primeira chamada seguinte — justamente durante
+uma importação de CSV, quando o usuário está esperando. Mandar no corpo evita
+depender da variável `OLLAMA_KEEP_ALIVE`, que exigiria reiniciar o serviço.
+
+#### Desempenho medido (2026-09-19, máquina do usuário)
+
+Intel Core Ultra 5 225H (14 núcleos), 31 GB RAM, Arc 130T iGPU, Ollama 0.34.2,
+`qwen2.5:7b-instruct`, contexto 4096:
+
+| Métrica | Valor |
+|---|---|
+| Velocidade | **10,7 tok/s** |
+| Processador | **100% CPU** — a iGPU Arc não foi engajada |
+| Carga do modelo (a frio) | alguns segundos; 0s com o modelo residente |
+
+Implicações para as specs, usando esses números:
+
+- Narrativa mensal (~300 tokens de saída): **~30s**, uma vez por mês. Aceitável
+  de forma síncrona, mas é o caso que justifica o plano B de mover a narrativa
+  para background descrito em [`02`](./02-monthly-checkup.md).
+- Classificação de 10 linhas residuais: **~12s**.
+- Classificação de 40 linhas (lote cheio): **~50s** — por isso o lote da spec
+  01 é de no máximo 40, e por isso as camadas 1 e 2 existem.
+
+Em um teste real com 6 descrições de extrato, o modelo acertou 5 e **omitiu uma
+linha inteira da resposta**. A tolerância a índices faltantes exigida na spec 01
+não é defensiva demais: é o primeiro comportamento observado na prática.
+
 ### `anthropic.ts` (fallback de nuvem)
 
 `POST https://api.anthropic.com/v1/messages`, headers
