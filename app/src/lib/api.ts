@@ -84,7 +84,11 @@ export const api = {
       color?: string
       icon?: string
       isDefault?: boolean
-    }) => request<Account>("/accounts", { method: "POST", body: JSON.stringify(body) }),
+    }) =>
+      request<Account>("/accounts", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     update: (
       id: string,
       body: {
@@ -95,7 +99,11 @@ export const api = {
         icon?: string
         isDefault?: boolean
       }
-    ) => request<Account>(`/accounts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    ) =>
+      request<Account>(`/accounts/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/accounts/${id}`, { method: "DELETE" }),
   },
@@ -103,9 +111,15 @@ export const api = {
   categories: {
     list: () => request<Category[]>("/categories"),
     create: (body: { name: string; color?: string }) =>
-      request<Category>("/categories", { method: "POST", body: JSON.stringify(body) }),
+      request<Category>("/categories", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     update: (id: string, body: { name: string; color?: string }) =>
-      request<Category>(`/categories/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      request<Category>(`/categories/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/categories/${id}`, { method: "DELETE" }),
   },
@@ -113,9 +127,15 @@ export const api = {
   wallets: {
     list: () => request<Wallet[]>("/wallets"),
     create: (body: { name: string; color?: string }) =>
-      request<Wallet>("/wallets", { method: "POST", body: JSON.stringify(body) }),
+      request<Wallet>("/wallets", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     update: (id: string, body: { name: string; color?: string }) =>
-      request<Wallet>(`/wallets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      request<Wallet>(`/wallets/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/wallets/${id}`, { method: "DELETE" }),
   },
@@ -138,11 +158,19 @@ export const api = {
     },
     get: (id: string) => request<Transaction>(`/transactions/${id}`),
     create: (body: TransactionInput) =>
-      request<Transaction>("/transactions", { method: "POST", body: JSON.stringify(body) }),
+      request<Transaction>("/transactions", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     update: (id: string, body: TransactionInput) =>
-      request<Transaction>(`/transactions/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      request<Transaction>(`/transactions/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
     delete: (id: string) =>
-      request<{ success: boolean }>(`/transactions/${id}`, { method: "DELETE" }),
+      request<{ success: boolean }>(`/transactions/${id}`, {
+        method: "DELETE",
+      }),
     bulkCreate: (items: TransactionInput[]) =>
       request<{ created: number }>("/transactions/bulk", {
         method: "POST",
@@ -157,9 +185,15 @@ export const api = {
     },
     get: (id: string) => request<Budget>(`/budgets/${id}`),
     create: (body: BudgetInput) =>
-      request<Budget>("/budgets", { method: "POST", body: JSON.stringify(body) }),
+      request<Budget>("/budgets", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     update: (id: string, body: BudgetInput) =>
-      request<Budget>(`/budgets/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      request<Budget>(`/budgets/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
   },
@@ -172,10 +206,13 @@ export const api = {
       connectorId?: string
       parameters?: Record<string, string>
     }) =>
-      request<{ connection: OpenFinanceConnection; syncRun: OpenFinanceSyncRun | null }>(
-        "/open-finance/connections",
-        { method: "POST", body: JSON.stringify(body) }
-      ),
+      request<{
+        connection: OpenFinanceConnection
+        syncRun: OpenFinanceSyncRun | null
+      }>("/open-finance/connections", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
     deleteConnection: (id: string) =>
       request<{ success: boolean }>(`/open-finance/connections/${id}`, {
         method: "DELETE",
@@ -184,7 +221,10 @@ export const api = {
       request<OpenFinanceSyncRun>(`/open-finance/connections/${id}/sync`, {
         method: "POST",
       }),
-    transactions: (id: string, params: { page?: number; limit?: number } = {}) => {
+    transactions: (
+      id: string,
+      params: { page?: number; limit?: number } = {}
+    ) => {
       const q = new URLSearchParams()
       if (params.page) q.set("page", String(params.page))
       if (params.limit) q.set("limit", String(params.limit))

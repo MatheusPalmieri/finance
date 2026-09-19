@@ -1,11 +1,5 @@
 import { useState, type FormEventHandler } from "react"
-import {
-  Building2,
-  Link2,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from "lucide-react"
+import { Building2, Link2, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -50,18 +44,24 @@ export function OpenFinance() {
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<OpenFinanceConnection | null>(null)
 
-  const { data: connections, isLoading, isError, refetch } =
-    useOpenFinanceConnections()
+  const {
+    data: connections,
+    isLoading,
+    isError,
+    refetch,
+  } = useOpenFinanceConnections()
   const deleteMutation = useDeleteOpenFinanceConnection()
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Open Finance</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Open Finance
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Leitura de contas e transações via provedor regulado. Não altera suas
-            transações manuais nem importadas por CSV.
+            Leitura de contas e transações via provedor regulado. Não altera
+            suas transações manuais nem importadas por CSV.
           </p>
         </div>
         <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
@@ -119,7 +119,7 @@ export function OpenFinance() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {
                 if (deleting)
                   deleteMutation.mutate(deleting.id, {
@@ -171,7 +171,9 @@ function ConnectionCard({
               : " · nunca sincronizada"}
           </p>
           {connection.statusDetail && (
-            <p className="text-xs text-destructive">{connection.statusDetail}</p>
+            <p className="text-xs text-destructive">
+              {connection.statusDetail}
+            </p>
           )}
           {lastRun?.status === "ERROR" && lastRun.errorMessage && (
             <p className="text-xs text-destructive">
@@ -248,7 +250,9 @@ function ConnectionTransactions({ id }: { id: string }) {
 
   if (isLoading) return <Skeleton className="h-32 rounded-lg" />
   if (isError)
-    return <p className="text-xs text-destructive">Erro ao carregar transações.</p>
+    return (
+      <p className="text-xs text-destructive">Erro ao carregar transações.</p>
+    )
   if (!data || data.data.length === 0)
     return (
       <p className="text-xs text-muted-foreground">
@@ -273,7 +277,7 @@ function ConnectionTransactions({ id }: { id: string }) {
           <tbody>
             {data.data.map((t) => (
               <tr key={t.id} className="border-t">
-                <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                <td className="px-3 py-2 whitespace-nowrap tabular-nums">
                   {formatDate(t.date)}
                 </td>
                 <td className="px-3 py-2">
@@ -385,9 +389,9 @@ function ConnectionModal({
     >
       <div className="flex flex-col gap-4 py-1">
         <p className="text-xs text-muted-foreground">
-          Use o <strong>Item ID</strong> gerado pelo widget do provedor, ou deixe
-          em branco e informe um conector de sandbox com credenciais de teste. As
-          credenciais vão direto ao provedor e não são armazenadas.
+          Use o <strong>Item ID</strong> gerado pelo widget do provedor, ou
+          deixe em branco e informe um conector de sandbox com credenciais de
+          teste. As credenciais vão direto ao provedor e não são armazenadas.
         </p>
         <div className="flex flex-col gap-1.5">
           <Label>Item ID (widget)</Label>

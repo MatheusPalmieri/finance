@@ -21,10 +21,29 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
@@ -63,12 +82,17 @@ function monthRange(month: number, year: number) {
 const schema = z
   .object({
     name: z.string().min(1, "Informe o nome"),
-    amount: z.number({ error: "Informe o valor" }).positive("Valor deve ser positivo"),
+    amount: z
+      .number({ error: "Informe o valor" })
+      .positive("Valor deve ser positivo"),
     isIncome: z.boolean(),
     categoryId: z.string().min(1, "Selecione a categoria"),
-    paymentMethod: z.enum(["cash", "pix", "credit_card", "debit_card", "boleto", "transfer"], {
-      error: "Selecione a forma de pagamento",
-    }),
+    paymentMethod: z.enum(
+      ["cash", "pix", "credit_card", "debit_card", "boleto", "transfer"],
+      {
+        error: "Selecione a forma de pagamento",
+      }
+    ),
     accountId: z.string().min(1, "Selecione a conta"),
     isEssential: z.boolean(),
     recurrence: z.enum(["fixed", "variable"]),
@@ -80,7 +104,11 @@ const schema = z
   // Em gasto fixo, o orçamento vinculado é obrigatório
   .superRefine((val, ctx) => {
     if (val.recurrence === "fixed" && !val.budgetId) {
-      ctx.addIssue({ code: "custom", path: ["budgetId"], message: "Selecione o orçamento vinculado" })
+      ctx.addIssue({
+        code: "custom",
+        path: ["budgetId"],
+        message: "Selecione o orçamento vinculado",
+      })
     }
   })
 
@@ -96,7 +124,10 @@ export function Transactions() {
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
-  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null)
+  const [customRange, setCustomRange] = useState<{
+    from: string
+    to: string
+  } | null>(null)
   const [draftFrom, setDraftFrom] = useState("")
   const [draftTo, setDraftTo] = useState("")
   const [creating, setCreating] = useState(false)
@@ -105,23 +136,32 @@ export function Transactions() {
   const [deleting, setDeleting] = useState<Transaction | null>(null)
 
   const { from, to } = customRange ?? monthRange(month, year)
-  const isCurrentMonth = !customRange && month === now.getMonth() + 1 && year === now.getFullYear()
-  const isSingleDay = customRange !== null && customRange.from === customRange.to
+  const isCurrentMonth =
+    !customRange && month === now.getMonth() + 1 && year === now.getFullYear()
+  const isSingleDay =
+    customRange !== null && customRange.from === customRange.to
 
   function prevMonth() {
     setCustomRange(null)
-    if (month === 1) { setMonth(12); setYear((y) => y - 1) } else setMonth((m) => m - 1)
+    if (month === 1) {
+      setMonth(12)
+      setYear((y) => y - 1)
+    } else setMonth((m) => m - 1)
     setPage(1)
   }
   function nextMonth() {
     setCustomRange(null)
-    if (month === 12) { setMonth(1); setYear((y) => y + 1) } else setMonth((m) => m + 1)
+    if (month === 12) {
+      setMonth(1)
+      setYear((y) => y + 1)
+    } else setMonth((m) => m + 1)
     setPage(1)
   }
   function applyCustomRange() {
     if (!draftFrom || !draftTo) return
     // Se o usuário inverter as datas, normaliza para não quebrar o filtro
-    const [rangeFrom, rangeTo] = draftFrom <= draftTo ? [draftFrom, draftTo] : [draftTo, draftFrom]
+    const [rangeFrom, rangeTo] =
+      draftFrom <= draftTo ? [draftFrom, draftTo] : [draftTo, draftFrom]
     setCustomRange({ from: rangeFrom, to: rangeTo })
     setPage(1)
   }
@@ -156,11 +196,19 @@ export function Transactions() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Transações</h1>
           <p className="text-sm text-muted-foreground">
-            {data?.total ?? 0} {data?.total === 1 ? "transação registrada" : "transações registradas"}
+            {data?.total ?? 0}{" "}
+            {data?.total === 1
+              ? "transação registrada"
+              : "transações registradas"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setImporting(true)} size="sm" variant="outline" className="gap-2">
+          <Button
+            onClick={() => setImporting(true)}
+            size="sm"
+            variant="outline"
+            className="gap-2"
+          >
             <Upload size={15} />
             Importar CSV
           </Button>
@@ -200,9 +248,20 @@ export function Transactions() {
           </button>
         </div>
 
-        <Popover onOpenChange={(open) => { if (open) { setDraftFrom(from); setDraftTo(to) } }}>
+        <Popover
+          onOpenChange={(open) => {
+            if (open) {
+              setDraftFrom(from)
+              setDraftTo(to)
+            }
+          }}
+        >
           <PopoverTrigger asChild>
-            <Button variant={customRange ? "default" : "outline"} size="sm" className="gap-2">
+            <Button
+              variant={customRange ? "default" : "outline"}
+              size="sm"
+              className="gap-2"
+            >
               <CalendarRange size={14} />
               Período específico
             </Button>
@@ -210,16 +269,28 @@ export function Transactions() {
           <PopoverContent className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>De</Label>
-              <Input type="date" value={draftFrom} onChange={(e) => setDraftFrom(e.target.value)} />
+              <Input
+                type="date"
+                value={draftFrom}
+                onChange={(e) => setDraftFrom(e.target.value)}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Até</Label>
-              <Input type="date" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
+              <Input
+                type="date"
+                value={draftTo}
+                onChange={(e) => setDraftTo(e.target.value)}
+              />
             </div>
             <p className="text-xs text-muted-foreground">
               Para um dia específico, use a mesma data em "De" e "Até".
             </p>
-            <Button size="sm" onClick={applyCustomRange} disabled={!draftFrom || !draftTo}>
+            <Button
+              size="sm"
+              onClick={applyCustomRange}
+              disabled={!draftFrom || !draftTo}
+            >
               Aplicar
             </Button>
           </PopoverContent>
@@ -240,18 +311,27 @@ export function Transactions() {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-48 flex-1">
-          <Search size={14} className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            size={14}
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
             placeholder="Buscar..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
             className="pl-9"
           />
         </div>
 
         <Select
           value={filterCategoryId || "all"}
-          onValueChange={(v) => { setFilterCategoryId(v === "all" ? "" : v); setPage(1) }}
+          onValueChange={(v) => {
+            setFilterCategoryId(v === "all" ? "" : v)
+            setPage(1)
+          }}
         >
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Categoria" />
@@ -259,14 +339,19 @@ export function Transactions() {
           <SelectContent>
             <SelectItem value="all">Todas as categorias</SelectItem>
             {categories?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select
           value={filterRecurrence || "all"}
-          onValueChange={(v) => { setFilterRecurrence(v === "all" ? "" : (v as Recurrence)); setPage(1) }}
+          onValueChange={(v) => {
+            setFilterRecurrence(v === "all" ? "" : (v as Recurrence))
+            setPage(1)
+          }}
         >
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Recorrência" />
@@ -280,7 +365,10 @@ export function Transactions() {
 
         <Select
           value={filterWalletId || "all"}
-          onValueChange={(v) => { setFilterWalletId(v === "all" ? "" : v); setPage(1) }}
+          onValueChange={(v) => {
+            setFilterWalletId(v === "all" ? "" : v)
+            setPage(1)
+          }}
         >
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Carteira" />
@@ -288,7 +376,9 @@ export function Transactions() {
           <SelectContent>
             <SelectItem value="all">Todas as carteiras</SelectItem>
             {wallets?.map((w) => (
-              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+              <SelectItem key={w.id} value={w.id}>
+                {w.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -302,7 +392,10 @@ export function Transactions() {
           ))}
         </div>
       ) : isError ? (
-        <ErrorState message="Não foi possível carregar as transações." onRetry={() => refetch()} />
+        <ErrorState
+          message="Não foi possível carregar as transações."
+          onRetry={() => refetch()}
+        />
       ) : grouped.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <p className="text-muted-foreground">Nenhuma transação encontrada</p>
@@ -333,7 +426,12 @@ export function Transactions() {
           {/* Paginação */}
           {data && data.total > data.limit && (
             <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
                 Anterior
               </Button>
               <span className="text-sm text-muted-foreground">
@@ -353,7 +451,13 @@ export function Transactions() {
       )}
 
       {/* Modais */}
-      {creating && <TransactionModal open onClose={() => setCreating(false)} title="Nova transação" />}
+      {creating && (
+        <TransactionModal
+          open
+          onClose={() => setCreating(false)}
+          title="Nova transação"
+        />
+      )}
 
       {importing && <ImportModal open onClose={() => setImporting(false)} />}
 
@@ -366,21 +470,27 @@ export function Transactions() {
         />
       )}
 
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir transação?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será removida permanentemente e o valor será
-              devolvido ao saldo da conta.
+              <strong>{deleting?.name}</strong> será removida permanentemente e
+              o valor será devolvido ao saldo da conta.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {
-                if (deleting) deleteMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
+                if (deleting)
+                  deleteMutation.mutate(deleting.id, {
+                    onSuccess: () => setDeleting(null),
+                  })
               }}
             >
               Excluir
@@ -404,7 +514,9 @@ function TransactionRow({
 }) {
   const amount = Number(tx.amount)
   const isIncome = amount < 0
-  const color = isIncome ? FINANCE.income : (tx.category?.color ?? FINANCE.neutral)
+  const color = isIncome
+    ? FINANCE.income
+    : (tx.category?.color ?? FINANCE.neutral)
 
   return (
     <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
@@ -413,7 +525,11 @@ function TransactionRow({
         className="flex size-8 shrink-0 items-center justify-center rounded-lg"
         style={{ backgroundColor: tint(color) }}
       >
-        {isIncome ? <ArrowUpRight size={14} style={{ color }} /> : <ArrowDownRight size={14} style={{ color }} />}
+        {isIncome ? (
+          <ArrowUpRight size={14} style={{ color }} />
+        ) : (
+          <ArrowDownRight size={14} style={{ color }} />
+        )}
       </div>
 
       {/* Nome e meta */}
@@ -426,12 +542,17 @@ function TransactionRow({
             </span>
           )}
           <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
-            {tx.recurrence === "fixed" ? <Repeat size={10} /> : <Zap size={10} />}
+            {tx.recurrence === "fixed" ? (
+              <Repeat size={10} />
+            ) : (
+              <Zap size={10} />
+            )}
             {RECURRENCE_LABELS[tx.recurrence]}
           </span>
         </div>
         <p className="truncate text-xs text-muted-foreground">
-          {tx.category?.name ?? "Sem categoria"} · {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
+          {tx.category?.name ?? "Sem categoria"} ·{" "}
+          {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
           {tx.wallet?.name ? ` · ${tx.wallet.name}` : ""}
         </p>
       </div>
@@ -443,7 +564,8 @@ function TransactionRow({
           isIncome && "text-emerald-600 dark:text-emerald-400"
         )}
       >
-        {isIncome ? "+" : "−"}{formatCurrency(Math.abs(amount))}
+        {isIncome ? "+" : "−"}
+        {formatCurrency(Math.abs(amount))}
       </span>
 
       {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
@@ -537,7 +659,10 @@ function TransactionModal({
       walletId: values.walletId || null,
       notes: values.notes || null,
     }
-    const finish = () => { onClose(); reset() }
+    const finish = () => {
+      onClose()
+      reset()
+    }
     if (defaultValues) {
       update.mutate({ id: defaultValues.id, ...payload }, { onSuccess: finish })
     } else {
@@ -550,7 +675,10 @@ function TransactionModal({
   return (
     <FormModal
       open={open}
-      onClose={() => { onClose(); reset() }}
+      onClose={() => {
+        onClose()
+        reset()
+      }}
       title={title}
       formId="transaction-form"
       onSubmit={onSubmit}
@@ -560,8 +688,14 @@ function TransactionModal({
         {/* Nome */}
         <div className="flex flex-col gap-1.5">
           <Label>Nome</Label>
-          <Input placeholder="Ex: Supermercado" autoFocus {...register("name")} />
-          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          <Input
+            placeholder="Ex: Supermercado"
+            autoFocus
+            {...register("name")}
+          />
+          {errors.name && (
+            <p className="text-xs text-destructive">{errors.name.message}</p>
+          )}
         </div>
 
         {/* Data e valor */}
@@ -569,7 +703,9 @@ function TransactionModal({
           <div className="flex flex-col gap-1.5">
             <Label>Data</Label>
             <Input type="date" {...register("date")} />
-            {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
+            {errors.date && (
+              <p className="text-xs text-destructive">{errors.date.message}</p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Valor (R$)</Label>
@@ -579,39 +715,62 @@ function TransactionModal({
                 step="0.01"
                 min="0.01"
                 placeholder="0,00"
-                className="flex-1 min-w-0"
+                className="min-w-0 flex-1"
                 {...register("amount", { valueAsNumber: true })}
               />
               <button
                 type="button"
                 onClick={() => setValue("isIncome", !isIncome)}
                 aria-pressed={isIncome}
-                aria-label={isIncome ? "Entrada — clique para marcar como despesa" : "Despesa — clique para marcar como entrada"}
-                title={isIncome ? "Entrada — clique para marcar como despesa" : "Despesa — clique para marcar como entrada"}
+                aria-label={
+                  isIncome
+                    ? "Entrada — clique para marcar como despesa"
+                    : "Despesa — clique para marcar como entrada"
+                }
+                title={
+                  isIncome
+                    ? "Entrada — clique para marcar como despesa"
+                    : "Despesa — clique para marcar como entrada"
+                }
                 className="flex size-9 shrink-0 items-center justify-center rounded-full text-white transition-colors"
-                style={{ backgroundColor: isIncome ? FINANCE.income : FINANCE.expense }}
+                style={{
+                  backgroundColor: isIncome ? FINANCE.income : FINANCE.expense,
+                }}
               >
                 {isIncome ? <Plus size={16} /> : <Minus size={16} />}
               </button>
             </div>
-            {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
+            {errors.amount && (
+              <p className="text-xs text-destructive">
+                {errors.amount.message}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Categoria */}
         <div className="flex flex-col gap-1.5">
           <Label>Categoria</Label>
-          <Select value={watch("categoryId") ?? ""} onValueChange={(v) => setValue("categoryId", v)}>
+          <Select
+            value={watch("categoryId") ?? ""}
+            onValueChange={(v) => setValue("categoryId", v)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Selecione a categoria" />
             </SelectTrigger>
             <SelectContent>
               {categories?.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {errors.categoryId && <p className="text-xs text-destructive">{errors.categoryId.message}</p>}
+          {errors.categoryId && (
+            <p className="text-xs text-destructive">
+              {errors.categoryId.message}
+            </p>
+          )}
         </div>
 
         {/* Carteira (opcional) */}
@@ -619,7 +778,9 @@ function TransactionModal({
           <Label>Carteira (opcional)</Label>
           <Select
             value={watch("walletId") || "none"}
-            onValueChange={(v) => setValue("walletId", v === "none" ? undefined : v)}
+            onValueChange={(v) =>
+              setValue("walletId", v === "none" ? undefined : v)
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="Nenhuma" />
@@ -627,7 +788,9 @@ function TransactionModal({
             <SelectContent>
               <SelectItem value="none">Nenhuma</SelectItem>
               {wallets?.map((w) => (
-                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                <SelectItem key={w.id} value={w.id}>
+                  {w.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -639,34 +802,49 @@ function TransactionModal({
             <Label>Forma de pagamento</Label>
             <Select
               value={watch("paymentMethod")}
-              onValueChange={(v) => setValue("paymentMethod", v as FormValues["paymentMethod"])}
+              onValueChange={(v) =>
+                setValue("paymentMethod", v as FormValues["paymentMethod"])
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
                 {PAYMENT_METHOD_ORDER.map((p) => (
-                  <SelectItem key={p} value={p}>{PAYMENT_METHOD_LABELS[p]}</SelectItem>
+                  <SelectItem key={p} value={p}>
+                    {PAYMENT_METHOD_LABELS[p]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {errors.paymentMethod && (
-              <p className="text-xs text-destructive">{errors.paymentMethod.message}</p>
+              <p className="text-xs text-destructive">
+                {errors.paymentMethod.message}
+              </p>
             )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Conta</Label>
-            <Select value={watch("accountId") ?? ""} onValueChange={(v) => setValue("accountId", v)}>
+            <Select
+              value={watch("accountId") ?? ""}
+              onValueChange={(v) => setValue("accountId", v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
                 {accounts?.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.accountId && <p className="text-xs text-destructive">{errors.accountId.message}</p>}
+            {errors.accountId && (
+              <p className="text-xs text-destructive">
+                {errors.accountId.message}
+              </p>
+            )}
           </div>
         </div>
 
@@ -674,10 +852,18 @@ function TransactionModal({
         <div className="flex flex-col gap-1.5">
           <Label>Tipo de gasto</Label>
           <div className="flex gap-2">
-            <SegButton active={isEssential} onClick={() => setValue("isEssential", true)} color={FINANCE.essential}>
+            <SegButton
+              active={isEssential}
+              onClick={() => setValue("isEssential", true)}
+              color={FINANCE.essential}
+            >
               Essencial
             </SegButton>
-            <SegButton active={!isEssential} onClick={() => setValue("isEssential", false)} color={FINANCE.nonEssential}>
+            <SegButton
+              active={!isEssential}
+              onClick={() => setValue("isEssential", false)}
+              color={FINANCE.nonEssential}
+            >
               Não essencial
             </SegButton>
           </div>
@@ -687,12 +873,19 @@ function TransactionModal({
         <div className="flex flex-col gap-1.5">
           <Label>Recorrência</Label>
           <div className="flex gap-2">
-            <SegButton active={recurrence === "fixed"} onClick={() => setValue("recurrence", "fixed")} color={FINANCE.fixed}>
+            <SegButton
+              active={recurrence === "fixed"}
+              onClick={() => setValue("recurrence", "fixed")}
+              color={FINANCE.fixed}
+            >
               Fixo
             </SegButton>
             <SegButton
               active={recurrence === "variable"}
-              onClick={() => { setValue("recurrence", "variable"); setValue("budgetId", undefined) }}
+              onClick={() => {
+                setValue("recurrence", "variable")
+                setValue("budgetId", undefined)
+              }}
               color={FINANCE.variable}
             >
               Variável
@@ -706,11 +899,17 @@ function TransactionModal({
             <Label>Orçamento vinculado</Label>
             <BudgetCombobox
               value={watch("budgetId")}
-              onChange={(id) => setValue("budgetId", id, { shouldValidate: true })}
+              onChange={(id) =>
+                setValue("budgetId", id, { shouldValidate: true })
+              }
               selectedName={defaultValues?.budget?.name}
               hasError={!!errors.budgetId}
             />
-            {errors.budgetId && <p className="text-xs text-destructive">{errors.budgetId.message}</p>}
+            {errors.budgetId && (
+              <p className="text-xs text-destructive">
+                {errors.budgetId.message}
+              </p>
+            )}
           </div>
         )}
 
@@ -720,7 +919,7 @@ function TransactionModal({
           <textarea
             rows={2}
             placeholder="Detalhes adicionais..."
-            className="w-full resize-none rounded-2xl border border-transparent bg-input/50 px-3 py-2 text-sm outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+            className="w-full resize-none rounded-2xl border border-transparent bg-input/50 px-3 py-2 text-sm transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
             {...register("notes")}
           />
         </div>
@@ -747,7 +946,9 @@ function SegButton({
       onClick={onClick}
       className={cn(
         "flex flex-1 items-center justify-center rounded-lg border py-2 text-xs font-medium transition-colors",
-        active ? "border-transparent text-white" : "text-muted-foreground hover:text-foreground"
+        active
+          ? "border-transparent text-white"
+          : "text-muted-foreground hover:text-foreground"
       )}
       style={active ? { backgroundColor: color } : {}}
     >

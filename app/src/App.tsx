@@ -3,7 +3,9 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom"
 
 import { AppLayout } from "@/components/layout/AppLayout"
 
-const Home = lazy(() => import("@/pages/Home").then((m) => ({ default: m.Home })))
+const Home = lazy(() =>
+  import("@/pages/Home").then((m) => ({ default: m.Home }))
+)
 const Transactions = lazy(() =>
   import("@/pages/Transactions").then((m) => ({ default: m.Transactions }))
 )

@@ -6,12 +6,32 @@ import { Pencil, PiggyBank, Plus, Search, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
-import { useCreateBudget, useBudgets, useDeleteBudget, useUpdateBudget } from "@/lib/queries"
+import {
+  useCreateBudget,
+  useBudgets,
+  useDeleteBudget,
+  useUpdateBudget,
+} from "@/lib/queries"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE } from "@/lib/tokens"
@@ -36,14 +56,34 @@ const schema = z
   .superRefine((val, ctx) => {
     if (val.amountType === "fixed") {
       if (val.amount == null)
-        ctx.addIssue({ code: "custom", path: ["amount"], message: "Informe o valor" })
+        ctx.addIssue({
+          code: "custom",
+          path: ["amount"],
+          message: "Informe o valor",
+        })
     } else {
       if (val.amountMin == null)
-        ctx.addIssue({ code: "custom", path: ["amountMin"], message: "Informe o mínimo" })
+        ctx.addIssue({
+          code: "custom",
+          path: ["amountMin"],
+          message: "Informe o mínimo",
+        })
       if (val.amountMax == null)
-        ctx.addIssue({ code: "custom", path: ["amountMax"], message: "Informe o máximo" })
-      if (val.amountMin != null && val.amountMax != null && val.amountMin >= val.amountMax)
-        ctx.addIssue({ code: "custom", path: ["amountMax"], message: "Máximo deve ser maior que o mínimo" })
+        ctx.addIssue({
+          code: "custom",
+          path: ["amountMax"],
+          message: "Informe o máximo",
+        })
+      if (
+        val.amountMin != null &&
+        val.amountMax != null &&
+        val.amountMin >= val.amountMax
+      )
+        ctx.addIssue({
+          code: "custom",
+          path: ["amountMax"],
+          message: "Máximo deve ser maior que o mínimo",
+        })
     }
   })
 
@@ -58,7 +98,12 @@ export function Budgets() {
   const [editing, setEditing] = useState<Budget | null>(null)
   const [deleting, setDeleting] = useState<Budget | null>(null)
 
-  const { data: budgets, isLoading, isError, refetch } = useBudgets(search || undefined)
+  const {
+    data: budgets,
+    isLoading,
+    isError,
+    refetch,
+  } = useBudgets(search || undefined)
   const deleteMutation = useDeleteBudget()
 
   const grouped = TYPE_ORDER.map((type) => ({
@@ -84,8 +129,16 @@ export function Budgets() {
 
       {/* Busca */}
       <div className="relative max-w-sm">
-        <Search size={14} className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Buscar por nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Search
+          size={14}
+          className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          placeholder="Buscar por nome..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {/* Conteúdo */}
@@ -96,15 +149,24 @@ export function Budgets() {
           ))}
         </div>
       ) : isError ? (
-        <ErrorState message="Não foi possível carregar os orçamentos." onRetry={() => refetch()} />
+        <ErrorState
+          message="Não foi possível carregar os orçamentos."
+          onRetry={() => refetch()}
+        />
       ) : !budgets?.length ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <PiggyBank size={40} className="text-muted-foreground/40" />
           <p className="text-muted-foreground">
-            {search ? "Nenhum orçamento encontrado" : "Nenhum orçamento cadastrado"}
+            {search
+              ? "Nenhum orçamento encontrado"
+              : "Nenhum orçamento cadastrado"}
           </p>
           {!search && (
-            <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreating(true)}
+            >
               Criar primeiro orçamento
             </Button>
           )}
@@ -115,9 +177,16 @@ export function Budgets() {
             items.length === 0 ? null : (
               <div key={type} className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="size-2.5 rounded-full" style={{ backgroundColor: BUDGET_TYPE_HEX[type] }} />
-                  <h2 className="text-sm font-semibold">{BUDGET_TYPE_LABELS[type]}</h2>
-                  <span className="text-xs text-muted-foreground">meta {BUDGET_TYPE_TARGET[type]}%</span>
+                  <span
+                    className="size-2.5 rounded-full"
+                    style={{ backgroundColor: BUDGET_TYPE_HEX[type] }}
+                  />
+                  <h2 className="text-sm font-semibold">
+                    {BUDGET_TYPE_LABELS[type]}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    meta {BUDGET_TYPE_TARGET[type]}%
+                  </span>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {items.map((budget) => (
@@ -136,27 +205,44 @@ export function Budgets() {
       )}
 
       {/* Modais */}
-      {creating && <BudgetModal open onClose={() => setCreating(false)} title="Novo orçamento" />}
-
-      {editing && (
-        <BudgetModal open onClose={() => setEditing(null)} title="Editar orçamento" defaultValues={editing} />
+      {creating && (
+        <BudgetModal
+          open
+          onClose={() => setCreating(false)}
+          title="Novo orçamento"
+        />
       )}
 
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+      {editing && (
+        <BudgetModal
+          open
+          onClose={() => setEditing(null)}
+          title="Editar orçamento"
+          defaultValues={editing}
+        />
+      )}
+
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir orçamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será removido permanentemente. Transações fixas
-              vinculadas a ele ficarão sem orçamento.
+              <strong>{deleting?.name}</strong> será removido permanentemente.
+              Transações fixas vinculadas a ele ficarão sem orçamento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {
-                if (deleting) deleteMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
+                if (deleting)
+                  deleteMutation.mutate(deleting.id, {
+                    onSuccess: () => setDeleting(null),
+                  })
               }}
             >
               Excluir
@@ -188,7 +274,10 @@ function BudgetCard({
 
   return (
     <div className="group relative flex flex-col gap-2 overflow-hidden rounded-xl border bg-card p-4 transition-shadow hover:shadow-md">
-      <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: color }} />
+      <div
+        className="absolute inset-y-0 left-0 w-1"
+        style={{ backgroundColor: color }}
+      />
 
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -218,7 +307,9 @@ function BudgetCard({
         </div>
       </div>
 
-      <p className="text-lg font-bold tabular-nums">{formatBudgetValue(budget)}</p>
+      <p className="text-lg font-bold tabular-nums">
+        {formatBudgetValue(budget)}
+      </p>
     </div>
   )
 }
@@ -252,9 +343,15 @@ function BudgetModal({
           name: defaultValues.name,
           type: defaultValues.type,
           amountType: defaultValues.amountType,
-          amount: defaultValues.amount ? Number(defaultValues.amount) : undefined,
-          amountMin: defaultValues.amountMin ? Number(defaultValues.amountMin) : undefined,
-          amountMax: defaultValues.amountMax ? Number(defaultValues.amountMax) : undefined,
+          amount: defaultValues.amount
+            ? Number(defaultValues.amount)
+            : undefined,
+          amountMin: defaultValues.amountMin
+            ? Number(defaultValues.amountMin)
+            : undefined,
+          amountMax: defaultValues.amountMax
+            ? Number(defaultValues.amountMax)
+            : undefined,
         }
       : { type: "essential", amountType: "fixed" },
   })
@@ -264,7 +361,12 @@ function BudgetModal({
   const onSubmit = handleSubmit((values) => {
     const payload =
       values.amountType === "fixed"
-        ? { name: values.name, type: values.type, amountType: "fixed" as const, amount: values.amount }
+        ? {
+            name: values.name,
+            type: values.type,
+            amountType: "fixed" as const,
+            amount: values.amount,
+          }
         : {
             name: values.name,
             type: values.type,
@@ -273,7 +375,10 @@ function BudgetModal({
             amountMax: values.amountMax,
           }
 
-    const finish = () => { onClose(); reset() }
+    const finish = () => {
+      onClose()
+      reset()
+    }
     if (defaultValues) {
       update.mutate({ id: defaultValues.id, ...payload }, { onSuccess: finish })
     } else {
@@ -286,7 +391,10 @@ function BudgetModal({
   return (
     <FormModal
       open={open}
-      onClose={() => { onClose(); reset() }}
+      onClose={() => {
+        onClose()
+        reset()
+      }}
       title={title}
       formId="budget-form"
       onSubmit={onSubmit}
@@ -297,13 +405,18 @@ function BudgetModal({
         <div className="flex flex-col gap-1.5">
           <Label>Nome</Label>
           <Input placeholder="Ex: Aluguel" autoFocus {...register("name")} />
-          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          {errors.name && (
+            <p className="text-xs text-destructive">{errors.name.message}</p>
+          )}
         </div>
 
         {/* Tipo (50/30/20) */}
         <div className="flex flex-col gap-1.5">
           <Label>Tipo</Label>
-          <Select value={watch("type")} onValueChange={(v) => setValue("type", v as BudgetType)}>
+          <Select
+            value={watch("type")}
+            onValueChange={(v) => setValue("type", v as BudgetType)}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -321,10 +434,18 @@ function BudgetModal({
         <div className="flex flex-col gap-1.5">
           <Label>Forma do valor</Label>
           <div className="flex gap-2">
-            <SegButton active={amountType === "fixed"} onClick={() => setValue("amountType", "fixed")} color={FINANCE.fixed}>
+            <SegButton
+              active={amountType === "fixed"}
+              onClick={() => setValue("amountType", "fixed")}
+              color={FINANCE.fixed}
+            >
               Fixo
             </SegButton>
-            <SegButton active={amountType === "variable"} onClick={() => setValue("amountType", "variable")} color={FINANCE.variable}>
+            <SegButton
+              active={amountType === "variable"}
+              onClick={() => setValue("amountType", "variable")}
+              color={FINANCE.variable}
+            >
               Variável (faixa)
             </SegButton>
           </div>
@@ -334,20 +455,50 @@ function BudgetModal({
         {amountType === "fixed" ? (
           <div className="flex flex-col gap-1.5">
             <Label>Valor (R$)</Label>
-            <Input type="number" step="0.01" min="0.01" placeholder="0,00" {...register("amount", { valueAsNumber: true })} />
-            {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
+            <Input
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0,00"
+              {...register("amount", { valueAsNumber: true })}
+            />
+            {errors.amount && (
+              <p className="text-xs text-destructive">
+                {errors.amount.message}
+              </p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Mínimo (R$)</Label>
-              <Input type="number" step="0.01" min="0.01" placeholder="0,00" {...register("amountMin", { valueAsNumber: true })} />
-              {errors.amountMin && <p className="text-xs text-destructive">{errors.amountMin.message}</p>}
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0,00"
+                {...register("amountMin", { valueAsNumber: true })}
+              />
+              {errors.amountMin && (
+                <p className="text-xs text-destructive">
+                  {errors.amountMin.message}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Máximo (R$)</Label>
-              <Input type="number" step="0.01" min="0.01" placeholder="0,00" {...register("amountMax", { valueAsNumber: true })} />
-              {errors.amountMax && <p className="text-xs text-destructive">{errors.amountMax.message}</p>}
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0,00"
+                {...register("amountMax", { valueAsNumber: true })}
+              />
+              {errors.amountMax && (
+                <p className="text-xs text-destructive">
+                  {errors.amountMax.message}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -374,7 +525,9 @@ function SegButton({
       onClick={onClick}
       className={cn(
         "flex flex-1 items-center justify-center rounded-lg border py-2 text-xs font-medium transition-colors",
-        active ? "border-transparent text-white" : "text-muted-foreground hover:text-foreground"
+        active
+          ? "border-transparent text-white"
+          : "text-muted-foreground hover:text-foreground"
       )}
       style={active ? { backgroundColor: color } : {}}
     >

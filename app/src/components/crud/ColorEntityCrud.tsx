@@ -152,22 +152,28 @@ export function ColorEntityCrud<T extends ColorEntity>({
         />
       )}
 
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {noun}?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será {gender === "f" ? "removida" : "removido"}{" "}
-              permanentemente. Esta ação não pode ser desfeita.
+              <strong>{deleting?.name}</strong> será{" "}
+              {gender === "f" ? "removida" : "removido"} permanentemente. Esta
+              ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {
                 if (deleting)
-                  deleteMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
+                  deleteMutation.mutate(deleting.id, {
+                    onSuccess: () => setDeleting(null),
+                  })
               }}
             >
               Excluir
@@ -192,13 +198,19 @@ function EntityCard<T extends ColorEntity>({
   return (
     <div className="group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card p-4 transition-shadow hover:shadow-md">
       {/* Barra de cor na lateral */}
-      <div className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: item.color }} />
+      <div
+        className="absolute inset-y-0 left-0 w-1"
+        style={{ backgroundColor: item.color }}
+      />
 
       <div
         className="flex size-9 shrink-0 items-center justify-center rounded-lg"
         style={{ backgroundColor: tint(item.color) }}
       >
-        <span className="size-3.5 rounded-full" style={{ backgroundColor: item.color }} />
+        <span
+          className="size-3.5 rounded-full"
+          style={{ backgroundColor: item.color }}
+        />
       </div>
 
       <p className="min-w-0 flex-1 truncate font-medium">{item.name}</p>
@@ -300,8 +312,14 @@ function EntityModal<T extends ColorEntity>({
       <div className="flex flex-col gap-4 py-1">
         <div className="flex flex-col gap-1.5">
           <Label>Nome</Label>
-          <Input placeholder={namePlaceholder} autoFocus {...register("name")} />
-          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          <Input
+            placeholder={namePlaceholder}
+            autoFocus
+            {...register("name")}
+          />
+          {errors.name && (
+            <p className="text-xs text-destructive">{errors.name.message}</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">

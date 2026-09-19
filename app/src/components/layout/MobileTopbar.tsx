@@ -29,11 +29,18 @@ export function MobileTopbar() {
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md lg:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Abrir menu de navegação">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Abrir menu de navegação"
+          >
             <Menu />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 gap-0 bg-sidebar p-0 text-sidebar-foreground">
+        <SheetContent
+          side="left"
+          className="w-72 gap-0 bg-sidebar p-0 text-sidebar-foreground"
+        >
           <SheetHeader className="border-b border-sidebar-border p-4">
             <SheetTitle asChild>
               <div>

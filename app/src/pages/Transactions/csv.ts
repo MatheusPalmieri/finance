@@ -69,7 +69,8 @@ function toIsoDate(br: string): string | null {
 // (ordem exata não importa — procura pelo nome do cabeçalho).
 export function parseStatementCsv(text: string): ParsedStatementRow[] {
   const rows = parseCsv(text.replace(/^﻿/, "")) // remove BOM se existir
-  if (rows.length < 2) throw new CsvImportError("Arquivo vazio ou sem linhas de dados.")
+  if (rows.length < 2)
+    throw new CsvImportError("Arquivo vazio ou sem linhas de dados.")
 
   const header = rows[0].map((h) => h.trim().toLowerCase())
   const dateIdx = header.findIndex((h) => h === "data")
@@ -86,11 +87,16 @@ export function parseStatementCsv(text: string): ParsedStatementRow[] {
   return rows.slice(1).map((cols, i) => {
     const line = i + 2
     const iso = toIsoDate(cols[dateIdx] ?? "")
-    if (!iso) throw new CsvImportError(`Data inválida na linha ${line}: "${cols[dateIdx] ?? ""}"`)
+    if (!iso)
+      throw new CsvImportError(
+        `Data inválida na linha ${line}: "${cols[dateIdx] ?? ""}"`
+      )
 
     const amount = Number(cols[amountIdx])
     if (Number.isNaN(amount) || amount === 0) {
-      throw new CsvImportError(`Valor inválido na linha ${line}: "${cols[amountIdx] ?? ""}"`)
+      throw new CsvImportError(
+        `Valor inválido na linha ${line}: "${cols[amountIdx] ?? ""}"`
+      )
     }
 
     return {

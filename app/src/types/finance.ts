@@ -1,11 +1,23 @@
 import { FINANCE, PALETTE } from "@/lib/tokens"
 
-export type AccountType = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "INVESTMENT" | "CASH" | "OTHER"
+export type AccountType =
+  | "CHECKING"
+  | "SAVINGS"
+  | "CREDIT_CARD"
+  | "INVESTMENT"
+  | "CASH"
+  | "OTHER"
 export type Recurrence = "fixed" | "variable"
 export type BudgetType = "essential" | "desire" | "investment"
 export type BudgetAmountType = "fixed" | "variable"
 // Lista fixa do sistema — não é mais CRUD do usuário (ver .claude/docs/domain/transaction.md)
-export type PaymentMethod = "cash" | "pix" | "credit_card" | "debit_card" | "boleto" | "transfer"
+export type PaymentMethod =
+  | "cash"
+  | "pix"
+  | "credit_card"
+  | "debit_card"
+  | "boleto"
+  | "transfer"
 
 export interface Account {
   id: string
@@ -174,7 +186,12 @@ export interface DashboardSummary {
   fixedExpenses: string
   variableExpenses: string
   transactionCount: number
-  expensesByCategory: { categoryId: string; categoryName: string; color: string; amount: string }[]
+  expensesByCategory: {
+    categoryId: string
+    categoryName: string
+    color: string
+    amount: string
+  }[]
   expensesByPaymentMethod: NamedAmount[]
   expensesByAccount: NamedAmount[]
   monthlyTrend: { month: string; total: number }[]
@@ -252,6 +269,16 @@ export const PAYMENT_METHOD_ORDER: PaymentMethod[] = [
 ]
 
 export const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ]

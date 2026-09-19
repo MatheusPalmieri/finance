@@ -18,21 +18,52 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
-import { useAccounts, useCreateAccount, useDeleteAccount, useUpdateAccount } from "@/lib/queries"
+import {
+  useAccounts,
+  useCreateAccount,
+  useDeleteAccount,
+  useUpdateAccount,
+} from "@/lib/queries"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PICKER_COLOR, PICKER_SWATCHES, tint } from "@/lib/tokens"
-import { ACCOUNT_TYPE_LABELS, type Account, type AccountType } from "@/types/finance"
+import {
+  ACCOUNT_TYPE_LABELS,
+  type Account,
+  type AccountType,
+} from "@/types/finance"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const schema = z.object({
   name: z.string().min(1, "Informe o nome"),
-  type: z.enum(["CHECKING", "SAVINGS", "CREDIT_CARD", "INVESTMENT", "CASH", "OTHER"]),
+  type: z.enum([
+    "CHECKING",
+    "SAVINGS",
+    "CREDIT_CARD",
+    "INVESTMENT",
+    "CASH",
+    "OTHER",
+  ]),
   balance: z.number().optional(),
   color: z.string().optional(),
   isDefault: z.boolean().optional(),
@@ -67,7 +98,8 @@ export function Accounts() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contas</h1>
           <p className="text-sm text-muted-foreground">
-            {accounts?.length ?? 0} conta{accounts?.length !== 1 ? "s" : ""} cadastrada{accounts?.length !== 1 ? "s" : ""}
+            {accounts?.length ?? 0} conta{accounts?.length !== 1 ? "s" : ""}{" "}
+            cadastrada{accounts?.length !== 1 ? "s" : ""}
           </p>
         </div>
         <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
@@ -80,10 +112,17 @@ export function Accounts() {
       {!isLoading && accounts && (
         <div className="rounded-xl border bg-card p-5">
           <p className="text-sm text-muted-foreground">Patrimônio líquido</p>
-          <p className={cn("mt-1 text-4xl font-bold tabular-nums", netWorth >= 0 ? "text-foreground" : "text-destructive")}>
+          <p
+            className={cn(
+              "mt-1 text-4xl font-bold tabular-nums",
+              netWorth >= 0 ? "text-foreground" : "text-destructive"
+            )}
+          >
             {formatCurrency(netWorth)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">soma de todas as contas</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            soma de todas as contas
+          </p>
         </div>
       )}
 
@@ -95,7 +134,10 @@ export function Accounts() {
           ))}
         </div>
       ) : isError ? (
-        <ErrorState message="Não foi possível carregar as contas." onRetry={() => refetch()} />
+        <ErrorState
+          message="Não foi possível carregar as contas."
+          onRetry={() => refetch()}
+        />
       ) : accounts?.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <Landmark size={40} className="text-muted-foreground/40" />
@@ -133,21 +175,27 @@ export function Accounts() {
         />
       )}
 
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir conta?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será removida permanentemente. As transações
-              associadas não serão apagadas.
+              <strong>{deleting?.name}</strong> será removida permanentemente.
+              As transações associadas não serão apagadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {
-                if (deleting) deleteMutation.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
+                if (deleting)
+                  deleteMutation.mutate(deleting.id, {
+                    onSuccess: () => setDeleting(null),
+                  })
               }}
             >
               Excluir
@@ -175,7 +223,10 @@ function AccountCard({
   return (
     <div className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-5 transition-shadow hover:shadow-md">
       {/* Barra de cor no topo */}
-      <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: account.color }} />
+      <div
+        className="absolute inset-x-0 top-0 h-1"
+        style={{ backgroundColor: account.color }}
+      />
 
       <div className="flex items-start justify-between">
         <div
@@ -215,10 +266,17 @@ function AccountCard({
             </span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">{ACCOUNT_TYPE_LABELS[account.type]}</p>
+        <p className="text-xs text-muted-foreground">
+          {ACCOUNT_TYPE_LABELS[account.type]}
+        </p>
       </div>
 
-      <p className={cn("text-2xl font-bold tabular-nums", balance < 0 && "text-destructive")}>
+      <p
+        className={cn(
+          "text-2xl font-bold tabular-nums",
+          balance < 0 && "text-destructive"
+        )}
+      >
         {formatCurrency(balance)}
       </p>
     </div>
@@ -240,7 +298,14 @@ function AccountModal({
   const create = useCreateAccount()
   const update = useUpdateAccount()
 
-  const { register, handleSubmit, watch, setValue, formState: { errors }, reset } = useForm<FormValues>({
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+    reset,
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaultValues
       ? {
@@ -256,7 +321,10 @@ function AccountModal({
   const selectedColor = watch("color") ?? DEFAULT_PICKER_COLOR
 
   const onSubmit = handleSubmit((values) => {
-    const finish = () => { onClose(); reset() }
+    const finish = () => {
+      onClose()
+      reset()
+    }
     if (defaultValues) {
       update.mutate({ id: defaultValues.id, ...values }, { onSuccess: finish })
     } else {
@@ -269,7 +337,10 @@ function AccountModal({
   return (
     <FormModal
       open={open}
-      onClose={() => { onClose(); reset() }}
+      onClose={() => {
+        onClose()
+        reset()
+      }}
       title={title}
       formId="account-form"
       onSubmit={onSubmit}
@@ -279,7 +350,9 @@ function AccountModal({
         <div className="flex flex-col gap-1.5">
           <Label>Nome</Label>
           <Input placeholder="Ex: Conta Corrente Itaú" {...register("name")} />
-          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          {errors.name && (
+            <p className="text-xs text-destructive">{errors.name.message}</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -292,15 +365,21 @@ function AccountModal({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.entries(ACCOUNT_TYPE_LABELS) as [AccountType, string][]).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
+              {(
+                Object.entries(ACCOUNT_TYPE_LABELS) as [AccountType, string][]
+              ).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>{defaultValues ? "Saldo atual (R$)" : "Saldo inicial (R$)"}</Label>
+          <Label>
+            {defaultValues ? "Saldo atual (R$)" : "Saldo inicial (R$)"}
+          </Label>
           <Input
             type="number"
             step="0.01"
@@ -321,7 +400,7 @@ function AccountModal({
                 className={cn(
                   "size-9 rounded-full transition-transform hover:scale-110 sm:size-7",
                   selectedColor === c &&
-                    "ring-2 ring-ring ring-offset-2 ring-offset-background scale-110"
+                    "scale-110 ring-2 ring-ring ring-offset-2 ring-offset-background"
                 )}
                 style={{ backgroundColor: c }}
               />
@@ -339,7 +418,8 @@ function AccountModal({
           <span className="flex flex-col">
             <span className="text-sm font-medium">Conta padrão</span>
             <span className="text-xs text-muted-foreground">
-              Pré-selecionada ao criar uma transação. Apenas uma conta pode ser padrão.
+              Pré-selecionada ao criar uma transação. Apenas uma conta pode ser
+              padrão.
             </span>
           </span>
         </label>

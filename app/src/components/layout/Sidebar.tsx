@@ -6,12 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import {
-  Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Sun,
-} from "lucide-react"
+import { Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react"
 import { useEffect, useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { Logo } from "./Logo"

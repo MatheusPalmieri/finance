@@ -45,6 +45,19 @@ export function relativeTime(iso: string) {
 // "YYYY-MM" → "Jun 2026"
 export function formatMonthLabel(ym: string) {
   const [year, month] = ym.split("-")
-  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+  const months = [
+    "Jan",
+    "Fev",
+    "Mar",
+    "Abr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Set",
+    "Out",
+    "Nov",
+    "Dez",
+  ]
   return `${months[Number(month) - 1]} ${year}`
 }

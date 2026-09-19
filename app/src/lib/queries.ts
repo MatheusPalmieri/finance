@@ -32,7 +32,8 @@ export const keys = {
   transactions: {
     all: ["transactions"] as const,
     lists: () => [...keys.transactions.all, "list"] as const,
-    list: (params: ListTransactionsParams) => [...keys.transactions.lists(), params] as const,
+    list: (params: ListTransactionsParams) =>
+      [...keys.transactions.lists(), params] as const,
   },
   budgets: {
     all: ["budgets"] as const,
@@ -46,17 +47,24 @@ export const keys = {
   },
   dashboard: {
     all: ["dashboard"] as const,
-    summary: (params: DashboardParams) => [...keys.dashboard.all, "summary", params] as const,
+    summary: (params: DashboardParams) =>
+      [...keys.dashboard.all, "summary", params] as const,
   },
 }
 
 // ── Accounts ──────────────────────────────────────────────────────────────────
 export function useAccounts() {
-  return useQuery({ queryKey: keys.accounts.list(), queryFn: api.accounts.list })
+  return useQuery({
+    queryKey: keys.accounts.list(),
+    queryFn: api.accounts.list,
+  })
 }
 
 export function useDefaultAccount() {
-  return useQuery({ queryKey: keys.accounts.default(), queryFn: api.accounts.default })
+  return useQuery({
+    queryKey: keys.accounts.default(),
+    queryFn: api.accounts.default,
+  })
 }
 
 export function useCreateAccount() {
@@ -132,13 +140,20 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name: string; color?: string }) =>
-      api.categories.update(id, body),
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string
+      name: string
+      color?: string
+    }) => api.categories.update(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.categories.all })
       toast.success("Categoria atualizada")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar categoria"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao atualizar categoria"),
   })
 }
 
@@ -151,7 +166,8 @@ export function useDeleteCategory() {
       qc.invalidateQueries({ queryKey: keys.budgets.all })
       toast.success("Categoria excluída")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir categoria"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao excluir categoria"),
   })
 }
 
@@ -179,13 +195,20 @@ export function useCreateWallet() {
 export function useUpdateWallet() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name: string; color?: string }) =>
-      api.wallets.update(id, body),
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string
+      name: string
+      color?: string
+    }) => api.wallets.update(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.wallets.all })
       toast.success("Carteira atualizada")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar carteira"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao atualizar carteira"),
   })
 }
 
@@ -235,7 +258,8 @@ export function useUpdateTransaction() {
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       toast.success("Transação atualizada")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar transação"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao atualizar transação"),
   })
 }
 
@@ -249,21 +273,28 @@ export function useDeleteTransaction() {
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       toast.success("Transação excluída")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir transação"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao excluir transação"),
   })
 }
 
 export function useBulkCreateTransactions() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (items: TransactionInput[]) => api.transactions.bulkCreate(items),
+    mutationFn: (items: TransactionInput[]) =>
+      api.transactions.bulkCreate(items),
     onSuccess: ({ created }) => {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
-      toast.success(created === 1 ? "1 transação importada" : `${created} transações importadas`)
+      toast.success(
+        created === 1
+          ? "1 transação importada"
+          : `${created} transações importadas`
+      )
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao importar transações"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao importar transações"),
   })
 }
 
@@ -297,7 +328,8 @@ export function useUpdateBudget() {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       toast.success("Orçamento atualizado")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar orçamento"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao atualizar orçamento"),
   })
 }
 
@@ -309,7 +341,8 @@ export function useDeleteBudget() {
       qc.invalidateQueries({ queryKey: keys.budgets.all })
       toast.success("Orçamento excluído")
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir orçamento"),
+    onError: (e: Error) =>
+      toast.error(e.message ?? "Erro ao excluir orçamento"),
   })
 }
 

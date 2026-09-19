@@ -9,7 +9,10 @@ import {
 } from "lucide-react"
 
 // Tipo estrutural para ícones (lucide-react)
-export type IconType = React.ComponentType<{ size?: number; className?: string }>
+export type IconType = React.ComponentType<{
+  size?: number
+  className?: string
+}>
 
 export interface NavItemDef {
   to: string
