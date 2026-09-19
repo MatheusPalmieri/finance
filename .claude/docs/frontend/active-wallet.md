@@ -6,24 +6,24 @@ updated: 2026-09-19
 
 ## Visão geral
 
-A Carteira deixou de ser apenas um filtro local da tela de Transações e virou o **escopo global do app**. Um seletor fixo na navegação define a carteira ativa; enquanto ela estiver selecionada, as telas trazem só os dados dela e os novos registros nascem atribuídos a ela.
+A Carteira deixou de ser apenas um filtro local da tela de Transações e virou o **escopo global do app**. Um seletor no rodapé da navegação define a carteira ativa; as telas trazem só os dados dela e os novos registros nascem atribuídos a ela.
 
-Estado `null` = **"Todas as carteiras"** (comportamento anterior, sem filtro).
+**Há sempre uma carteira ativa** — não existe opção "todas". `walletId` só é `null` no caso limite em que nenhuma carteira foi cadastrada ainda.
 
 ## Peças
 
 | Arquivo | Papel |
 |---------|-------|
-| `app/src/components/wallet-provider.tsx` | `WalletProvider` + hook `useActiveWallet()` — guarda `walletId: string \| null`, persistido em `localStorage` sob a chave `active-wallet-id` |
-| `app/src/components/layout/WalletSwitcher.tsx` | Dropdown do seletor (lista as carteiras + "Todas as carteiras" + "Gerenciar carteiras") |
+| `app/src/components/wallet-provider.tsx` | `WalletProvider` + hook `useActiveWallet()` — guarda a escolha em `localStorage` (chave `active-wallet-id`) e **deriva** a carteira ativa a partir da lista de `useWallets()` |
+| `app/src/components/layout/WalletSwitcher.tsx` | Dropdown do seletor — lista as carteiras (`DropdownMenuRadioGroup`) + atalho "Gerenciar carteiras" |
 | `app/src/main.tsx` | `<WalletProvider>` envolve o `<App />`, dentro do `ThemeProvider` |
 
 O `WalletProvider` fica **acima** do router, então a carteira ativa sobrevive à navegação entre rotas.
 
 ## Onde o seletor aparece
 
-- **Sidebar (desktop)** — logo abaixo do cabeçalho com a logo, antes dos itens de navegação. Quando a sidebar está recolhida, mostra só a bolinha da cor da carteira, com tooltip.
-- **Drawer mobile (`MobileTopbar`)** — mesma posição, abaixo do header do `Sheet`; selecionar "Gerenciar carteiras" fecha o drawer antes de navegar.
+- **Sidebar (desktop)** — no rodapé, empurrado para baixo por `mt-auto`, **acima do divider** do bloco tema/recolher. Quando a sidebar está recolhida, mostra só a bolinha da cor da carteira, com tooltip. O dropdown abre para cima (`side="top"`).
+- **Drawer mobile (`MobileTopbar`)** — também no rodapé do `Sheet`, depois do `<nav>` e com `border-t`; selecionar "Gerenciar carteiras" fecha o drawer antes de navegar.
 
 O item **"Carteiras"** foi **removido do `navItems`** (`components/layout/nav.ts`). A rota `/wallets` continua existindo e o CRUD é alcançado pela última opção do dropdown ("Gerenciar carteiras").
 
@@ -38,9 +38,31 @@ O item **"Carteiras"** foi **removido do `navItems`** (`components/layout/nav.ts
 
 Não são escopados (permanecem globais): Contas, Categorias, Orçamentos e Open Finance.
 
-## Carteira excluída
+## Seleção padrão e fallback
 
-Se o `localStorage` guardar o id de uma carteira que não existe mais, o `WalletSwitcher` detecta (a lista carregada não contém o id) e volta para "Todas as carteiras" — evita filtrar por um id inválido e mostrar tudo vazio.
+A carteira ativa é **derivada no render** (não em `useEffect`, para não existir nenhum instante sem carteira):
+
+```
+walletId = wallets
+  ? (carteira salva ainda existe ? ela : primeira da lista)
+  : carteira salva   // enquanto a lista carrega
+```
+
+Consequências:
+
+- **Primeiro acesso** (sem nada em `localStorage`) → entra na primeira carteira da lista (ordenada por `name` na API).
+- **Carteira ativa excluída** → a lista é invalidada pelo React Query e a derivação cai na próxima carteira disponível, sem passo manual.
+- **Nenhuma carteira cadastrada** → `walletId` é `null`, o seletor mostra "Nenhuma carteira" e o dropdown exibe "Nenhuma carteira cadastrada" + "Gerenciar carteiras".
+
+Só a escolha explícita do usuário é gravada em `localStorage`; o fallback é recalculado a cada carregamento.
+
+## Transações sem carteira
+
+Registros anteriores a esta mudança podem ter `wallet_id` nulo. Como não existe mais a visão "todas as carteiras", **eles não aparecem em nenhuma tela**. Para trazê-los para uma carteira:
+
+```sql
+UPDATE transactions SET wallet_id = '<uuid da carteira>' WHERE wallet_id IS NULL;
+```
 
 ## Relacionados
 

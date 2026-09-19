@@ -6,25 +6,35 @@ import {
   useState,
 } from "react"
 
+import { useWallets } from "@/lib/queries"
+
 const STORAGE_KEY = "active-wallet-id"
 
 interface WalletContextValue {
-  /** Carteira ativa — `null` significa "todas as carteiras" */
+  /** Carteira ativa — só é `null` enquanto não existe nenhuma carteira cadastrada */
   walletId: string | null
-  setWalletId: (id: string | null) => void
+  setWalletId: (id: string) => void
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [walletId, setWalletIdState] = useState<string | null>(
-    () => localStorage.getItem(STORAGE_KEY) || null
+  const { data: wallets } = useWallets()
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    localStorage.getItem(STORAGE_KEY)
   )
 
-  const setWalletId = useCallback((id: string | null) => {
-    setWalletIdState(id)
-    if (id) localStorage.setItem(STORAGE_KEY, id)
-    else localStorage.removeItem(STORAGE_KEY)
+  // Sempre tem que haver uma carteira ativa. Se a escolha salva não existe mais
+  // (excluída) ou nunca houve escolha, cai para a primeira da lista. Derivado no
+  // render em vez de effect para não haver um instante sem carteira.
+  // Enquanto a lista carrega, mantém a escolha salva (quase sempre válida).
+  const walletId = wallets
+    ? (wallets.find((w) => w.id === selectedId)?.id ?? wallets[0]?.id) || null
+    : selectedId
+
+  const setWalletId = useCallback((id: string) => {
+    setSelectedId(id)
+    localStorage.setItem(STORAGE_KEY, id)
   }, [])
 
   const value = useMemo(

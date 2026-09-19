@@ -27,7 +27,7 @@ Qualquer mudança de período (mês ou período específico) reseta `page` para 
 
 ## Filtro por Carteira (2026-09-11 → substituído em 2026-09-19)
 
-Existiu um `Select` "Todas as carteiras" (`filterWalletId`) na barra de filtros. **Foi removido em 2026-09-19**: a carteira virou escopo global, escolhida no seletor da sidebar. O param `walletId` continua sendo enviado em `GET /transactions`, mas vem de `useActiveWallet()` em vez de um estado local. Ver `.claude/docs/frontend/active-wallet.md`.
+Existiu um `Select` "Todas as carteiras" (`filterWalletId`) na barra de filtros. **Foi removido em 2026-09-19**: a carteira virou escopo global, escolhida no seletor do rodapé da sidebar, e há sempre uma ativa (não existe mais a visão "todas"). O param `walletId` continua sendo enviado em `GET /transactions`, mas vem de `useActiveWallet()` em vez de um estado local. Ver `.claude/docs/frontend/active-wallet.md`.
 
 ## Não confundir com o Dashboard (Home)
 

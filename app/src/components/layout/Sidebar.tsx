@@ -64,11 +64,6 @@ export function Sidebar() {
           <Logo collapsed={collapsed} />
         </div>
 
-        {/* Carteira ativa — escopo global do app */}
-        <div className="px-3 pt-3">
-          <WalletSwitcher collapsed={collapsed} />
-        </div>
-
         {/* Navegação */}
         <nav className="flex flex-col gap-1 p-3">
           {navItems.map(({ to, icon: Icon, label }) => (
@@ -83,8 +78,13 @@ export function Sidebar() {
           ))}
         </nav>
 
+        {/* Carteira ativa — escopo global do app, logo acima do rodapé */}
+        <div className="mt-auto px-3 pb-3">
+          <WalletSwitcher collapsed={collapsed} />
+        </div>
+
         {/* Rodapé: tema + colapsar */}
-        <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border p-3">
+        <div className="flex flex-col gap-1 border-t border-sidebar-border p-3">
           <SidebarButton
             collapsed={collapsed}
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

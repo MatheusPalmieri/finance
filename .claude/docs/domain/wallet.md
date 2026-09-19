@@ -6,7 +6,9 @@ updated: 2026-09-19
 
 ## Visão geral
 
-Carteira é o **escopo global do app** (desde 2026-09-19): um seletor na sidebar define a carteira ativa e todas as telas passam a ler e gravar dentro dela. Continua sendo um agrupamento livre e **opcional** para transações (ex: "Carteira Pessoal", "Carteira Empresa", "Carteira Investimentos"). Serve para o usuário organizar transações por um critério próprio, sem relação com bancos ou saldo.
+Carteira é o **escopo global do app** (desde 2026-09-19): um seletor no rodapé da sidebar define a carteira ativa — e há **sempre** uma ativa — e todas as telas passam a ler e gravar dentro dela. O critério de agrupamento continua livre (ex: "Carteira Pessoal", "Carteira Empresa", "Carteira Investimentos") e sem relação com bancos ou saldo.
+
+`transactions.wallet_id` segue **nullable no banco** (nenhuma migration foi necessária), mas na prática o frontend sempre preenche: toda transação criada ou importada nasce na carteira ativa. Registros antigos com `wallet_id` nulo não aparecem em nenhuma tela — ver "Transações sem carteira" em `.claude/docs/frontend/active-wallet.md`.
 
 É um conceito **independente** de `accounts` (Conta): Conta representa banco/tipo de conta com saldo (`CHECKING`, `SAVINGS`, `CREDIT_CARD`, etc.) e é obrigatória em toda transação; Carteira não tem saldo, tipo ou conta padrão, e é opcional.
 
@@ -25,7 +27,7 @@ Tabela `wallets` (`api/src/db/schema.ts`):
 
 ## Onde aparece
 
-- **Seletor global** no topo da navegação (sidebar no desktop, drawer no mobile). Define o escopo de Transações, do formulário de transação, da importação CSV e do painel Início. Detalhes em `.claude/docs/frontend/active-wallet.md`.
+- **Seletor global** no rodapé da navegação (sidebar no desktop, drawer no mobile). Define o escopo de Transações, do formulário de transação, da importação CSV e do painel Início. Detalhes em `.claude/docs/frontend/active-wallet.md`.
 - **CRUD próprio** em `/wallets`, reaproveitando o componente genérico `ColorEntityCrud` — mesmo padrão visual de Categorias. Acessado pelo item "Gerenciar carteiras" do seletor (não está mais no menu lateral).
 
 Saíram da UI em 2026-09-19: o `Select` de filtro de carteira na tela de Transações e o campo "Carteira (opcional)" no formulário de transação — ambos substituídos pelo seletor global.

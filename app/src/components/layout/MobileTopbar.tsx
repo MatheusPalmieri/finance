@@ -50,11 +50,6 @@ export function MobileTopbar() {
             </SheetTitle>
           </SheetHeader>
 
-          {/* Carteira ativa — escopo global do app */}
-          <div className="px-3 pt-3">
-            <WalletSwitcher onNavigate={() => setOpen(false)} />
-          </div>
-
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
             {navItems.map(({ to, icon: Icon, label }) => {
               const active = isRouteActive(pathname, to)
@@ -77,6 +72,11 @@ export function MobileTopbar() {
               )
             })}
           </nav>
+
+          {/* Carteira ativa — escopo global do app, no rodapé do drawer */}
+          <div className="border-t border-sidebar-border p-3">
+            <WalletSwitcher onNavigate={() => setOpen(false)} />
+          </div>
         </SheetContent>
       </Sheet>
 
