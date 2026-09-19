@@ -64,8 +64,20 @@ Registros anteriores a esta mudança podem ter `wallet_id` nulo. Como não exist
 UPDATE transactions SET wallet_id = '<uuid da carteira>' WHERE wallet_id IS NULL;
 ```
 
+## Carteira de testes do Claude
+
+Transações criadas pelo Claude Code para teste ou depuração vão **sempre** para
+a carteira `Claude` — nunca para as carteiras reais do usuário. Se ela não
+existir, é criada antes (`POST /wallets` com `{ "name": "Claude", "color": "#d97757" }`)
+e selecionada no seletor da sidebar; a partir daí as transações nascem nela.
+
+Como o app escopa tudo pela carteira ativa, esses dados ficam invisíveis
+enquanto outra carteira estiver selecionada — não é preciso limpá-los depois.
+Regra completa no `CLAUDE.md` da raiz do projeto.
+
 ## Relacionados
 
 - `.claude/docs/domain/wallet.md` — entidade
 - `.claude/docs/api/transactions.md` — filtro `walletId`
 - `.claude/docs/frontend/transactions-filters.md` — demais filtros da tela
+- `CLAUDE.md` (raiz) — regra de dados de teste

@@ -17,6 +17,23 @@ Nunca deixe trabalho concluído fora do controle de versão.
 
 ---
 
+## Regra de dados de teste (OBRIGATÓRIA)
+
+**Toda transação criada para teste, depuração ou verificação manual deve ficar
+na carteira chamada `Claude`.** Nunca misture dados de teste com as carteiras
+reais do usuário.
+
+- Se a carteira `Claude` não existir, crie antes de testar:
+  `POST /wallets` com `{ "name": "Claude", "color": "#d97757" }`.
+- Selecione a carteira `Claude` no seletor da sidebar antes de criar as
+  transações — elas nascem na carteira ativa
+  (ver `.claude/docs/frontend/active-wallet.md`).
+- A mesma regra vale para importação de CSV de teste e para inserts feitos
+  direto no Postgres.
+- Não é preciso apagar os dados depois: eles ficam isolados nessa carteira.
+
+---
+
 ## Skills disponíveis
 
 Este projeto tem skills configuradas em `.claude/skills/`. Use-as sempre que o contexto bater:
