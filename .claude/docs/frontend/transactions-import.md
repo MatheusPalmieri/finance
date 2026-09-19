@@ -1,7 +1,7 @@
 ---
 title: Frontend — Importação de extrato CSV em Transações
 area: frontend
-updated: 2026-09-11
+updated: 2026-09-19
 ---
 
 ## Visão geral
@@ -50,21 +50,23 @@ Importar chama `useBulkCreateTransactions()` → `POST /transactions/bulk`, usan
 
 ## De-para automático (`pages/Transactions/depara.ts`)
 
-`matchDepara(description)` casa a descrição crua do CSV (a mesma string, sem qualquer normalização de CPF/CNPJ/agência) contra `DEPARA_RULES` — uma lista ordenada de `{ pattern, paymentMethod?, categoryName? }`. O match é por **substring**, comparando os dois lados sem acento (`NFD` + remoção de marcas combinantes) e em minúsculas; a ordem da lista importa — regras mais específicas (ex.: `"matheus andre palmieri ltda"`) vêm antes de regras genéricas que seriam substring delas (ex.: `"matheus andre palmieri"`), senão a genérica venceria por ser a primeira a bater.
+`matchDepara(description)` casa a descrição crua do CSV (a mesma string, sem qualquer normalização de CPF/CNPJ/agência) contra `DEPARA_RULES` — uma lista ordenada de `{ pattern, rename?, paymentMethod?, categoryName?, isIncome?, recurrence? }`. O match é por **substring**, comparando os dois lados sem acento (`NFD` + remoção de marcas combinantes) e em minúsculas; a ordem da lista importa — regras mais específicas (ex.: `"matheus andre palmieri ltda"`) vêm antes de regras genéricas que seriam substring delas (ex.: `"matheus andre palmieri"`), senão a genérica venceria por ser a primeira a bater.
 
 Em `handleFile` (etapa "Arquivo"), pra cada linha lida do CSV:
+- `name` passa por `resolveName(rule, descrição)`: se a regra tem `rename` (string fixa ou função), ele substitui a descrição crua.
+- `isIncome` da regra, quando definido, **sobrescreve o sinal do extrato** (ex.: "Aplicação RDB" sempre é receita, mesmo vindo negativa no Nubank). `recurrence` da regra vira o padrão da linha (`DraftRow.recurrence`, default `"variable"`).
 - `paymentMethod` é preenchido sempre que alguma regra bate — não depende de nada existir no banco.
 - `categoryId` só é preenchido quando a regra tem `categoryName` **e** existe uma categoria com esse nome exato (comparação case-insensitive) na lista carregada por `useCategories()`. Nunca cria categoria nova automaticamente — se o nome não bater com nenhuma categoria existente, a linha fica sem categoria e o usuário escolhe manualmente na revisão.
 
 Tudo isso é só um ponto de partida: linha por linha continua 100% editável na etapa "Revisar", exatamente como antes.
 
-Regras atuais foram levantadas a partir dos extratos `NU_675343637` de nov/dez 2025 (padrões recorrentes: aplicação RDB, boletos de imobiliária/CELESC/financiamento, fatura de cartão, Pix pra Receita Federal e para algumas pessoas fixas, transferência entre contas próprias). Pra adicionar/ajustar um padrão, edite o array `DEPARA_RULES` em `depara.ts` diretamente — não há tela de administração para isso.
+Regras atuais: Aplicação RDB (receita, variável, categoria Investimento); salário (`Transferência Recebida - MATHEUS ANDRE PALMIERI LTDA` → "Salário", categoria Salário); boletos Conceito Imobiliária → "Aluguel", CELESC → "Conta de luz" (Moradia) e Aymoré → "Financiamento do carro" (Transporte); fatura de cartão; transferências entre contas próprias; e **todo Pix enviado** (`Transferência enviada pelo Pix - NOME - doc - ...`) vira `Pix para NOME` via `pixRecipient()` (regex que pega o nome completo até o documento mascarado/CNPJ). Categorias "Salário" e as demais só são aplicadas se existirem com esse nome exato — a categoria **Salário não vem no seed**, crie-a em Categorias. Pra adicionar/ajustar um padrão, edite `DEPARA_RULES` em `depara.ts` — não há tela de administração. A ordem importa (salário e contas próprias antes do Pix genérico).
 
 ## Defaults aplicados a toda importação
 
 Não há campo na UI para isso — é fixo por linha:
-- `recurrence: "variable"` (nunca fixo, evita exigir `budgetId` por linha)
-- `isEssential: true`
+- `recurrence`: `"variable"` por padrão (nunca fixo, evita exigir `budgetId` por linha); a regra do de-para pode definir outro valor
+- `isEssential: !isIncome` — essencial só existe em saída; entradas sempre vão como `false` (o form "Nova transação" também esconde "Tipo de gasto" quando é entrada, e a lista não mostra o badge "Essencial" em entradas)
 - `notes`: `"Importado via CSV — ID {identificador}"` quando o CSV tem identificador (serve de rastro para achar duplicatas manualmente via busca; não há deduplicação automática)
 
 Se o usuário quiser mudar essencial/recorrência de uma linha importada, edita a transação normalmente depois (`TransactionModal` já existente).

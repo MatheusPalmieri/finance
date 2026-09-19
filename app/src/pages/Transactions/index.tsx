@@ -526,7 +526,7 @@ function TransactionRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">{tx.name}</p>
-          {tx.isEssential && (
+          {!isIncome && tx.isEssential && (
             <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
               Essencial
             </span>
@@ -647,6 +647,8 @@ function TransactionModal({
     const payload = {
       ...values,
       amount: income ? -amount : amount,
+      // Essencial só existe em saída — entrada é sempre gravada como não essencial
+      isEssential: income ? false : values.isEssential,
       budgetId: values.recurrence === "fixed" ? values.budgetId : null,
       walletId: values.walletId || null,
       notes: values.notes || null,
@@ -817,26 +819,28 @@ function TransactionModal({
           </div>
         </div>
 
-        {/* Essencial */}
-        <div className="flex flex-col gap-1.5">
-          <Label>Tipo de gasto</Label>
-          <div className="flex gap-2">
-            <SegButton
-              active={isEssential}
-              onClick={() => setValue("isEssential", true)}
-              color={FINANCE.essential}
-            >
-              Essencial
-            </SegButton>
-            <SegButton
-              active={!isEssential}
-              onClick={() => setValue("isEssential", false)}
-              color={FINANCE.nonEssential}
-            >
-              Não essencial
-            </SegButton>
+        {/* Essencial — só para saídas */}
+        {!isIncome && (
+          <div className="flex flex-col gap-1.5">
+            <Label>Tipo de gasto</Label>
+            <div className="flex gap-2">
+              <SegButton
+                active={isEssential}
+                onClick={() => setValue("isEssential", true)}
+                color={FINANCE.essential}
+              >
+                Essencial
+              </SegButton>
+              <SegButton
+                active={!isEssential}
+                onClick={() => setValue("isEssential", false)}
+                color={FINANCE.nonEssential}
+              >
+                Não essencial
+              </SegButton>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Recorrência */}
         <div className="flex flex-col gap-1.5">

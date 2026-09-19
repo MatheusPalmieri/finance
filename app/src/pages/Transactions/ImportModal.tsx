@@ -39,10 +39,11 @@ import { FINANCE } from "@/lib/tokens"
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_ORDER,
+  type Recurrence,
   type PaymentMethod,
 } from "@/types/finance"
 import { CsvImportError, parseStatementCsv } from "./csv"
-import { matchDepara } from "./depara"
+import { matchDepara, resolveName } from "./depara"
 
 // `amount` é sempre a magnitude (positiva) e `isIncome` define o sinal —
 // mesmo padrão do botão redondo em "Nova transação" (Transactions/index.tsx).
@@ -60,6 +61,7 @@ interface DraftRow {
   identifier: string
   categoryId: string
   paymentMethod: PaymentMethod | ""
+  recurrence: Recurrence
 }
 
 type Step = "file" | "configure" | "review"
@@ -137,12 +139,13 @@ export function ImportModal({
           return {
             key: r.identifier || `${r.date}-${i}`,
             date: r.date,
-            name: r.name,
+            name: resolveName(rule, r.name),
             amount: Math.abs(r.amount),
-            isIncome: r.amount > 0,
+            isIncome: rule?.isIncome ?? r.amount > 0,
             identifier: r.identifier,
             categoryId: category?.id ?? "",
             paymentMethod: rule?.paymentMethod ?? "",
+            recurrence: rule?.recurrence ?? "variable",
           }
         })
       )
@@ -208,8 +211,9 @@ export function ImportModal({
       // canImport já garantiu que não está vazio antes de chegar aqui
       paymentMethod: r.paymentMethod as PaymentMethod,
       accountId,
-      isEssential: true,
-      recurrence: "variable",
+      // Essencial só faz sentido em saída — entrada nunca é essencial
+      isEssential: !r.isIncome,
+      recurrence: r.recurrence,
       budgetId: null,
       walletId,
       date: r.date,
@@ -375,8 +379,8 @@ export function ImportModal({
                 o padrão pra preencher todas as linhas — dá pra trocar linha a
                 linha na próxima etapa. Categoria também é definida linha a
                 linha na revisão. Toda linha importada entra como recorrência
-                variável e gasto essencial; ajuste isso depois pela edição
-                normal, se precisar.
+                variável (e saídas como gasto essencial); ajuste depois pela
+                edição normal, se precisar.
               </p>
             </div>
           )}

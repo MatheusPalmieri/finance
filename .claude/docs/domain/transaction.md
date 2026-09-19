@@ -18,7 +18,7 @@ A transação é o módulo central do sistema. Não há campo `type` nem entidad
 | `categoryId` | uuid FK → categories | sim | Categoria do gasto |
 | `paymentMethod` | enum `payment_method` | sim | Forma de pagamento — lista fixa do sistema, não é FK (ver "Forma de pagamento" abaixo) |
 | `accountId` | uuid FK → accounts | sim | Conta de onde saiu o dinheiro |
-| `isEssential` | boolean | sim | Gasto essencial (`true`) ou não (`false`) |
+| `isEssential` | boolean | sim | Gasto essencial (`true`) ou não (`false`). Só faz sentido em saída: entradas (amount < 0) são sempre gravadas com `false` e a UI não mostra o seletor nem o badge para elas |
 | `recurrence` | enum `fixed` \| `variable` | sim | Gasto fixo (recorrente) ou variável (pontual) |
 | `budgetId` | uuid FK → budgets | condicional | Orçamento vinculado — obrigatório se `recurrence = fixed`; nulo se `variable`. Ver `.claude/docs/domain/budget.md` |
 | `date` | date | sim | Data do gasto (default: `CURRENT_DATE`) |
