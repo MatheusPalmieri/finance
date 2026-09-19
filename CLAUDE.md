@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Ao finalizar cada interação/tarefa, sempre faça `git commit` das alterações pendentes e `git push`.**
 Nunca deixe trabalho concluído fora do controle de versão.
+Antes de encerrar a resposta, rode `git status` e confirme que está limpo e sincronizado com o remoto (inclusive arquivos novos não rastreados) — vale para toda interação, mesmo as curtas ou de conversa.
 
 - Commits seguem Conventional Commits.
 - Não commitar extratos bancários (`NU_*.csv`) nem segredos — usar `.gitignore`.
