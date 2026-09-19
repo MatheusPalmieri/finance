@@ -30,6 +30,9 @@ const Rules = lazy(() =>
 const Reports = lazy(() =>
   import("@/pages/Reports").then((m) => ({ default: m.Reports }))
 )
+const Forecast = lazy(() =>
+  import("@/pages/Forecast").then((m) => ({ default: m.Forecast }))
+)
 
 const router = createBrowserRouter([
   {
@@ -41,6 +44,7 @@ const router = createBrowserRouter([
       { path: "budgets", element: <Budgets /> },
       { path: "categories", element: <Categories /> },
       { path: "wallets", element: <Wallets /> },
+      { path: "forecast", element: <Forecast /> },
       { path: "reports", element: <Reports /> },
       { path: "rules", element: <Rules /> },
       { path: "open-finance", element: <OpenFinance /> },

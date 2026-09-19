@@ -7,9 +7,11 @@ import {
 import { toast } from "sonner"
 import {
   api,
+  type AffordInput,
   type BudgetInput,
   type DashboardParams,
   type FeedbackInput,
+  type ForecastParams,
   type GenerateReportInput,
   type ListRecurringParams,
   type ListRulesParams,
@@ -69,6 +71,14 @@ export const keys = {
     current: (walletId?: string | null) =>
       [...keys.reports.all, "current", walletId ?? ""] as const,
   },
+  forecast: {
+    all: ["forecast"] as const,
+    cashflow: (params: ForecastParams) =>
+      [...keys.forecast.all, "cashflow", params] as const,
+  },
+  settings: {
+    all: ["settings"] as const,
+  },
   llm: {
     all: ["llm"] as const,
     health: () => [...keys.llm.all, "health"] as const,
@@ -102,6 +112,7 @@ export function useCreateAccount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Conta criada")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao criar conta"),
@@ -138,6 +149,7 @@ export function useDeleteAccount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Conta excluída")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir conta"),
@@ -192,6 +204,8 @@ export function useDeleteCategory() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.categories.all })
       qc.invalidateQueries({ queryKey: keys.budgets.all })
+      // Orçamentos são a perna fixa da projeção de fluxo de caixa
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Categoria excluída")
     },
     onError: (e: Error) =>
@@ -269,6 +283,7 @@ export function useCreateTransaction() {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Transação criada")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao criar transação"),
@@ -284,6 +299,7 @@ export function useUpdateTransaction() {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Transação atualizada")
     },
     onError: (e: Error) =>
@@ -299,6 +315,7 @@ export function useDeleteTransaction() {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Transação excluída")
     },
     onError: (e: Error) =>
@@ -315,6 +332,7 @@ export function useBulkCreateTransactions() {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success(
         created === 1
           ? "1 transação importada"
@@ -340,6 +358,8 @@ export function useCreateBudget() {
     mutationFn: (body: BudgetInput) => api.budgets.create(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.budgets.all })
+      // Orçamentos são a perna fixa da projeção de fluxo de caixa
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Orçamento criado")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao criar orçamento"),
@@ -353,6 +373,8 @@ export function useUpdateBudget() {
       api.budgets.update(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.budgets.all })
+      // Orçamentos são a perna fixa da projeção de fluxo de caixa
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       toast.success("Orçamento atualizado")
     },
@@ -367,6 +389,8 @@ export function useDeleteBudget() {
     mutationFn: (id: string) => api.budgets.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.budgets.all })
+      // Orçamentos são a perna fixa da projeção de fluxo de caixa
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Orçamento excluído")
     },
     onError: (e: Error) =>
@@ -604,6 +628,58 @@ export function useNarrateReport() {
       else toast.error("A IA não produziu um texto confiável desta vez")
     },
     onError: (e: Error) => toast.error(e.message ?? "IA indisponível"),
+  })
+}
+
+// ── Projeção de fluxo de caixa ────────────────────────────────────────────────
+// A projeção só muda quando muda transação, orçamento ou conta — invalidar
+// nessas três chaves é suficiente, então dá pra segurar por 5 min.
+export function useCashflow(params: ForecastParams = {}) {
+  return useQuery({
+    queryKey: keys.forecast.cashflow(params),
+    queryFn: () => api.forecast.cashflow(params),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useSimulate() {
+  return useMutation({ mutationFn: api.forecast.simulate })
+}
+
+export function useAfford() {
+  return useMutation({
+    mutationFn: (body: AffordInput) => api.forecast.afford(body),
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao simular"),
+  })
+}
+
+export function useParseScenario() {
+  return useMutation({
+    mutationFn: (text: string) => api.forecast.parse(text),
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao interpretar"),
+  })
+}
+
+// ── Preferências ──────────────────────────────────────────────────────────────
+export function useSettings() {
+  return useQuery({
+    queryKey: keys.settings.all,
+    queryFn: api.settings.get,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUpdateSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: api.settings.update,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.settings.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
+      toast.success("Preferências salvas")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao salvar"),
   })
 }
 

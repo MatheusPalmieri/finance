@@ -1,7 +1,10 @@
 import type {
   Account,
   AccountType,
+  AffordResponse,
+  AppSettings,
   Budget,
+  CashflowProjection,
   BudgetAmountType,
   BudgetType,
   Category,
@@ -13,8 +16,11 @@ import type {
   OpenFinanceConnection,
   OpenFinanceSyncRun,
   OpenFinanceTransactionsResponse,
+  ParseScenarioResponse,
   PaymentMethod,
   Recurrence,
+  ScenarioEvent,
+  SimulateResponse,
   RecurringResponse,
   RecurringStatus,
   RuleMatchType,
@@ -137,6 +143,21 @@ export interface GenerateReportInput {
   year: number
   walletId?: string | null
   narrate?: boolean
+}
+
+export interface ForecastParams {
+  walletId?: string | null
+  horizonMonths?: number
+}
+
+export interface AffordInput {
+  walletId?: string | null
+  totalAmount: number
+  installments?: number
+  monthlyInterestPct?: number
+  label?: string
+  categoryId?: string | null
+  horizonMonths?: number
 }
 
 export const api = {
@@ -388,6 +409,47 @@ export const api = {
     delete: (id: string) =>
       request<{ success: boolean }>(`/reports/monthly/${id}`, {
         method: "DELETE",
+      }),
+  },
+
+  forecast: {
+    cashflow: (params: ForecastParams = {}) => {
+      const q = new URLSearchParams()
+      if (params.walletId) q.set("walletId", params.walletId)
+      if (params.horizonMonths)
+        q.set("horizonMonths", String(params.horizonMonths))
+      return request<CashflowProjection>(`/forecast/cashflow?${q}`)
+    },
+    simulate: (body: {
+      walletId?: string | null
+      horizonMonths?: number
+      events: ScenarioEvent[]
+    }) =>
+      request<SimulateResponse>("/forecast/simulate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    afford: (body: AffordInput) =>
+      request<AffordResponse>("/forecast/afford", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    parse: (text: string) =>
+      request<ParseScenarioResponse>("/forecast/parse", {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      }),
+  },
+
+  settings: {
+    get: () => request<AppSettings>("/settings"),
+    update: (body: {
+      minimumReserveBrl?: number | null
+      defaultHorizonMonths?: number
+    }) =>
+      request<AppSettings>("/settings", {
+        method: "PUT",
+        body: JSON.stringify(body),
       }),
   },
 

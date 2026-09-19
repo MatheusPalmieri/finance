@@ -19,13 +19,18 @@ import {
   Receipt,
   Repeat,
   ShieldCheck,
+  TrendingUp,
   Sparkles,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 import { ChartCard, ChartTooltip, StatCard } from "@/components/charts"
-import { useCurrentReport, useDashboardSummary } from "@/lib/queries"
+import {
+  useCashflow,
+  useCurrentReport,
+  useDashboardSummary,
+} from "@/lib/queries"
 import { useActiveWallet } from "@/components/wallet-provider"
 import {
   formatCurrency,
@@ -124,7 +129,10 @@ export function Home() {
         </div>
       </div>
 
-      <CheckupCard walletId={walletId} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ForecastCard walletId={walletId} />
+        <CheckupCard walletId={walletId} />
+      </div>
 
       {isError ? (
         <ErrorState
@@ -644,6 +652,57 @@ function CheckupCard({ walletId }: { walletId: string | null }) {
           ))}
         </ul>
       )}
+    </Link>
+  )
+}
+
+// ── Card da projeção do mês ──────────────────────────────────────────────────
+// Saldo previsto para o fim do mês corrente (p50) e a chance de fechar positivo.
+// Os números vêm do motor determinístico, nunca de IA.
+function ForecastCard({ walletId }: { walletId: string | null }) {
+  const { data, isLoading, isError } = useCashflow({
+    walletId,
+    horizonMonths: 1,
+  })
+
+  if (isLoading) return <Skeleton className="h-24 rounded-xl" />
+  if (isError || !data?.months.length) return null
+
+  const current = data.months[0]
+  const positive = current.balance.p50 >= 0
+  const chance = Math.round((1 - current.probNegative) * 100)
+  const color = positive ? FINANCE.income : FINANCE.expense
+
+  return (
+    <Link
+      to="/forecast"
+      className="flex flex-col gap-2 rounded-xl border bg-card p-5 transition-shadow hover:shadow-md"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <TrendingUp size={15} className="text-muted-foreground" />
+          Projeção de {MONTHS[current.month - 1].toLowerCase()}
+        </span>
+        <span className="text-xs text-muted-foreground">Ver projeção →</span>
+      </div>
+
+      <p className="text-lg font-semibold tracking-tight">
+        Deve fechar o mês com{" "}
+        <span className="tabular-nums" style={{ color }}>
+          {formatCurrency(current.balance.p50)}
+        </span>
+      </p>
+
+      <p className="text-xs text-muted-foreground">
+        {chance}% de chance de fechar no positivo · faixa provável entre{" "}
+        <span className="tabular-nums">
+          {formatCurrency(current.balance.p25)}
+        </span>{" "}
+        e{" "}
+        <span className="tabular-nums">
+          {formatCurrency(current.balance.p75)}
+        </span>
+      </p>
     </Link>
   )
 }

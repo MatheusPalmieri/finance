@@ -7,6 +7,7 @@ import {
   ListFilter,
   PiggyBank,
   Tag,
+  TrendingUp,
 } from "lucide-react"
 
 // Tipo estrutural para ícones (lucide-react)
@@ -29,6 +30,7 @@ export const navItems: NavItemDef[] = [
   { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
   { to: "/accounts", icon: Landmark, label: "Contas" },
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
+  { to: "/forecast", icon: TrendingUp, label: "Projeção" },
   { to: "/reports", icon: FileText, label: "Check-up" },
   { to: "/categories", icon: Tag, label: "Categorias" },
   { to: "/rules", icon: ListFilter, label: "Classificação" },

@@ -10,6 +10,7 @@ import { openFinanceRoute } from "./modules/open-finance"
 import { classificationRoute, recurringRoute } from "./modules/classification"
 import { llmRoute } from "./modules/llm"
 import { reportsRoute } from "./modules/reports"
+import { forecastRoute, settingsRoute } from "./modules/forecast"
 
 const app = new Elysia()
   .use(cors({ origin: "http://localhost:5173" }))
@@ -36,6 +37,8 @@ const app = new Elysia()
   .use(classificationRoute)
   .use(recurringRoute)
   .use(reportsRoute)
+  .use(forecastRoute)
+  .use(settingsRoute)
   .use(llmRoute)
   .listen(3001)
 

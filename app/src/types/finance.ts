@@ -394,6 +394,143 @@ export const INSIGHT_SEVERITY_HEX: Record<InsightSeverity, string> = {
   info: PALETTE.blue,
 }
 
+// ── Projeção de fluxo de caixa ──────────────────────────────────────────────
+export interface Percentiles {
+  p10: number
+  p25: number
+  p50: number
+  p75: number
+  p90: number
+}
+
+export interface ProjectedMonth {
+  month: number
+  year: number
+  label: string
+  expectedIncome: number
+  fixedExpenses: number
+  variableExpensesP50: number
+  knownTransactions: number
+  scenarioImpact: number
+  balance: Percentiles
+  probNegative: number
+}
+
+export interface CashflowProjection {
+  openingBalance: number
+  openingAccounts: { id: string; name: string; balance: number }[]
+  months: ProjectedMonth[]
+  summary: {
+    endBalanceP50: number
+    worstMonthLabel: string
+    minBalanceP10: number
+    probAnyNegative: number
+  }
+  assumptions: {
+    historyMonths: number
+    lowConfidenceCategories: string[]
+    categoriesWithTrend: { categoryName: string; monthlyPct: number }[]
+    simulationRuns: number
+    seed: number
+    minimumReserveBrl: number
+    minimumReserveIsDefault: boolean
+    recurringIncome: {
+      monthlyTotal: number
+      sources: { label: string; monthlyAmount: number; occurrences: number }[]
+    }
+  }
+}
+
+export type ScenarioEvent =
+  | {
+      kind: "installment_purchase"
+      label: string
+      totalAmount: number
+      installments: number
+      monthlyInterestPct?: number
+      startMonth?: string | null
+      categoryId?: string | null
+    }
+  | {
+      kind: "recurring_change"
+      label: string
+      monthlyAmount: number
+      startMonth?: string | null
+      endMonth?: string | null
+      categoryId?: string | null
+    }
+  | {
+      kind: "one_off"
+      label: string
+      amount: number
+      month: string
+    }
+  | {
+      kind: "income_change"
+      label: string
+      monthlyAmount: number
+      startMonth?: string | null
+    }
+
+export type Verdict = "safe" | "tight" | "risky" | "no"
+
+export interface AffordabilityVerdict {
+  verdict: Verdict
+  probAnyNegative: number
+  minBalanceP10: number
+  minimumReserveBrl: number
+  reason: string
+}
+
+export interface SimulateResponse {
+  base: CashflowProjection
+  withScenario: CashflowProjection
+  verdict: AffordabilityVerdict
+}
+
+export interface AffordResponse extends SimulateResponse {
+  actions: {
+    maxAffordableTotal: number | null
+    saferInstallments: number | null
+    bestStartMonth: string | null
+  }
+  event: ScenarioEvent
+}
+
+export interface ParseScenarioResponse {
+  events: ScenarioEvent[]
+  interpretation: string
+  aiAvailable: boolean
+}
+
+export interface AppSettings {
+  id: number
+  minimumReserveBrl: string | null
+  defaultHorizonMonths: number
+  updatedAt: string
+}
+
+export const VERDICT_LABELS: Record<Verdict, string> = {
+  safe: "Dá pra comprar",
+  tight: "Dá, mas aperta",
+  risky: "Arriscado",
+  no: "Não dá",
+}
+
+export const VERDICT_HEX: Record<Verdict, string> = {
+  safe: FINANCE.income,
+  tight: PALETTE.amber,
+  risky: PALETTE.orange,
+  no: FINANCE.expense,
+}
+
+export const SCENARIO_KIND_LABELS: Record<ScenarioEvent["kind"], string> = {
+  installment_purchase: "Compra",
+  recurring_change: "Gasto recorrente",
+  one_off: "Lançamento único",
+  income_change: "Mudança na renda",
+}
+
 // ── Open Finance (somente leitura) ──────────────────────────────────────────
 export type OfConnectionStatus =
   | "PENDING"

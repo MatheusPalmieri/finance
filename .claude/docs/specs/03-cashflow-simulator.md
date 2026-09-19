@@ -1,7 +1,7 @@
 ---
 title: Spec — Projeção de fluxo de caixa e simulador "posso comprar?"
 area: specs
-status: PROPOSTO
+status: IMPLEMENTADO
 updated: 2026-09-19
 ---
 

@@ -276,6 +276,21 @@ export const monthlyReports = pgTable(
   ]
 )
 
+// ── Preferências do app (spec 03) ────────────────────────────────────────────
+// Singleton: sempre a linha de `id: 1`. A projeção usa a reserva mínima para
+// decidir o veredito do "posso comprar?".
+
+export const appSettings = pgTable("app_settings", {
+  id: integer("id").primaryKey().default(1),
+  /** Nulo = usar o default calculado (1 mês de essenciais medianos). */
+  minimumReserveBrl: numeric("minimum_reserve_brl", { precision: 12, scale: 2 }),
+  defaultHorizonMonths: integer("default_horizon_months").default(6).notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdateFn(() => new Date())
+    .notNull(),
+})
+
 // ── Observabilidade de LLM (spec 00) ─────────────────────────────────────────
 // Nunca grava prompt nem resposta: viraria uma cópia sombra do extrato.
 // Para depuração, LLM_DEBUG=true loga no stdout apenas.
@@ -574,6 +589,9 @@ export type ReportStatus = (typeof reportStatusEnum.enumValues)[number]
 
 export type LlmCall = typeof llmCalls.$inferSelect
 export type NewLlmCall = typeof llmCalls.$inferInsert
+
+export type AppSettings = typeof appSettings.$inferSelect
+export type NewAppSettings = typeof appSettings.$inferInsert
 
 export type OpenFinanceConnection = typeof openFinanceConnections.$inferSelect
 export type NewOpenFinanceConnection = typeof openFinanceConnections.$inferInsert

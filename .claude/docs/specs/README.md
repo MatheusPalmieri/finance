@@ -16,10 +16,11 @@ implementação e critérios de aceite.
 | [`00-llm-provider.md`](./00-llm-provider.md) | Interface `LlmProvider` com adapters Ollama / Anthropic / mock | — (é a base) | ✅ implementada |
 | [`01-smart-categorization.md`](./01-smart-categorization.md) | Classificação em 3 camadas que aprende com as correções + detecção de assinaturas | Opcional (camada 3) | ✅ implementada |
 | [`02-monthly-checkup.md`](./02-monthly-checkup.md) | Relatório mensal: 50/30/20, anomalias, insights e narrativa | Opcional (só o texto) | ✅ implementada |
-| [`03-cashflow-simulator.md`](./03-cashflow-simulator.md) | Projeção Monte Carlo do saldo e veredito "posso comprar?" | Opcional (só o parser de frase) | proposta (~2–3 dias) |
+| [`03-cashflow-simulator.md`](./03-cashflow-simulator.md) | Projeção Monte Carlo do saldo e veredito "posso comprar?" | Opcional (só o parser de frase) | ✅ implementada |
 
-Docs das implementadas: `.claude/docs/api/llm.md`,
-`.claude/docs/domain/classification.md`, `.claude/docs/domain/monthly-report.md`.
+**As quatro specs estão implementadas.** Docs: `.claude/docs/api/llm.md`,
+`.claude/docs/domain/classification.md`, `.claude/docs/domain/monthly-report.md`
+e `.claude/docs/domain/forecast.md`.
 
 ## Dependências
 

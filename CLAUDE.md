@@ -60,6 +60,9 @@ Este projeto tem skills configuradas em `.claude/skills/`. Use-as sempre que o c
 Use `/docs` para criar ou atualizar o doc. Nunca termine uma tarefa sem checar se a doc está em dia.
 
 Docs existentes:
+- `.claude/docs/domain/forecast.md` — projeção Monte Carlo do saldo, cenários, veredito "posso comprar?" e reserva mínima
+- `.claude/docs/api/forecast.md` — endpoints /forecast e /settings
+- `.claude/docs/frontend/forecast.md` — página /forecast (gráfico de leque, painel de cenário) e card no Home
 - `.claude/docs/domain/classification.md` — motor de classificação em 3 camadas (regras/histórico/IA), regras aprendidas e detector de recorrências
 - `.claude/docs/domain/monthly-report.md` — check-up mensal: métricas, anomalias (mediana/MAD), insights e validação anti-alucinação
 - `.claude/docs/api/classification.md` — endpoints /classification e /recurring
@@ -106,7 +109,7 @@ Cada uma é autocontida e pode ser desenvolvida individualmente. Ver
 - ✅ `.claude/docs/specs/00-llm-provider.md` — camada `LlmProvider` (Ollama/Anthropic/mock) — **implementada**
 - ✅ `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas — **implementada**
 - ✅ `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA — **implementada**
-- `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?" — PROPOSTA
+- ✅ `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?" — **implementada**
 
 ---
 
