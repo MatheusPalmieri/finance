@@ -62,6 +62,47 @@ export const DEPARA_RULES: DeparaRule[] = [
     paymentMethod: "boleto",
     categoryName: "Transporte",
   },
+  {
+    pattern: "alles imoveis",
+    rename: "Aluguel",
+    paymentMethod: "boleto",
+    categoryName: "Moradia",
+  },
+  {
+    pattern: "edificio ilha de cozumel",
+    rename: "Condomínio",
+    paymentMethod: "boleto",
+    categoryName: "Moradia",
+  },
+  {
+    pattern: "resgate rdb",
+    paymentMethod: "transfer",
+    categoryName: "Investimento",
+    recurrence: "variable",
+  },
+  {
+    // Rendimento em centavos, vem várias vezes por mês
+    pattern: "credito em conta",
+    rename: "Rendimento",
+    paymentMethod: "transfer",
+    categoryName: "Investimento",
+  },
+  // Compra/venda de ativos na corretora do Nubank — nome mantém o ticker
+  ...[
+    "compra de fii",
+    "compra de acoes",
+    "compra de bdr",
+    "compra de etf",
+    "compra de criptomoedas",
+    "venda de criptomoedas",
+  ].map(
+    (pattern): DeparaRule => ({
+      pattern,
+      paymentMethod: "transfer",
+      categoryName: "Investimento",
+    })
+  ),
+  { pattern: "compra no debito", paymentMethod: "debit_card" },
   { pattern: "pagamento de fatura", paymentMethod: "credit_card" },
   { pattern: "matheus andre palmieri ltda", paymentMethod: "transfer" },
   { pattern: "matheus andre palmieri", paymentMethod: "transfer" },
