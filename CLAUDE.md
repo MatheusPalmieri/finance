@@ -90,6 +90,16 @@ Docs existentes:
 - `.claude/docs/decisions/phone-normalization.md` — ADR do telefone sem 9 inicial
 - `.claude/docs/decisions/phase-system.md` — proposta de phase + closeReason + timestamps de transição (PROPOSTO)
 
+### Specs de produto (PROPOSTAS — ainda não implementadas)
+
+Cada uma é autocontida e pode ser desenvolvida individualmente. Ver
+`.claude/docs/specs/README.md` para a ordem recomendada e as dependências.
+
+- `.claude/docs/specs/00-llm-provider.md` — camada `LlmProvider` (Ollama/Anthropic/mock), pré-requisito das specs de IA
+- `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas
+- `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA
+- `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?"
+
 ---
 
 ## Structure
@@ -161,7 +171,7 @@ bun run db:push      # Push schema directly (dev only)
 bun run db:studio    # Drizzle Studio (GUI)
 ```
 
-API listens on `http://localhost:3000`. Requires `api/.env` with `DATABASE_URL`.
+API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.env` with `DATABASE_URL`.
 
 ### Docker (raiz do projeto)
 
