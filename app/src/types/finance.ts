@@ -79,6 +79,321 @@ export interface Budget {
   updatedAt: string
 }
 
+// ── Classificação inteligente ───────────────────────────────────────────────
+export type RuleSource = "seed" | "manual" | "learned"
+export type RuleMatchType = "contains" | "exact" | "regex"
+export type SuggestionSource = "rule" | "knn" | "llm" | "none"
+
+export interface ClassificationRule {
+  id: string
+  pattern: string
+  matchType: RuleMatchType
+  source: RuleSource
+  priority: number
+  renameTo: string | null
+  categoryId: string | null
+  paymentMethod: PaymentMethod | null
+  recurrence: Recurrence | null
+  isEssential: boolean | null
+  forceIncome: boolean | null
+  budgetId: string | null
+  enabled: boolean
+  hitCount: number
+  lastHitAt: string | null
+  createdAt: string
+  updatedAt: string
+  category?: Category | null
+  budget?: Budget | null
+}
+
+export interface Suggestion {
+  index: number
+  source: SuggestionSource
+  ruleId: string | null
+  confidence: number
+  suggestedName: string | null
+  categoryId: string | null
+  paymentMethod: PaymentMethod | null
+  recurrence: Recurrence | null
+  isEssential: boolean | null
+  budgetId: string | null
+  forceIncome: boolean | null
+}
+
+export interface SuggestResponse {
+  aiAvailable: boolean
+  items: Suggestion[]
+  stats: {
+    rule: number
+    knn: number
+    llm: number
+    none: number
+    llmLatencyMs: number | null
+  }
+}
+
+export interface RuleTestResponse {
+  matches: { id: string; name: string; amount: string; date: string }[]
+  total: number
+}
+
+export type RecurringStatus = "ACTIVE" | "OVERDUE" | "CANCELLED"
+
+export interface RecurringSeries {
+  id: string
+  merchantKey: string
+  label: string
+  categoryId: string | null
+  walletId: string | null
+  intervalDays: number
+  occurrences: number
+  averageAmount: string
+  lastAmount: string
+  firstAmount: string
+  firstChargeDate: string
+  lastChargeDate: string
+  expectedNextDate: string
+  status: RecurringStatus
+  dismissed: boolean
+  detectedAt: string
+  updatedAt: string
+  category?: Category | null
+  wallet?: Wallet | null
+  monthlyCostBrl: number
+  priceChangePct: number | null
+  priceChangeSince: string | null
+}
+
+export interface RecurringResponse {
+  data: RecurringSeries[]
+  totalMonthly: number
+}
+
+export const RULE_SOURCE_LABELS: Record<RuleSource, string> = {
+  seed: "padrão",
+  manual: "manual",
+  learned: "aprendida",
+}
+
+export const RULE_MATCH_LABELS: Record<RuleMatchType, string> = {
+  contains: "Contém",
+  exact: "Exata",
+  regex: "Regex",
+}
+
+export const SUGGESTION_SOURCE_LABELS: Record<SuggestionSource, string> = {
+  rule: "regra",
+  knn: "histórico",
+  llm: "IA",
+  none: "sem sugestão",
+}
+
+export const RECURRING_STATUS_LABELS: Record<RecurringStatus, string> = {
+  ACTIVE: "Ativa",
+  OVERDUE: "Atrasada",
+  CANCELLED: "Encerrada",
+}
+
+export const RECURRING_INTERVAL_LABELS: Record<number, string> = {
+  7: "Semanal",
+  30: "Mensal",
+  90: "Trimestral",
+  365: "Anual",
+}
+
+// ── Check-up mensal ─────────────────────────────────────────────────────────
+export type ReportStatus = "GENERATED" | "NARRATED" | "NARRATION_FAILED"
+
+export interface Scalar {
+  current: number
+  previous: number
+  deltaPct: number | null
+}
+
+export interface NullableScalar {
+  current: number | null
+  previous: number | null
+  deltaPct: number | null
+}
+
+export type BudgetLineStatus = "over" | "under" | "on_track" | "missing"
+
+export interface BudgetLine {
+  budgetId: string
+  name: string
+  type: BudgetType
+  amountType: BudgetAmountType
+  plannedBrl: number | null
+  plannedMinBrl: number | null
+  plannedMaxBrl: number | null
+  actualBrl: number
+  status: BudgetLineStatus
+  transactionCount: number
+}
+
+export interface DistributionBucket {
+  amountBrl: number
+  pct: number
+  targetPct: number
+  deltaPp: number
+}
+
+export type AnomalySeverity = "high" | "medium" | "saving"
+
+export interface Anomaly {
+  categoryId: string
+  categoryName: string
+  color: string
+  currentBrl: number
+  medianBrl: number
+  robustZ: number
+  severity: AnomalySeverity
+  history: { month: string; amountBrl: number }[]
+  topTransactions: {
+    id: string
+    name: string
+    amountBrl: number
+    date: string
+  }[]
+}
+
+export interface Mover {
+  categoryId: string
+  categoryName: string
+  color: string
+  currentBrl: number
+  previousBrl: number
+  deltaBrl: number
+}
+
+export interface MonthlyReportMetrics {
+  period: {
+    month: number
+    year: number
+    walletId: string | null
+    from: string
+    to: string
+    partial: boolean
+  }
+  totals: {
+    totalExpenses: Scalar
+    totalIncome: Scalar
+    netResult: Scalar
+    savingsRate: NullableScalar
+    transactionCount: Scalar
+    avgTicket: Scalar
+    noSpendDays: Scalar
+  }
+  biggestExpense: {
+    id: string
+    name: string
+    amountBrl: number
+    date: string
+    categoryName: string | null
+  } | null
+  budgets: BudgetLine[]
+  distribution: Record<BudgetType, DistributionBucket>
+  anomalies: Anomaly[]
+  topMovers: { up: Mover[]; down: Mover[] }
+  newMerchants: {
+    merchantKey: string
+    label: string
+    totalBrl: number
+    transactionCount: number
+  }[]
+  subscriptions: {
+    totalMonthlyBrl: number
+    activeCount: number
+    newThisMonth: { id: string; label: string; monthlyCostBrl: number }[]
+    priceIncreases: {
+      id: string
+      label: string
+      monthlyCostBrl: number
+      priceChangePct: number
+    }[]
+    inactive: { id: string; label: string; status: string }[]
+  } | null
+}
+
+export type InsightKind =
+  | "budget_over"
+  | "budget_missing"
+  | "category_spike"
+  | "category_saving"
+  | "rule_503020_off"
+  | "subscription_new"
+  | "subscription_price_up"
+  | "negative_month"
+  | "record_month"
+
+export type InsightSeverity = "info" | "warn" | "critical"
+
+export interface Insight {
+  kind: InsightKind
+  severity: InsightSeverity
+  title: string
+  amountBrl: number | null
+  categoryId?: string
+  budgetId?: string
+  recurringSeriesId?: string
+  facts: Record<string, number | string>
+}
+
+export interface NarrativeSuggestion {
+  title: string
+  rationale: string
+  estimatedSavingBrl: number | null
+  insightKind: string | null
+}
+
+export interface MonthlyReport {
+  id: string
+  month: number
+  year: number
+  walletId: string | null
+  status: ReportStatus
+  metrics: MonthlyReportMetrics
+  insights: Insight[]
+  narrative: string | null
+  suggestions: NarrativeSuggestion[] | null
+  narrativeProvider: string | null
+  narrativeModel: string | null
+  generatedAt: string
+  aiAvailable: boolean
+}
+
+export interface MonthlyReportSummary {
+  id: string
+  month: number
+  year: number
+  walletId: string | null
+  status: ReportStatus
+  generatedAt: string
+  totalExpenses: number
+  netResult: number
+  criticalInsights: number
+}
+
+export interface LlmHealth {
+  available: boolean
+  provider: string | null
+  model: string | null
+  detail?: string
+}
+
+export const BUDGET_LINE_STATUS_LABELS: Record<BudgetLineStatus, string> = {
+  over: "Estourou",
+  under: "Abaixo",
+  on_track: "No alvo",
+  missing: "Sem lançamento",
+}
+
+export const INSIGHT_SEVERITY_HEX: Record<InsightSeverity, string> = {
+  critical: PALETTE.red,
+  warn: PALETTE.amber,
+  info: PALETTE.blue,
+}
+
 // ── Open Finance (somente leitura) ──────────────────────────────────────────
 export type OfConnectionStatus =
   | "PENDING"

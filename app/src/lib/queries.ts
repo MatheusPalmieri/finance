@@ -9,7 +9,13 @@ import {
   api,
   type BudgetInput,
   type DashboardParams,
+  type FeedbackInput,
+  type GenerateReportInput,
+  type ListRecurringParams,
+  type ListRulesParams,
   type ListTransactionsParams,
+  type RuleInput,
+  type SuggestInput,
   type TransactionInput,
 } from "./api"
 import type { AccountType } from "@/types/finance"
@@ -44,6 +50,28 @@ export const keys = {
     connections: () => [...keys.openFinance.all, "connections"] as const,
     transactions: (id: string, page: number) =>
       [...keys.openFinance.all, "transactions", id, page] as const,
+  },
+  classification: {
+    all: ["classification"] as const,
+    rules: (params: ListRulesParams) =>
+      [...keys.classification.all, "rules", params] as const,
+  },
+  recurring: {
+    all: ["recurring"] as const,
+    list: (params: ListRecurringParams) =>
+      [...keys.recurring.all, "list", params] as const,
+  },
+  reports: {
+    all: ["reports"] as const,
+    list: (walletId?: string | null) =>
+      [...keys.reports.all, "list", walletId ?? ""] as const,
+    detail: (id: string) => [...keys.reports.all, "detail", id] as const,
+    current: (walletId?: string | null) =>
+      [...keys.reports.all, "current", walletId ?? ""] as const,
+  },
+  llm: {
+    all: ["llm"] as const,
+    health: () => [...keys.llm.all, "health"] as const,
   },
   dashboard: {
     all: ["dashboard"] as const,
@@ -402,6 +430,190 @@ export function useDeleteOpenFinanceConnection() {
       toast.success("Conexão removida")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao remover conexão"),
+  })
+}
+
+// ── Classificação ─────────────────────────────────────────────────────────────
+// Sugestão é mutation (POST com corpo grande, não deve cachear)
+export function useClassificationSuggest() {
+  return useMutation({
+    mutationFn: (body: SuggestInput) => api.classification.suggest(body),
+  })
+}
+
+/** Corrigir uma sugestão na revisão vira regra. Falha em silêncio é aceitável
+ *  aqui: a importação não pode parar porque o aprendizado falhou. */
+export function useClassificationFeedback() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: FeedbackInput) => api.classification.feedback(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.classification.all })
+    },
+  })
+}
+
+export function useRules(params: ListRulesParams = {}) {
+  return useQuery({
+    queryKey: keys.classification.rules(params),
+    queryFn: () => api.classification.listRules(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useCreateRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: RuleInput) => api.classification.createRule(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.classification.all })
+      toast.success("Regra criada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar regra"),
+  })
+}
+
+export function useUpdateRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & RuleInput) =>
+      api.classification.updateRule(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.classification.all })
+      toast.success("Regra atualizada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar regra"),
+  })
+}
+
+export function useToggleRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.classification.toggleRule(id),
+    onSuccess: (rule) => {
+      qc.invalidateQueries({ queryKey: keys.classification.all })
+      toast.success(rule.enabled ? "Regra ativada" : "Regra desativada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao alternar regra"),
+  })
+}
+
+export function useDeleteRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.classification.deleteRule(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.classification.all })
+      toast.success("Regra excluída")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir regra"),
+  })
+}
+
+export function useTestRule() {
+  return useMutation({
+    mutationFn: api.classification.testRule,
+  })
+}
+
+// ── Séries recorrentes ────────────────────────────────────────────────────────
+export function useRecurring(params: ListRecurringParams = {}) {
+  return useQuery({
+    queryKey: keys.recurring.list(params),
+    queryFn: () => api.recurring.list(params),
+  })
+}
+
+export function useRecalculateRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (walletId?: string | null) =>
+      api.recurring.recalculate(walletId),
+    onSuccess: ({ detected }) => {
+      qc.invalidateQueries({ queryKey: keys.recurring.all })
+      toast.success(
+        detected === 1
+          ? "1 série recorrente detectada"
+          : `${detected} séries recorrentes detectadas`
+      )
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao recalcular"),
+  })
+}
+
+export function useDismissRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.recurring.dismiss(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.recurring.all })
+      toast.success("Série dispensada")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao dispensar série"),
+  })
+}
+
+// ── Check-up mensal ───────────────────────────────────────────────────────────
+export function useCurrentReport(walletId?: string | null) {
+  return useQuery({
+    queryKey: keys.reports.current(walletId),
+    queryFn: () => api.reports.current(walletId),
+    // A geração sob demanda pode levar alguns segundos; não refazer à toa
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+}
+
+export function useReport(id: string | null) {
+  return useQuery({
+    queryKey: keys.reports.detail(id ?? ""),
+    queryFn: () => api.reports.get(id!),
+    enabled: !!id,
+  })
+}
+
+export function useReportList(walletId?: string | null) {
+  return useQuery({
+    queryKey: keys.reports.list(walletId),
+    queryFn: () => api.reports.list(walletId),
+  })
+}
+
+export function useGenerateReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: GenerateReportInput) =>
+      toast
+        .promise(api.reports.generate(body), {
+          loading: "Gerando relatório...",
+          success: "Relatório gerado",
+          error: (e: Error) => e.message ?? "Erro ao gerar relatório",
+        })
+        .unwrap(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.reports.all }),
+  })
+}
+
+export function useNarrateReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.reports.narrate(id),
+    onSuccess: (report) => {
+      qc.invalidateQueries({ queryKey: keys.reports.all })
+      if (report.status === "NARRATED") toast.success("Texto gerado")
+      else toast.error("A IA não produziu um texto confiável desta vez")
+    },
+    onError: (e: Error) => toast.error(e.message ?? "IA indisponível"),
+  })
+}
+
+// ── IA ────────────────────────────────────────────────────────────────────────
+export function useLlmHealth() {
+  return useQuery({
+    queryKey: keys.llm.health(),
+    queryFn: api.llm.health,
+    staleTime: 60 * 1000,
+    retry: false,
   })
 }
 

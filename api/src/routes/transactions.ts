@@ -3,6 +3,7 @@ import { and, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, transactions } from "../db/schema"
 import { isPaymentMethod } from "../lib/payment-methods"
+import { scheduleRecalculate } from "../modules/classification"
 
 // Aceita tanto `db` quanto o `tx` de uma `db.transaction()` — só precisa de `.update()`.
 type Executor = Pick<typeof db, "update">
@@ -147,6 +148,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         .returning()
 
       await adjustBalance(db, body.accountId, amount, "subtract")
+      scheduleRecalculate(body.walletId ?? null)
 
       return transaction
     },
@@ -189,6 +191,12 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         .where(eq(transactions.id, params.id))
         .returning()
 
+      // A carteira pode ter mudado: recalcula a antiga e a nova
+      scheduleRecalculate(existing.walletId)
+      if (existing.walletId !== (body.walletId ?? null)) {
+        scheduleRecalculate(body.walletId ?? null)
+      }
+
       return transaction
     },
     { body: transactionBody }
@@ -201,6 +209,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
 
     await adjustBalance(db, existing.accountId, existing.amount, "add")
     await db.delete(transactions).where(eq(transactions.id, params.id))
+    scheduleRecalculate(existing.walletId)
     return { success: true }
   })
   .post(
@@ -237,6 +246,13 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         }
         return resolvedItems.length
       })
+
+      // Debounce de 5s: uma importação inteira dispara um recálculo só
+      for (const walletId of new Set(
+        resolvedItems.map(({ item }) => item.walletId ?? null)
+      )) {
+        scheduleRecalculate(walletId)
+      }
 
       return { created }
     },

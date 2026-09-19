@@ -1,7 +1,7 @@
 ---
 title: Spec — Check-up mensal automático (relatório e anomalias)
 area: specs
-status: PROPOSTO
+status: IMPLEMENTADO
 updated: 2026-09-19
 ---
 

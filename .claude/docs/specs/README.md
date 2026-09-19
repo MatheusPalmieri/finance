@@ -11,12 +11,15 @@ de forma independente. Toda spec traz: estado atual do código, schema de banco,
 módulo backend, contrato de API, telas, algoritmos, testes, fases de
 implementação e critérios de aceite.
 
-| Spec | O que entrega | Precisa de IA? | Esforço |
+| Spec | O que entrega | Precisa de IA? | Status |
 |---|---|---|---|
-| [`00-llm-provider.md`](./00-llm-provider.md) | Interface `LlmProvider` com adapters Ollama / Anthropic / mock | — (é a base) | ~4h |
-| [`01-smart-categorization.md`](./01-smart-categorization.md) | Classificação em 3 camadas que aprende com as correções + detecção de assinaturas | Opcional (camada 3) | 2–3 dias |
-| [`02-monthly-checkup.md`](./02-monthly-checkup.md) | Relatório mensal: 50/30/20, anomalias, insights e narrativa | Opcional (só o texto) | 2–3 dias |
-| [`03-cashflow-simulator.md`](./03-cashflow-simulator.md) | Projeção Monte Carlo do saldo e veredito "posso comprar?" | Opcional (só o parser de frase) | 2–3 dias |
+| [`00-llm-provider.md`](./00-llm-provider.md) | Interface `LlmProvider` com adapters Ollama / Anthropic / mock | — (é a base) | ✅ implementada |
+| [`01-smart-categorization.md`](./01-smart-categorization.md) | Classificação em 3 camadas que aprende com as correções + detecção de assinaturas | Opcional (camada 3) | ✅ implementada |
+| [`02-monthly-checkup.md`](./02-monthly-checkup.md) | Relatório mensal: 50/30/20, anomalias, insights e narrativa | Opcional (só o texto) | ✅ implementada |
+| [`03-cashflow-simulator.md`](./03-cashflow-simulator.md) | Projeção Monte Carlo do saldo e veredito "posso comprar?" | Opcional (só o parser de frase) | proposta (~2–3 dias) |
+
+Docs das implementadas: `.claude/docs/api/llm.md`,
+`.claude/docs/domain/classification.md`, `.claude/docs/domain/monthly-report.md`.
 
 ## Dependências
 

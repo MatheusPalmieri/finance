@@ -3,23 +3,28 @@
   "version": "1.0.50",
   "scripts": {
     "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "dev": "bun run --watch src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun run src/db/seed.ts",
-    "db:seed:dev": "bun run src/db/seed-dev.ts"
+    "db:seed:dev": "bun run src/db/seed-dev.ts",
+    "db:seed:rules": "bun run src/db/seed-rules.ts",
+    "report:monthly": "bun run scripts/monthly-report.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
     "drizzle-orm": "^0.45.2",
     "elysia": "latest",
-    "postgres": "^3.4.9"
+    "postgres": "^3.4.9",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "bun-types": "latest",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^7.0.2"
   },
   "module": "src/index.js"
 }

@@ -1,8 +1,10 @@
 import {
   ArrowLeftRight,
+  FileText,
   Home,
   Landmark,
   Link2,
+  ListFilter,
   PiggyBank,
   Tag,
 } from "lucide-react"
@@ -27,7 +29,9 @@ export const navItems: NavItemDef[] = [
   { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
   { to: "/accounts", icon: Landmark, label: "Contas" },
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
+  { to: "/reports", icon: FileText, label: "Check-up" },
   { to: "/categories", icon: Tag, label: "Categorias" },
+  { to: "/rules", icon: ListFilter, label: "Classificação" },
   { to: "/open-finance", icon: Link2, label: "Open Finance" },
 ]
 

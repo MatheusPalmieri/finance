@@ -1,7 +1,7 @@
 ---
 title: Spec — Camada de LLM (LlmProvider)
 area: specs
-status: PROPOSTO
+status: IMPLEMENTADO
 updated: 2026-09-19
 ---
 

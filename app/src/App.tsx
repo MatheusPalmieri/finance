@@ -24,6 +24,12 @@ const Wallets = lazy(() =>
 const OpenFinance = lazy(() =>
   import("@/pages/OpenFinance").then((m) => ({ default: m.OpenFinance }))
 )
+const Rules = lazy(() =>
+  import("@/pages/Rules").then((m) => ({ default: m.Rules }))
+)
+const Reports = lazy(() =>
+  import("@/pages/Reports").then((m) => ({ default: m.Reports }))
+)
 
 const router = createBrowserRouter([
   {
@@ -35,6 +41,8 @@ const router = createBrowserRouter([
       { path: "budgets", element: <Budgets /> },
       { path: "categories", element: <Categories /> },
       { path: "wallets", element: <Wallets /> },
+      { path: "reports", element: <Reports /> },
+      { path: "rules", element: <Rules /> },
       { path: "open-finance", element: <OpenFinance /> },
     ],
   },

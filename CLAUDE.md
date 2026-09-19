@@ -60,6 +60,14 @@ Este projeto tem skills configuradas em `.claude/skills/`. Use-as sempre que o c
 Use `/docs` para criar ou atualizar o doc. Nunca termine uma tarefa sem checar se a doc está em dia.
 
 Docs existentes:
+- `.claude/docs/domain/classification.md` — motor de classificação em 3 camadas (regras/histórico/IA), regras aprendidas e detector de recorrências
+- `.claude/docs/domain/monthly-report.md` — check-up mensal: métricas, anomalias (mediana/MAD), insights e validação anti-alucinação
+- `.claude/docs/api/classification.md` — endpoints /classification e /recurring
+- `.claude/docs/api/reports.md` — endpoints /reports (check-up mensal)
+- `.claude/docs/api/llm.md` — camada `LlmProvider` (Ollama/Anthropic/mock), env vars, degradação e telemetria
+- `.claude/docs/frontend/rules.md` — página /rules (regras + cobranças recorrentes)
+- `.claude/docs/frontend/reports.md` — página /reports (check-up) e card no Home
+- `.claude/docs/infra/scheduler.md` — agendamento mensal no Windows e fallback in-app
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
@@ -90,15 +98,15 @@ Docs existentes:
 - `.claude/docs/decisions/phone-normalization.md` — ADR do telefone sem 9 inicial
 - `.claude/docs/decisions/phase-system.md` — proposta de phase + closeReason + timestamps de transição (PROPOSTO)
 
-### Specs de produto (PROPOSTAS — ainda não implementadas)
+### Specs de produto
 
 Cada uma é autocontida e pode ser desenvolvida individualmente. Ver
 `.claude/docs/specs/README.md` para a ordem recomendada e as dependências.
 
-- `.claude/docs/specs/00-llm-provider.md` — camada `LlmProvider` (Ollama/Anthropic/mock), pré-requisito das specs de IA
-- `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas
-- `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA
-- `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?"
+- ✅ `.claude/docs/specs/00-llm-provider.md` — camada `LlmProvider` (Ollama/Anthropic/mock) — **implementada**
+- ✅ `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas — **implementada**
+- ✅ `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA — **implementada**
+- `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?" — PROPOSTA
 
 ---
 
@@ -164,11 +172,15 @@ bun run preview    # Preview production build
 ### api/
 
 ```bash
-bun run dev          # Watch mode: bun run --watch src/index.ts
-bun run db:generate  # Generate migration files (drizzle-kit)
-bun run db:migrate   # Run pending migrations
-bun run db:push      # Push schema directly (dev only)
-bun run db:studio    # Drizzle Studio (GUI)
+bun run dev            # Watch mode: bun run --watch src/index.ts
+bun run test           # bun test
+bun run typecheck      # tsc --noEmit
+bun run db:generate    # Generate migration files (drizzle-kit)
+bun run db:migrate     # Run pending migrations
+bun run db:push        # Push schema directly (dev only)
+bun run db:studio      # Drizzle Studio (GUI)
+bun run db:seed:rules  # Regras de classificação (idempotente)
+bun run report:monthly # Gera o check-up mensal — aceita YYYY-MM
 ```
 
 API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.env` with `DATABASE_URL`.
@@ -196,7 +208,7 @@ bun run dev   # sobe api + app juntos
 ### Frontend (`app/`)
 
 - **React 19** + **TypeScript 6** (strict mode, `noUnusedLocals`, `noUnusedParameters`)
-- **React Router DOM v7** — 5 routes under `AppLayout` (sidebar nav)
+- **React Router DOM v7** — rotas lazy sob `AppLayout` (sidebar nav)
 - **Vite 8** — path alias `@/*` → `./src/*`
 - **Tailwind CSS 4** via `@tailwindcss/vite`
 - **shadcn/ui** (style: `radix-luma`) — add components with `bunx shadcn add <component>`

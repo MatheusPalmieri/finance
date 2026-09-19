@@ -36,7 +36,7 @@ Estado `step: "file" | "configure" | "review"`, indicador visual no topo do moda
 
 **Conta vale para o extrato inteiro** (campo único na etapa "Configurar", sem override por linha — todo lançamento de um extrato bancário sai da mesma conta). **Categoria e forma de pagamento são por linha**, na tabela de revisão. A diferença entre as duas: categoria nunca tem um valor plausível pré-preenchido (lançamentos de tipos muito diferentes num mesmo extrato), mas forma de pagamento normalmente é a mesma pra quase tudo — por isso a etapa "Configurar" tem uma "Forma de pagamento padrão" que **semeia** todas as linhas (`goToReview`) e cada linha continua editável individualmente na revisão, pra exceções (ex.: um Pix avulso no meio de um extrato de cartão).
 
-1. **Arquivo** — dropzone (clique ou arraste o `.csv`) → parse imediato → linhas viram `DraftRow[]` (`amount`/`isIncome` derivados do sinal cru do CSV; categoria/forma de pagamento já saem do de-para automático, ver seção abaixo). Sucesso avança automaticamente para "Configurar"; erro de parse mostra mensagem e mantém nesta etapa. Se o usuário voltar pra esta etapa sem escolher um novo arquivo, um botão "Próximo" reaparece pra continuar com os dados já lidos.
+1. **Arquivo** — dropzone (clique ou arraste o `.csv`) → parse imediato → linhas viram `DraftRow[]` (`amount`/`isIncome` derivados do sinal cru do CSV; nome, categoria, forma de pagamento e recorrência saem da classificação server-side, ver seção abaixo). Sucesso avança automaticamente para "Configurar"; erro de parse mostra mensagem e mantém nesta etapa. Se o usuário voltar pra esta etapa sem escolher um novo arquivo, um botão "Próximo" reaparece pra continuar com os dados já lidos.
 2. **Configurar** — resumo (quantidade de linhas, período coberto, saldo líquido do período no sinal do extrato), **Conta de destino** (obrigatória, único gate pra avançar) e **Forma de pagamento padrão** (semeia as linhas, mas não bloqueia avançar):
    - Conta: a conta marcada como padrão (`useDefaultAccount()`, mesmo hook do `TransactionModal`) → `accountId`. Pré-selecionada via `useEffect` assim que a query carrega (só seta se `accountId` ainda estiver vazio).
    - Forma de pagamento padrão: como a lista agora é fixa (ver `.claude/docs/domain/transaction.md`), não precisa mais buscar nada — `defaultPaymentMethod` já nasce como o literal `"credit_card"` (`useState<PaymentMethod>("credit_card")`), sem efeito nem query.
@@ -46,26 +46,69 @@ Navegação: "Voltar" reaparece a partir da 2ª etapa; "Cancelar" sempre fecha e
 
 Validação (`canImport`, etapa Revisar): precisa de conta selecionada, e toda linha precisa ter nome, data, valor > 0, categoria **e** forma de pagamento (por linha — `r.paymentMethod`, não o padrão da etapa 2).
 
-Importar chama `useBulkCreateTransactions()` → `POST /transactions/bulk`, usando `r.paymentMethod` de cada linha (o `defaultPaymentMethod` da etapa Configurar só existe pra semear; não é usado direto no payload).
+Importar chama `useBulkCreateTransactions()` → `POST /transactions/bulk`, usando `r.paymentMethod` de cada linha (o `defaultPaymentMethod` da etapa Configurar só existe pra semear; não é usado direto no payload). Ao fim do bulk o backend agenda o recálculo das séries recorrentes com debounce de 5s — uma importação inteira dispara um recálculo só.
 
-## De-para automático (`pages/Transactions/depara.ts`)
+## Classificação automática (server-side)
 
-`matchDepara(description)` casa a descrição crua do CSV (a mesma string, sem qualquer normalização de CPF/CNPJ/agência) contra `DEPARA_RULES` — uma lista ordenada de `{ pattern, rename?, paymentMethod?, categoryName?, isIncome?, recurrence? }`. O match é por **substring**, comparando os dois lados sem acento (`NFD` + remoção de marcas combinantes) e em minúsculas; a ordem da lista importa — regras mais específicas (ex.: `"matheus andre palmieri ltda"`) vêm antes de regras genéricas que seriam substring delas (ex.: `"matheus andre palmieri"`), senão a genérica venceria por ser a primeira a bater.
+> **Mudou em 2026-09-19.** O arquivo `pages/Transactions/depara.ts` foi
+> **removido** e nada no frontend classifica sozinho. As regras migraram para o
+> banco e o motor roda no backend, em três camadas (regras → histórico → IA).
+> Ver `.claude/docs/domain/classification.md`.
 
-Em `handleFile` (etapa "Arquivo"), pra cada linha lida do CSV:
-- `name` passa por `resolveName(rule, descrição)`: se a regra tem `rename` (string fixa ou função), ele substitui a descrição crua.
-- `isIncome` da regra, quando definido, **sobrescreve o sinal do extrato** (ex.: "Aplicação RDB" sempre é receita, mesmo vindo negativa no Nubank). `recurrence` da regra vira o padrão da linha (`DraftRow.recurrence`, default `"variable"`).
-- `paymentMethod` é preenchido sempre que alguma regra bate — não depende de nada existir no banco.
-- `categoryId` só é preenchido quando a regra tem `categoryName` **e** existe uma categoria com esse nome exato (comparação case-insensitive) na lista carregada por `useCategories()`. Nunca cria categoria nova automaticamente — se o nome não bater com nenhuma categoria existente, a linha fica sem categoria e o usuário escolhe manualmente na revisão.
+Em `handleFile` (etapa "Arquivo"), logo após o parse do CSV, o modal chama
+`POST /classification/suggest` (ver `.claude/docs/api/classification.md`)
+mandando índice, descrição crua, data e valor de cada linha. Enquanto a chamada
+está em voo a tabela de revisão mostra skeleton — com IA local a resposta pode
+levar alguns segundos.
 
-Tudo isso é só um ponto de partida: linha por linha continua 100% editável na etapa "Revisar", exatamente como antes.
+Cada sugestão pode preencher: `suggestedName`, `categoryId`, `paymentMethod`,
+`recurrence` e `forceIncome` (que **sobrescreve o sinal do extrato**, ex.:
+"Aplicação RDB" sempre é receita mesmo vindo negativa no Nubank). O que a
+sugestão não traz fica em branco.
 
-Regras atuais (validadas contra os extratos NU_675343637 de jan–ago/2026: 275 de 289 linhas casam; o resto são entradas avulsas de pessoas e boletos únicos): Aplicação RDB (receita, variável, categoria Investimento); salário (`Transferência Recebida - MATHEUS ANDRE PALMIERI LTDA` → "Salário", categoria Salário); boletos Conceito Imobiliária → "Aluguel", CELESC → "Conta de luz" (Moradia) e Aymoré → "Financiamento do carro" (Transporte); mudança de casa em jun/2026: Alles Imóveis → "Aluguel" e Edifício Ilha de Cozumel → "Condomínio" (Moradia); Resgate RDB e "Crédito em conta" (rendimento em centavos → "Rendimento") em Investimento; compra/venda de FII, ações, BDR, ETF e cripto em Investimento (nome mantém o ticker); compra no débito → débito; fatura de cartão; transferências entre contas próprias; e **todo Pix enviado** (`Transferência enviada pelo Pix - NOME - doc - ...`) vira `Pix para NOME` via `pixRecipient()` (regex que pega o nome completo até o documento mascarado/CNPJ). Categorias "Salário" e as demais só são aplicadas se existirem com esse nome exato — a categoria **Salário não vem no seed**, crie-a em Categorias. Pra adicionar/ajustar um padrão, edite `DEPARA_RULES` em `depara.ts` — não há tela de administração. A ordem importa (salário e contas próprias antes do Pix genérico).
+Se a chamada falhar por inteiro, as linhas ficam sem categoria e a importação
+segue normalmente — nenhuma etapa depende da classificação.
+
+### Selo de origem
+
+Cada linha da revisão ganha um selo na coluna "Origem":
+
+| Origem | Selo | Aparência |
+|---|---|---|
+| `rule` | `regra` | neutro |
+| `knn` | `histórico` | neutro |
+| `llm` | `86%` com ícone | âmbar quando a confiança é < 70% |
+| `none` | `revisar` | destaque destrutivo |
+
+O cabeçalho da coluna é um botão que alterna entre **ordenar por confiança**
+(padrão — o que precisa de atenção sobe para o topo) e a ordem original do
+extrato.
+
+A etapa "Configurar" mostra um resumo ("12 de 21 classificadas · 8 por regra,
+3 pelo histórico, 1 por IA") e avisa quando a IA está indisponível.
+
+### Aprendizado
+
+Trocar a categoria de uma linha dispara `POST /classification/feedback` em
+background (sem bloquear a revisão) com a **descrição crua**, não o nome
+editado. Quando isso cria uma regra nova, um toast discreto avisa
+("Regra criada para Netflix") com ação **Desfazer**, que apaga a regra recém
+criada.
+
+Conflito com uma regra padrão/manual (409) ou qualquer outra falha é ignorado
+em silêncio: a correção da linha já foi aplicada e a importação não pode parar
+porque o aprendizado falhou.
+
+Efeito prático: reimportar o mesmo extrato acerta aquela linha sozinho, e
+variações da mesma loja também.
+
+As regras são administradas em `/rules` (ver `.claude/docs/frontend/rules.md`) —
+não é mais preciso editar código para adicionar um padrão.
 
 ## Defaults aplicados a toda importação
 
 Não há campo na UI para isso — é fixo por linha:
-- `recurrence`: `"variable"` por padrão (nunca fixo, evita exigir `budgetId` por linha); a regra do de-para pode definir outro valor
+- `recurrence`: `"variable"` por padrão (nunca fixo, evita exigir `budgetId` por linha); a sugestão da classificação pode definir outro valor
 - `isEssential: !isIncome` — essencial só existe em saída; entradas sempre vão como `false` (o form "Nova transação" também esconde "Tipo de gasto" quando é entrada, e a lista não mostra o badge "Essencial" em entradas)
 - `notes`: `"Importado via CSV — ID {identificador}"` quando o CSV tem identificador (serve de rastro para achar duplicatas manualmente via busca; não há deduplicação automática)
 

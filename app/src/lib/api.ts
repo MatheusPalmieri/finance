@@ -5,12 +5,22 @@ import type {
   BudgetAmountType,
   BudgetType,
   Category,
+  ClassificationRule,
   DashboardSummary,
+  LlmHealth,
+  MonthlyReport,
+  MonthlyReportSummary,
   OpenFinanceConnection,
   OpenFinanceSyncRun,
   OpenFinanceTransactionsResponse,
   PaymentMethod,
   Recurrence,
+  RecurringResponse,
+  RecurringStatus,
+  RuleMatchType,
+  RuleSource,
+  RuleTestResponse,
+  SuggestResponse,
   Transaction,
   TransactionsResponse,
   Wallet,
@@ -71,6 +81,62 @@ export interface DashboardParams {
   month?: number
   year?: number
   walletId?: string
+}
+
+export interface ListRulesParams {
+  search?: string
+  source?: RuleSource | ""
+  enabled?: boolean
+}
+
+export interface RuleInput {
+  pattern: string
+  matchType?: RuleMatchType
+  source?: RuleSource
+  priority?: number
+  renameTo?: string | null
+  categoryId?: string | null
+  paymentMethod?: PaymentMethod | null
+  recurrence?: Recurrence | null
+  isEssential?: boolean | null
+  forceIncome?: boolean | null
+  budgetId?: string | null
+  enabled?: boolean
+}
+
+export interface SuggestInput {
+  walletId?: string | null
+  useAi?: boolean
+  items: {
+    index: number
+    description: string
+    date?: string
+    amount?: number
+  }[]
+}
+
+export interface FeedbackInput {
+  description: string
+  categoryId?: string | null
+  paymentMethod?: PaymentMethod | null
+  recurrence?: Recurrence | null
+  isEssential?: boolean | null
+  renameTo?: string | null
+  budgetId?: string | null
+  createRule?: boolean
+}
+
+export interface ListRecurringParams {
+  walletId?: string | null
+  status?: RecurringStatus | ""
+  includeDismissed?: boolean
+}
+
+export interface GenerateReportInput {
+  month: number
+  year: number
+  walletId?: string | null
+  narrate?: boolean
 }
 
 export const api = {
@@ -233,6 +299,100 @@ export const api = {
         `/open-finance/connections/${id}/transactions?${q}`
       )
     },
+  },
+
+  classification: {
+    // POST com corpo grande — é mutation, nunca query cacheada
+    suggest: (body: SuggestInput) =>
+      request<SuggestResponse>("/classification/suggest", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    feedback: (body: FeedbackInput) =>
+      request<{ ruleId: string; created: boolean }>(
+        "/classification/feedback",
+        { method: "POST", body: JSON.stringify(body) }
+      ),
+    listRules: (params: ListRulesParams = {}) => {
+      const q = new URLSearchParams()
+      if (params.search) q.set("search", params.search)
+      if (params.source) q.set("source", params.source)
+      if (params.enabled !== undefined) q.set("enabled", String(params.enabled))
+      return request<ClassificationRule[]>(`/classification/rules?${q}`)
+    },
+    createRule: (body: RuleInput) =>
+      request<ClassificationRule>("/classification/rules", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    updateRule: (id: string, body: RuleInput) =>
+      request<ClassificationRule>(`/classification/rules/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    toggleRule: (id: string) =>
+      request<ClassificationRule>(`/classification/rules/${id}/toggle`, {
+        method: "PATCH",
+      }),
+    deleteRule: (id: string) =>
+      request<{ success: boolean }>(`/classification/rules/${id}`, {
+        method: "DELETE",
+      }),
+    testRule: (body: { pattern: string; matchType?: RuleMatchType }) =>
+      request<RuleTestResponse>("/classification/rules/test", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  recurring: {
+    list: (params: ListRecurringParams = {}) => {
+      const q = new URLSearchParams()
+      if (params.walletId) q.set("walletId", params.walletId)
+      if (params.status) q.set("status", params.status)
+      if (params.includeDismissed) q.set("includeDismissed", "true")
+      return request<RecurringResponse>(`/recurring?${q}`)
+    },
+    recalculate: (walletId?: string | null) =>
+      request<{ detected: number; updated: number; removed: number }>(
+        "/recurring/recalculate",
+        { method: "POST", body: JSON.stringify({ walletId: walletId ?? null }) }
+      ),
+    dismiss: (id: string) =>
+      request<{ id: string }>(`/recurring/${id}/dismiss`, { method: "PATCH" }),
+    transactions: (id: string) =>
+      request<{ serie: unknown; data: Transaction[] }>(
+        `/recurring/${id}/transactions`
+      ),
+  },
+
+  reports: {
+    generate: (body: GenerateReportInput) =>
+      request<MonthlyReport>("/reports/monthly/generate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    list: (walletId?: string | null) => {
+      const q = walletId ? `?walletId=${walletId}` : ""
+      return request<MonthlyReportSummary[]>(`/reports/monthly${q}`)
+    },
+    get: (id: string) => request<MonthlyReport>(`/reports/monthly/${id}`),
+    current: (walletId?: string | null) => {
+      const q = walletId ? `?walletId=${walletId}` : ""
+      return request<MonthlyReport>(`/reports/monthly/current${q}`)
+    },
+    narrate: (id: string) =>
+      request<MonthlyReport>(`/reports/monthly/${id}/narrate`, {
+        method: "POST",
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/reports/monthly/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  llm: {
+    health: () => request<LlmHealth>("/llm/health"),
   },
 
   dashboard: {

@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
+  FileText,
   Receipt,
   Repeat,
   ShieldCheck,
@@ -24,7 +25,7 @@ import { Link } from "react-router-dom"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 import { ChartCard, ChartTooltip, StatCard } from "@/components/charts"
-import { useDashboardSummary } from "@/lib/queries"
+import { useCurrentReport, useDashboardSummary } from "@/lib/queries"
 import { useActiveWallet } from "@/components/wallet-provider"
 import {
   formatCurrency,
@@ -33,7 +34,12 @@ import {
   formatMonthLabel,
 } from "@/lib/format"
 import { FINANCE, tint } from "@/lib/tokens"
-import { MONTHS, type NamedAmount, type Transaction } from "@/types/finance"
+import {
+  INSIGHT_SEVERITY_HEX,
+  MONTHS,
+  type NamedAmount,
+  type Transaction,
+} from "@/types/finance"
 
 function greeting() {
   const h = new Date().getHours()
@@ -117,6 +123,8 @@ export function Home() {
           </button>
         </div>
       </div>
+
+      <CheckupCard walletId={walletId} />
 
       {isError ? (
         <ErrorState
@@ -572,5 +580,70 @@ function RecentTransactionRow({ tx }: { tx: Transaction }) {
         {formatCurrency(Math.abs(amount))}
       </span>
     </div>
+  )
+}
+
+// ── Card do check-up mensal ──────────────────────────────────────────────────
+// Só aparece quando existe (ou dá para gerar) o relatório do mês anterior.
+// Os números vêm das métricas persistidas — nunca do texto da IA.
+function CheckupCard({ walletId }: { walletId: string | null }) {
+  const { data: report, isLoading, isError } = useCurrentReport(walletId)
+
+  if (isLoading) return <Skeleton className="h-24 rounded-xl" />
+  if (isError || !report) return null
+
+  const { metrics, insights } = report
+  const net = metrics.totals.netResult.current
+  const positive = net >= 0
+  const hasMovement =
+    metrics.totals.transactionCount.current > 0 ||
+    metrics.totals.totalIncome.current > 0
+  if (!hasMovement) return null
+
+  const top = insights.slice(0, 2)
+
+  return (
+    <Link
+      to="/reports"
+      className="flex flex-col gap-3 rounded-xl border bg-card p-5 transition-shadow hover:shadow-md"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <FileText size={15} className="text-muted-foreground" />
+          Check-up de {MONTHS[metrics.period.month - 1]}
+        </span>
+        <span className="text-xs text-muted-foreground">Ver relatório →</span>
+      </div>
+
+      <p className="text-lg font-semibold tracking-tight">
+        Fechou com{" "}
+        <span
+          className="tabular-nums"
+          style={{ color: positive ? FINANCE.income : FINANCE.expense }}
+        >
+          {formatCurrency(Math.abs(net))}
+        </span>{" "}
+        {positive ? "positivos" : "negativos"}
+      </p>
+
+      {top.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {top.map((insight, i) => (
+            <li
+              key={`${insight.kind}-${i}`}
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: INSIGHT_SEVERITY_HEX[insight.severity],
+                }}
+              />
+              <span className="truncate">{insight.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Link>
   )
 }

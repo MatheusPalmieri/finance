@@ -1,7 +1,7 @@
 ---
 title: Spec — Categorização inteligente e detecção de recorrências
 area: specs
-status: PROPOSTO
+status: IMPLEMENTADO
 updated: 2026-09-19
 ---
 
