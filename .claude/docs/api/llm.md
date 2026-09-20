@@ -63,6 +63,14 @@ de uma tentativa descartada continua sendo contabilizado. Esgotadas as
 tentativas, lança `LlmError` com `kind: "invalid_output"` — nunca devolve `any`
 não validado.
 
+### Timeout por chamada
+
+`LlmTextRequest.timeoutMs` sobrescreve `LLM_TIMEOUT_MS` e é aplicado **por
+tentativa**, não pelo total. Serve para o caso em que o custo das chamadas é
+muito desigual: a narrativa mensal (prompt de ~1 000 tokens, uma vez por mês)
+precisa de bem mais tempo que uma classificação de lote. `signal` continua
+existindo para cancelamento externo e tem precedência.
+
 `getLlm()` faz cache do provedor; `__setLlm(p)` injeta um fake nos testes e
 `__setLlm(null)` limpa.
 
@@ -128,6 +136,7 @@ Fila programável (`push(...)`), inspeção das requisições recebidas (`calls`
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Endpoint do Ollama |
 | `ANTHROPIC_API_KEY` | — | Obrigatória só com `LLM_PROVIDER=anthropic` |
 | `LLM_TIMEOUT_MS` | `60000` | Timeout por chamada |
+| `LLM_NARRATIVE_TIMEOUT_MS` | `180000` | Timeout só da narrativa mensal |
 | `LLM_ENABLED` | `true` | `false` desliga a IA em todo o app |
 | `LLM_DEBUG` | `false` | `true` loga prompt/resposta **no stdout apenas** |
 

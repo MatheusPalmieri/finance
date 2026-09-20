@@ -150,6 +150,13 @@ mês — não se consulta por dentro dele.
 `temperature: 0,4` — prosa natural, não criativa. O prompt manda usar
 exclusivamente os valores do JSON.
 
+O payload é podado antes de sair: orçamentos no alvo ficam de fora, e anomalias,
+top movers e insights são limitados. Não é só economia — o prompt de ~1 000
+tokens já leva ~30s só de leitura num modelo local em CPU, e a narrativa tem
+timeout próprio de 3 minutos (`LLM_NARRATIVE_TIMEOUT_MS`) porque os 60s padrão
+faziam o relatório cair em `NARRATION_FAILED` por impaciência, não por erro.
+Medido na máquina do usuário: **67s** para um relatório real.
+
 Depois do zod, o texto é varrido por regex de valores (`R$ …` e `…%`) e cada
 número é conferido contra o conjunto de números presentes em
 `metrics`/`insights`, com tolerância de arredondamento de ±1%. Se algum não for

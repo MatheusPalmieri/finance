@@ -110,6 +110,30 @@ lista enviada vira `null`; índice fora do intervalo ou repetido é descartado;
 linha ausente na resposta não trava nada (o modelo local **omite linhas** na
 prática); a confiança do modelo é multiplicada pelo teto de `0,9`.
 
+### Tolerância por linha (não por lote)
+
+O schema do lote é frouxo de propósito: `items` é uma lista de valores
+desconhecidos, validados **um a um**. Um modelo 7B erra um campo de vez em
+quando — escreve `"fixo"` em vez de `"fixed"`, manda a confiança como `80` em
+vez de `0.8`, responde `"sim"` no lugar de `true`.
+
+Com um schema estrito, um único campo torto numa linha derrubava o lote inteiro
+de até 40 descrições e o usuário perdia **todas** as sugestões por causa de uma.
+Hoje:
+
+| Situação | O que acontece |
+|---|---|
+| `recurrence` em português | Convertida (`fixo`/`mensal` → `fixed`) |
+| `recurrence` irreconhecível | Vira `null`, o resto da linha é aproveitado |
+| `isEssential` como `"sim"`/`"não"` | Convertido |
+| Confiança em percentual (`80`) | Normalizada para `0,8` |
+| Confiança ausente ou absurda | Vira `0,5` — incerteza honesta |
+| Linha sem `index` utilizável | Só ela é descartada |
+| Nome com mais de 60 caracteres | Truncado |
+
+O prompt também carrega um exemplo completo com os valores exatos em inglês,
+que é o que mais reduz a deriva do modelo local.
+
 ## Detector de recorrências
 
 `recurring.ts`, sobre despesas (`amount > 0`), escopado por carteira:

@@ -92,7 +92,7 @@ export class AnthropicProvider extends BaseLlmProvider {
             content: m.content,
           })),
         }),
-        signal: req.signal ?? AbortSignal.timeout(llmTimeoutMs()),
+        signal: req.signal ?? AbortSignal.timeout(req.timeoutMs ?? llmTimeoutMs()),
       })
     } catch (err) {
       throw new LlmError(

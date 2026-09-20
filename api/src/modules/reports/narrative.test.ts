@@ -3,6 +3,7 @@ import {
   buildNarrativePayload,
   collectNumbers,
   extractQuotedNumbers,
+  narrativeTimeoutMs,
   validateNarrative,
 } from "./narrative"
 import { buildDistribution, nullableScalar, scalar } from "./metrics"
@@ -212,5 +213,24 @@ describe("buildNarrativePayload", () => {
       []
     )
     expect(payload.periodo.parcial).toBe(true)
+  })
+})
+
+describe("narrativeTimeoutMs", () => {
+  test("default de 3 minutos — a chamada mais pesada e mais rara do app", () => {
+    delete process.env.LLM_NARRATIVE_TIMEOUT_MS
+    expect(narrativeTimeoutMs()).toBe(180_000)
+  })
+
+  test("configurável por variável de ambiente", () => {
+    process.env.LLM_NARRATIVE_TIMEOUT_MS = "300000"
+    expect(narrativeTimeoutMs()).toBe(300_000)
+    delete process.env.LLM_NARRATIVE_TIMEOUT_MS
+  })
+
+  test("valor inválido cai no default em vez de virar NaN", () => {
+    process.env.LLM_NARRATIVE_TIMEOUT_MS = "abc"
+    expect(narrativeTimeoutMs()).toBe(180_000)
+    delete process.env.LLM_NARRATIVE_TIMEOUT_MS
   })
 })

@@ -58,7 +58,7 @@ export class OllamaProvider extends BaseLlmProvider {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: req.signal ?? AbortSignal.timeout(llmTimeoutMs()),
+        signal: req.signal ?? AbortSignal.timeout(req.timeoutMs ?? llmTimeoutMs()),
       })
     } catch (err) {
       throw new LlmError(

@@ -5,6 +5,7 @@
 // provedor é a nuvem, e está escrito aqui porque é uma decisão, não um detalhe.
 
 import { z } from "zod"
+import type { Recurrence } from "../../db/schema"
 import { runJson } from "../llm"
 import { normalizeDescription } from "./normalize"
 import { EMPTY_PATCH, type Suggestion } from "./types"
@@ -15,21 +16,70 @@ export const LLM_BATCH_SIZE = 40
 /** Sugestão de IA nunca chega com a confiança de uma regra determinística. */
 export const LLM_CONFIDENCE_CEILING = 0.9
 
+/**
+ * O schema do lote é deliberadamente frouxo: `items` é uma lista de valores
+ * desconhecidos, validados **um a um** em `sanitizeLlmResponse`.
+ *
+ * Um modelo 7B erra um campo de vez em quando — escreve `"fixo"` em vez de
+ * `"fixed"`, ou manda a confiança como `80`. Com um schema estrito, um único
+ * campo torto numa linha derruba o lote inteiro de até 40 descrições e o
+ * usuário perde todas as sugestões. A tolerância por linha é o mesmo princípio
+ * que já vale para a linha ausente: o que não dá para aproveitar é descartado
+ * sozinho, sem levar o resto junto.
+ */
 const responseSchema = z.object({
-  items: z.array(
-    z.object({
-      index: z.number().int(),
-      categoryId: z.string().nullable(),
-      isEssential: z.boolean().nullable(),
-      recurrence: z.enum(["fixed", "variable"]).nullable(),
-      confidence: z.number().min(0).max(1),
-      /** Nome curto e legível para substituir a descrição crua do extrato. */
-      suggestedName: z.string().max(60).nullable(),
-    })
-  ),
+  items: z.array(z.unknown()),
+})
+
+/** Forma de uma linha aproveitável, depois da coerção campo a campo. */
+const itemSchema = z.object({
+  index: z.number().int(),
+  categoryId: z.string().nullish(),
+  isEssential: z.unknown().nullish(),
+  recurrence: z.unknown().nullish(),
+  confidence: z.unknown().nullish(),
+  suggestedName: z.string().nullish(),
 })
 
 export type LlmClassificationResponse = z.infer<typeof responseSchema>
+
+// ── Coerções tolerantes ──────────────────────────────────────────────────────
+
+const FIXED_WORDS = new Set(["fixed", "fixo", "fixa", "mensal", "recorrente"])
+const VARIABLE_WORDS = new Set([
+  "variable",
+  "variavel",
+  "variável",
+  "pontual",
+  "eventual",
+])
+
+/** Aceita as variações em português que o modelo local costuma emitir. */
+export function coerceRecurrence(value: unknown): Recurrence | null {
+  if (typeof value !== "string") return null
+  const normalized = value.trim().toLowerCase()
+  if (FIXED_WORDS.has(normalized)) return "fixed"
+  if (VARIABLE_WORDS.has(normalized)) return "variable"
+  return null
+}
+
+export function coerceBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value
+  if (typeof value !== "string") return null
+  const normalized = value.trim().toLowerCase()
+  if (["true", "sim", "yes"].includes(normalized)) return true
+  if (["false", "nao", "não", "no"].includes(normalized)) return false
+  return null
+}
+
+/** Confiança ausente ou absurda vira 0,5 — incerteza honesta, não zero nem um. */
+export function coerceConfidence(value: unknown): number {
+  const raw = typeof value === "string" ? Number(value) : value
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return 0.5
+  // O modelo às vezes responde em percentual (80 em vez de 0,8)
+  const scaled = raw > 1 && raw <= 100 ? raw / 100 : raw
+  return Math.min(1, Math.max(0, scaled))
+}
 
 const SYSTEM = `Você é um classificador de descrições de extrato bancário brasileiro.
 
@@ -39,9 +89,19 @@ Regras:
 - "recurrence" é "fixed" para cobranças que se repetem todo mês (assinatura, aluguel, mensalidade) e "variable" para gastos pontuais.
 - "isEssential" é true para necessidades (moradia, alimentação básica, saúde, transporte para trabalho) e false para supérfluos.
 - "suggestedName" é um nome curto e legível para a transação (ex.: "Netflix", "Aluguel"), no máximo 60 caracteres.
-- "confidence" é a sua confiança de 0 a 1.
+- "confidence" é a sua confiança, um número entre 0 e 1 (0.8, não 80).
 - Responda uma entrada para CADA índice recebido.
-- Responda APENAS o JSON no formato {"items":[{"index":0,"categoryId":"...","isEssential":true,"recurrence":"fixed","confidence":0.8,"suggestedName":"..."}]}`
+
+Use EXATAMENTE estes valores, em inglês: "recurrence" é "fixed" ou "variable" (nunca "fixo", "mensal" ou "variável"); "isEssential" é true ou false (nunca "sim" ou "não").
+
+Exemplo. Descrições recebidas:
+0. condominio edificio central
+1. supermercado angeloni
+
+Resposta:
+{"items":[{"index":0,"categoryId":"<id de Moradia>","isEssential":true,"recurrence":"fixed","confidence":0.9,"suggestedName":"Condomínio"},{"index":1,"categoryId":"<id de Alimentação>","isEssential":true,"recurrence":"variable","confidence":0.8,"suggestedName":"Supermercado"}]}
+
+Responda APENAS o JSON no formato {"items":[...]}`
 
 export interface LlmCategory {
   id: string
@@ -78,7 +138,12 @@ export function sanitizeLlmResponse(
   const seen = new Set<number>()
   const out: Suggestion[] = []
 
-  for (const item of response.items) {
+  for (const raw of response.items) {
+    // Linha sem `index` utilizável é descartada sozinha, sem levar o lote
+    const parsed = itemSchema.safeParse(raw)
+    if (!parsed.success) continue
+    const item = parsed.data
+
     if (!requestedIndexes.has(item.index)) continue
     if (seen.has(item.index)) continue
     seen.add(item.index)
@@ -94,12 +159,13 @@ export function sanitizeLlmResponse(
       source: "llm",
       ruleId: null,
       confidence: Number(
-        (Math.min(1, Math.max(0, item.confidence)) * LLM_CONFIDENCE_CEILING).toFixed(4)
+        (coerceConfidence(item.confidence) * LLM_CONFIDENCE_CEILING).toFixed(4)
       ),
       categoryId,
-      isEssential: item.isEssential,
-      recurrence: item.recurrence,
-      suggestedName: item.suggestedName?.trim() || null,
+      isEssential: coerceBoolean(item.isEssential),
+      recurrence: coerceRecurrence(item.recurrence),
+      // Nome absurdamente longo é sinal de alucinação — melhor não usar
+      suggestedName: item.suggestedName?.trim().slice(0, 60) || null,
     })
   }
 

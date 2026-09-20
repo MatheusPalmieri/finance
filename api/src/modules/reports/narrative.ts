@@ -11,6 +11,23 @@ import type { Insight, MonthlyReportMetrics, NarrativeSuggestion } from "./types
 
 /** Prosa natural, mas não criativa. */
 export const NARRATIVE_TEMPERATURE = 0.4
+
+/**
+ * A narrativa tem timeout próprio, bem maior que o das outras chamadas.
+ *
+ * Ela é a chamada mais pesada do app (prompt de ~1 000 tokens + ~300 de saída)
+ * e a mais rara (uma por mês, por carteira). Num modelo local em CPU isso passa
+ * com folga dos 60s padrão, e o relatório caía em `NARRATION_FAILED` por
+ * impaciência, não por erro.
+ */
+export function narrativeTimeoutMs(): number {
+  return Number(process.env.LLM_NARRATIVE_TIMEOUT_MS) || 180_000
+}
+
+/** Quantos itens de cada lista vão ao modelo. Prompt menor, leitura mais rápida. */
+const MAX_MOVERS = 3
+const MAX_ANOMALIES = 5
+const MAX_INSIGHTS = 8
 /** Folga de arredondamento ao conferir um número citado. */
 export const NUMBER_TOLERANCE = 0.01
 
@@ -118,16 +135,23 @@ export function buildNarrativePayload(
         realizado: b.actualBrl,
         situacao: b.status,
       })),
-    anomalias: metrics.anomalies.map((a) => ({
+    anomalias: metrics.anomalies.slice(0, MAX_ANOMALIES).map((a) => ({
       categoria: a.categoryName,
       atual: a.currentBrl,
       mediana: a.medianBrl,
       severidade: a.severity,
     })),
-    maioresAltas: metrics.topMovers.up,
-    maioresQuedas: metrics.topMovers.down,
+    // Só nome e delta: a cor e os ids não têm uso na prosa
+    maioresAltas: metrics.topMovers.up.slice(0, MAX_MOVERS).map((m) => ({
+      categoria: m.categoryName,
+      variacao: m.deltaBrl,
+    })),
+    maioresQuedas: metrics.topMovers.down.slice(0, MAX_MOVERS).map((m) => ({
+      categoria: m.categoryName,
+      variacao: m.deltaBrl,
+    })),
     assinaturas: metrics.subscriptions,
-    insights: insights.map((i) => ({
+    insights: insights.slice(0, MAX_INSIGHTS).map((i) => ({
       tipo: i.kind,
       severidade: i.severity,
       titulo: i.title,
@@ -171,6 +195,7 @@ export async function generateNarrative(
     temperature: NARRATIVE_TEMPERATURE,
     maxTokens: 1200,
     retries: 1,
+    timeoutMs: narrativeTimeoutMs(),
   })
 
   const allowed = collectNumbers({ metrics, insights })

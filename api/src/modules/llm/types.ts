@@ -20,6 +20,13 @@ export interface LlmTextRequest {
   maxTokens?: number
   /** 0 = determinístico. Default 0 para classificação, 0.4 para narrativa. */
   temperature?: number
+  /**
+   * Timeout desta chamada, em ms. Sobrescreve `LLM_TIMEOUT_MS` e é aplicado
+   * **por tentativa** — chamadas pesadas e raras (a narrativa mensal) pedem mais
+   * tempo que uma classificação de lote.
+   */
+  timeoutMs?: number
+  /** Cancelamento externo. Quando presente, tem precedência sobre `timeoutMs`. */
   signal?: AbortSignal
 }
 
