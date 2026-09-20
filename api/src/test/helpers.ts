@@ -66,10 +66,6 @@ export const api = {
 
 // Filhas antes das mães: a ordem substitui o CASCADE.
 const TABLES_IN_DELETE_ORDER = [
-  "open_finance_sync_runs",
-  "open_finance_transactions",
-  "open_finance_accounts",
-  "open_finance_connections",
   "transactions",
   "classification_rules",
   "recurring_series",

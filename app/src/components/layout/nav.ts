@@ -3,7 +3,6 @@ import {
   FileText,
   Home,
   Landmark,
-  Link2,
   ListFilter,
   PiggyBank,
   Tag,
@@ -34,7 +33,6 @@ export const navItems: NavItemDef[] = [
   { to: "/reports", icon: FileText, label: "Check-up" },
   { to: "/categories", icon: Tag, label: "Categorias" },
   { to: "/rules", icon: ListFilter, label: "Classificação" },
-  { to: "/open-finance", icon: Link2, label: "Open Finance" },
 ]
 
 // Retorna true se a rota atual corresponde ao item de navegação

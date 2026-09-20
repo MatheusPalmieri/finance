@@ -12,7 +12,6 @@ import { categoriesRoute } from "./routes/categories"
 import { walletsRoute } from "./routes/wallets"
 import { dashboardRoute } from "./routes/dashboard"
 import { transactionsRoute } from "./routes/transactions"
-import { openFinanceRoute } from "./modules/open-finance"
 import { classificationRoute, recurringRoute } from "./modules/classification"
 import { llmRoute } from "./modules/llm"
 import { reportsRoute } from "./modules/reports"
@@ -41,7 +40,6 @@ export function createApp() {
       .use(transactionsRoute)
       .use(budgetsRoute)
       .use(dashboardRoute)
-      .use(openFinanceRoute)
       .use(classificationRoute)
       .use(recurringRoute)
       .use(reportsRoute)

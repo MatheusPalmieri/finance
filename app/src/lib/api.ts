@@ -13,9 +13,6 @@ import type {
   LlmHealth,
   MonthlyReport,
   MonthlyReportSummary,
-  OpenFinanceConnection,
-  OpenFinanceSyncRun,
-  OpenFinanceTransactionsResponse,
   ParseScenarioResponse,
   PaymentMethod,
   Recurrence,
@@ -284,42 +281,6 @@ export const api = {
       }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
-  },
-
-  openFinance: {
-    listConnections: () =>
-      request<OpenFinanceConnection[]>("/open-finance/connections"),
-    createConnection: (body: {
-      itemId?: string
-      connectorId?: string
-      parameters?: Record<string, string>
-    }) =>
-      request<{
-        connection: OpenFinanceConnection
-        syncRun: OpenFinanceSyncRun | null
-      }>("/open-finance/connections", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    deleteConnection: (id: string) =>
-      request<{ success: boolean }>(`/open-finance/connections/${id}`, {
-        method: "DELETE",
-      }),
-    sync: (id: string) =>
-      request<OpenFinanceSyncRun>(`/open-finance/connections/${id}/sync`, {
-        method: "POST",
-      }),
-    transactions: (
-      id: string,
-      params: { page?: number; limit?: number } = {}
-    ) => {
-      const q = new URLSearchParams()
-      if (params.page) q.set("page", String(params.page))
-      if (params.limit) q.set("limit", String(params.limit))
-      return request<OpenFinanceTransactionsResponse>(
-        `/open-finance/connections/${id}/transactions?${q}`
-      )
-    },
   },
 
   classification: {

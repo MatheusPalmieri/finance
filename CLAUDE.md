@@ -72,6 +72,7 @@ Docs existentes:
 - `.claude/docs/frontend/reports.md` — página /reports (check-up) e card no Home
 - `.claude/docs/infra/scheduler.md` — agendamento mensal no Windows e fallback in-app
 - `.claude/docs/infra/testing.md` — suíte da API: banco de teste isolado, helpers de e2e e o que cada suíte cobre
+- `.claude/docs/infra/csv-import-cli.md` — `bun run import:csv`: importa vários extratos de uma vez, com dedupe e classificação
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
@@ -84,10 +85,7 @@ Docs existentes:
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês e filtro de período específico em Transações
 - `.claude/docs/frontend/transactions-import.md` — importação de extrato CSV (Nubank) com revisão antes de salvar
-- `.claude/docs/domain/open-finance.md` — integração Open Finance (leitura), tabelas open_finance_*, normalização e sincronização
-- `.claude/docs/api/open-finance.md` — endpoints /open-finance, provider interface, variáveis de ambiente
-- `.claude/docs/frontend/open-finance.md` — página /open-finance (conexões, sync, transações importadas)
-- `docs/open-finance-decision.md` — ADR: escolha do provedor (Pluggy vs Belvo)
+- `.claude/docs/decisions/remocao-open-finance.md` — ADR: por que a integração Open Finance (Pluggy) foi removida
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
 - `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render
@@ -186,6 +184,7 @@ bun run db:push        # Push schema directly (dev only)
 bun run db:studio      # Drizzle Studio (GUI)
 bun run db:seed:rules  # Regras de classificação (idempotente)
 bun run report:monthly # Gera o check-up mensal — aceita YYYY-MM
+bun run import:csv <carteira> <conta> <arquivo.csv> [...]  # Importa extratos em lote (idempotente)
 ```
 
 API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.env` with `DATABASE_URL`.

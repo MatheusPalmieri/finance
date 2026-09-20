@@ -16,7 +16,7 @@ interface OllamaChatResponse {
 
 /**
  * Adapter local. Sem SDK — `fetch` nativo do Bun, mesmo critério do módulo
- * open-finance. Custo sempre zero.
+ * nenhum SDK. Custo sempre zero.
  */
 export class OllamaProvider extends BaseLlmProvider {
   readonly name = "ollama"

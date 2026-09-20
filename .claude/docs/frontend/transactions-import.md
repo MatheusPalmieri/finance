@@ -8,6 +8,8 @@ updated: 2026-09-19
 
 Botão "Importar CSV" no cabeçalho de Transações (`pages/Transactions/index.tsx`) abre `ImportModal` (`pages/Transactions/ImportModal.tsx`), um wizard de 3 etapas (Arquivo → Configurar → Revisar) que lê um extrato bancário no formato do Nubank, mostra uma tabela de revisão editável e importa tudo via `POST /transactions/bulk` (ver `.claude/docs/api/transactions.md`).
 
+> Para carregar **vários** extratos de uma vez, sem revisão linha a linha, use `bun run import:csv` — ver `.claude/docs/infra/csv-import-cli.md`.
+
 ## Formato esperado do CSV
 
 Cabeçalho com colunas `Data` (dd/mm/aaaa), `Valor`, `Identificador` (id único do banco, opcional) e `Descrição` (vira o nome da transação). Ordem das colunas não importa — a busca é pelo nome do cabeçalho.

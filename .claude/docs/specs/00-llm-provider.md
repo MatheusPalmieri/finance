@@ -38,7 +38,7 @@ usuário sem passar pelo motor determinístico), não um limite do modelo.
 
 ## Estrutura de arquivos
 
-Segue o padrão do módulo `open-finance` (ver `api/src/modules/open-finance/`):
+Segue o padrão de módulo isolado já usado no `api/src/modules/`:
 
 ```
 api/src/modules/llm/
@@ -54,8 +54,7 @@ api/src/modules/llm/
 ```
 
 Nenhuma dependência nova no `api/package.json`. Os dois adapters usam `fetch`
-nativo do Bun — o mesmo critério que levou o módulo `open-finance` a não usar o
-SDK da Pluggy.
+nativo do Bun — nenhum SDK de provedor entra no workspace.
 
 ---
 
@@ -119,8 +118,7 @@ export interface LlmProvider {
 }
 ```
 
-A factory espelha `getProvider()` do open-finance, inclusive o
-`__setLlm()` para injeção em teste:
+A factory expõe `__setLlm()` para injeção em teste:
 
 ```ts
 let cached: LlmProvider | null = null

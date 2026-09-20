@@ -30,7 +30,7 @@ interface AnthropicResponse {
 
 /**
  * Fallback de nuvem. `fetch` puro na Messages API — mesmo critério que levou o
- * módulo open-finance a não usar o SDK da Pluggy: uma rota, sem dependência nova.
+ * projeto a não usar SDK de provedor: uma rota, sem dependência nova.
  *
  * A saída JSON vem por instrução no system + validação zod do `BaseLlmProvider`,
  * que já reenvia pedindo correção quando não bate.

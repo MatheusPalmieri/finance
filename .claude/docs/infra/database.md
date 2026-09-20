@@ -64,6 +64,7 @@ bun run db:push       # aplica schema direto sem migration (só dev)
 bun run db:studio     # abre Drizzle Studio no browser
 bun run db:seed       # seed padrão — contas + categorias (ver "Seed" abaixo)
 bun run db:seed:dev   # seed de desenvolvimento — padrão + orçamentos + ~90 dias de transações fake
+bun run import:csv    # importa extratos CSV reais em lote (ver infra/csv-import-cli.md)
 ```
 
 > Em desenvolvimento prefira `db:push`. Em produção use `db:generate` + `db:migrate`.
@@ -81,5 +82,6 @@ Dois scripts, propósitos diferentes — **não são pra rodar em sequência**, 
 - `seed.ts` roda sozinho quando executado diretamente (`if (import.meta.main)`), sem afetar o import feito por `seed-dev.ts`.
 - **Rode `db:seed` sempre que subir um banco novo** (container do zero) num ambiente de uso real — é o baseline de configuração (contas e categorias do dia a dia). Edite `accountsData`/`categoriesData` em `seed.ts` conforme sua necessidade real mudar.
 - **Rode `db:seed:dev` só em ambiente de desenvolvimento/teste** — nunca num banco que você quer manter "limpo" (ele gera dezenas de transações fake).
+- ⚠️ As transações do `seed-dev` nascem **sem carteira** (`wallet_id IS NULL`), então se misturam com as reais nas telas de escopo global e contaminam check-up e projeção. Em 2026-09-20 elas foram apagadas deste banco junto com os orçamentos fake (ver `decisions/remocao-open-finance.md` para o contexto da limpeza). Para popular dados de verdade, use `import:csv` — não o `seed-dev`.
 - Accounts padrão: `Nubank` (`isDefault: true`), `Itaú`, `Mercado Pago` — todas `CHECKING`, saldo `0.00` no seed padrão.
 - Categorias padrão: Lazer, Transporte, Estudos, Investimento, Alimentação, Office, Saúde, Compras, Música, Moradia, Assinaturas, Serviços, Outros.

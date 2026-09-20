@@ -41,9 +41,9 @@ api/src/modules/llm/
     └── mock.ts       # fila de respostas programáveis, para testes
 ```
 
-Os dois adapters de rede usam `fetch` nativo do Bun — mesmo critério que levou
-o módulo `open-finance` a não usar o SDK da Pluggy. A única dependência nova do
-workspace é o `zod`, que valida toda saída estruturada.
+Os dois adapters de rede usam `fetch` nativo do Bun — nenhum SDK de provedor
+entra no workspace. A única dependência nova é o `zod`, que valida toda saída
+estruturada.
 
 ## Interface
 
