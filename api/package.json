@@ -2,7 +2,9 @@
   "name": "api",
   "version": "1.0.50",
   "scripts": {
-    "test": "bun test",
+    "test": "bun run test:db && bun test",
+    "test:unit": "bun test --test-name-pattern '^(?!e2e)'",
+    "test:db": "bun run scripts/test-db.ts",
     "typecheck": "tsc --noEmit",
     "dev": "bun run --watch src/index.ts",
     "db:generate": "drizzle-kit generate",

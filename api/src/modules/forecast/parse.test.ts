@@ -152,6 +152,98 @@ describe("sanitizeEvents", () => {
     expect((event as { monthlyAmount: number }).monthlyAmount).toBe(-55)
   })
 
+  test("one_off com mês válido é preservado", () => {
+    const [event] = sanitizeEvents(
+      [{ kind: "one_off", label: "IPVA", amount: 1800, month: "2027-01" }],
+      ALLOWED
+    )
+    expect(event.kind).toBe("one_off")
+    expect((event as { amount: number }).amount).toBe(1800)
+    expect((event as { month: string }).month).toBe("2027-01")
+  })
+
+  test("one_off de valor zero é descartado", () => {
+    expect(
+      sanitizeEvents(
+        [{ kind: "one_off", label: "x", amount: 0, month: "2027-01" }],
+        ALLOWED
+      )
+    ).toHaveLength(0)
+  })
+
+  test("income_change é preservado com o mês de início", () => {
+    const [event] = sanitizeEvents(
+      [
+        {
+          kind: "income_change",
+          label: "Aumento",
+          monthlyAmount: 800,
+          startMonth: "2026-12",
+        },
+      ],
+      ALLOWED
+    )
+    expect(event.kind).toBe("income_change")
+    expect((event as { monthlyAmount: number }).monthlyAmount).toBe(800)
+    expect((event as { startMonth?: string }).startMonth).toBe("2026-12")
+  })
+
+  test("income_change de delta zero é descartado", () => {
+    expect(
+      sanitizeEvents(
+        [{ kind: "income_change", label: "x", monthlyAmount: 0 }],
+        ALLOWED
+      )
+    ).toHaveLength(0)
+  })
+
+  test("recurring_change de valor zero é descartado", () => {
+    expect(
+      sanitizeEvents(
+        [{ kind: "recurring_change", label: "x", monthlyAmount: 0 }],
+        ALLOWED
+      )
+    ).toHaveLength(0)
+  })
+
+  test("endMonth inválido é descartado sem derrubar o evento", () => {
+    const [event] = sanitizeEvents(
+      [
+        {
+          kind: "recurring_change",
+          label: "Curso",
+          monthlyAmount: 300,
+          endMonth: "dezembro",
+        },
+      ],
+      ALLOWED
+    )
+    expect((event as { endMonth?: string }).endMonth).toBeUndefined()
+  })
+
+  test("vários eventos numa frase só são todos sanitizados", () => {
+    const events = sanitizeEvents(
+      [
+        {
+          kind: "installment_purchase",
+          label: "Notebook",
+          totalAmount: 4000,
+          installments: 10,
+        },
+        { kind: "recurring_change", label: "Cortar streaming", monthlyAmount: -55 },
+        { kind: "one_off", label: "IPVA", amount: 1800, month: "2027-01" },
+        { kind: "income_change", label: "Aumento", monthlyAmount: 800 },
+      ],
+      ALLOWED
+    )
+    expect(events.map((e) => e.kind)).toEqual([
+      "installment_purchase",
+      "recurring_change",
+      "one_off",
+      "income_change",
+    ])
+  })
+
   test("label vazio ganha um default legível", () => {
     const [event] = sanitizeEvents(
       [

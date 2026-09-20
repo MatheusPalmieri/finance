@@ -71,6 +71,7 @@ Docs existentes:
 - `.claude/docs/frontend/rules.md` — página /rules (regras + cobranças recorrentes)
 - `.claude/docs/frontend/reports.md` — página /reports (check-up) e card no Home
 - `.claude/docs/infra/scheduler.md` — agendamento mensal no Windows e fallback in-app
+- `.claude/docs/infra/testing.md` — suíte da API: banco de teste isolado, helpers de e2e e o que cada suíte cobre
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
@@ -176,7 +177,8 @@ bun run preview    # Preview production build
 
 ```bash
 bun run dev            # Watch mode: bun run --watch src/index.ts
-bun run test           # bun test
+bun run test           # Prepara o banco de teste e roda tudo (ver infra/testing.md)
+bun run test:db        # Só prepara o banco de teste (idempotente)
 bun run typecheck      # tsc --noEmit
 bun run db:generate    # Generate migration files (drizzle-kit)
 bun run db:migrate     # Run pending migrations

@@ -67,6 +67,10 @@ export class AnthropicProvider extends BaseLlmProvider {
       ? `${req.system ?? ""}\n\nResponda APENAS com JSON válido, sem texto ao redor e sem cercas de código.`.trim()
       : req.system
 
+    // Fora do try: chave ausente é erro de CONFIGURAÇÃO, e o catch abaixo
+    // marcaria como "provedor fora do ar" — mandando procurar o problema errado.
+    const apiKey = this.apiKey()
+
     let res: Response
     try {
       res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -74,7 +78,7 @@ export class AnthropicProvider extends BaseLlmProvider {
         headers: {
           "Content-Type": "application/json",
           // A chave nunca é logada — ver log.ts
-          "x-api-key": this.apiKey(),
+          "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({

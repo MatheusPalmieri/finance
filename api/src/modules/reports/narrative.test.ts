@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import {
+  buildNarrativePayload,
   collectNumbers,
   extractQuotedNumbers,
   validateNarrative,
 } from "./narrative"
+import { buildDistribution, nullableScalar, scalar } from "./metrics"
+import type { Insight, MonthlyReportMetrics } from "./types"
 
 describe("collectNumbers", () => {
   test("varre objetos e arrays aninhados", () => {
@@ -87,5 +90,127 @@ describe("validateNarrative", () => {
       allowed
     )
     expect(result.offending).toEqual([9999, 77])
+  })
+})
+
+describe("buildNarrativePayload", () => {
+  function metrics(
+    partial: Partial<MonthlyReportMetrics> = {}
+  ): MonthlyReportMetrics {
+    return {
+      period: {
+        month: 11, year: 2025, walletId: null,
+        from: "2025-11-01", to: "2025-11-30", partial: false,
+      },
+      totals: {
+        totalExpenses: scalar(5000, 4000),
+        totalIncome: scalar(8000, 8000),
+        netResult: scalar(3000, 4000),
+        savingsRate: nullableScalar(37.5, 50),
+        transactionCount: scalar(40, 38),
+        avgTicket: scalar(125, 105),
+        noSpendDays: scalar(10, 12),
+      },
+      biggestExpense: null,
+      budgets: [],
+      distribution: buildDistribution({
+        essential: 50, desire: 30, investment: 20,
+      }),
+      anomalies: [],
+      topMovers: { up: [], down: [] },
+      newMerchants: [],
+      subscriptions: null,
+      ...partial,
+    }
+  }
+
+  test("poda os orçamentos que estão no alvo", () => {
+    const payload = buildNarrativePayload(
+      metrics({
+        budgets: [
+          { budgetId: "b1", name: "No alvo", type: "essential", amountType: "fixed", plannedBrl: 1000, plannedMinBrl: null, plannedMaxBrl: null, actualBrl: 1000, status: "on_track", transactionCount: 1 },
+          { budgetId: "b2", name: "Estourou", type: "essential", amountType: "fixed", plannedBrl: 1000, plannedMinBrl: null, plannedMaxBrl: null, actualBrl: 1500, status: "over", transactionCount: 1 },
+        ],
+      }),
+      []
+    )
+
+    expect(payload.orcamentos).toHaveLength(1)
+    expect(payload.orcamentos[0].nome).toBe("Estourou")
+    expect(payload.orcamentos[0].situacao).toBe("over")
+  })
+
+  test("orçamento de faixa usa o teto como planejado", () => {
+    const payload = buildNarrativePayload(
+      metrics({
+        budgets: [
+          { budgetId: "b1", name: "Faixa", type: "essential", amountType: "variable", plannedBrl: null, plannedMinBrl: 500, plannedMaxBrl: 800, actualBrl: 900, status: "over", transactionCount: 3 },
+        ],
+      }),
+      []
+    )
+    expect(payload.orcamentos[0].planejado).toBe(800)
+  })
+
+  test("resume as anomalias sem mandar as transações", () => {
+    const payload = buildNarrativePayload(
+      metrics({
+        anomalies: [
+          {
+            categoryId: "c1", categoryName: "Alimentação", color: "#000",
+            currentBrl: 1500, medianBrl: 900, robustZ: 4, severity: "high",
+            history: [{ month: "2025-10", amountBrl: 900 }],
+            topTransactions: [
+              { id: "t1", name: "Mercado caro", amountBrl: 800, date: "2025-11-05" },
+            ],
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(payload.anomalias[0]).toEqual({
+      categoria: "Alimentação", atual: 1500, mediana: 900, severidade: "high",
+    })
+    // O nome da transação não precisa ir ao provedor
+    expect(JSON.stringify(payload)).not.toContain("Mercado caro")
+  })
+
+  test("os insights viram material citável", () => {
+    const insights: Insight[] = [
+      {
+        kind: "negative_month", severity: "critical",
+        title: "Você gastou R$ 320,00 a mais do que recebeu",
+        amountBrl: 320, facts: { netResult: -320 },
+      },
+    ]
+    const payload = buildNarrativePayload(metrics(), insights)
+
+    expect(payload.insights[0].tipo).toBe("negative_month")
+    expect(payload.insights[0].valor).toBe(320)
+    expect(payload.insights[0].dados).toEqual({ netResult: -320 })
+  })
+
+  test("todo número do payload existe nas métricas originais", () => {
+    const source = metrics()
+    const payload = buildNarrativePayload(source, [])
+    const allowed = new Set(collectNumbers({ metrics: source, insights: [] }))
+
+    for (const value of collectNumbers(payload)) {
+      expect(allowed.has(value)).toBe(true)
+    }
+  })
+
+  test("o período parcial é sinalizado ao modelo", () => {
+    const payload = buildNarrativePayload(
+      metrics({
+        period: {
+          month: 11, year: 2025, walletId: null,
+          from: "2025-11-01", to: "2025-11-30", partial: true,
+        },
+      }),
+      []
+    )
+    expect(payload.periodo.parcial).toBe(true)
   })
 })
