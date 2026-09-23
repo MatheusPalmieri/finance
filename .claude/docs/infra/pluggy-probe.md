@@ -130,3 +130,37 @@ extrato de março nunca foi importado, e o Open Finance fecha esse buraco.
 
 As regras de classificação (`seed-rules.ts`, `normalize.ts`) foram escritas
 para o texto do CSV e precisam de padrões equivalentes para o da Pluggy.
+
+## Investimentos (2026-09-23)
+
+`GET /investments?itemId=` e `GET /investments/{id}/transactions`. O item expõe
+os produtos `INVESTMENTS` e `INVESTMENTS_TRANSACTIONS`.
+
+**187 posições, 30 ativas, R$ 50.527 no total:**
+
+| Classe | Ativas | Saldo |
+|---|---|---|
+| CDB (Nu Financeira, 100–120% CDI) | 12 | R$ 42.046 |
+| FII | 7 | R$ 3.640 |
+| Ações/units | 6 | R$ 3.626 |
+| BDR | 4 | R$ 768 |
+| ETF (IVVB11) | 1 | R$ 447 |
+
+Os outros 155 são CDBs com status `TOTAL_WITHDRAWAL` (saldo 0): cada "Aplicação
+RDB" da conta vira um CDB próprio na Pluggy.
+
+**Campos úteis:**
+- **CDB:** `amountOriginal` (aplicado), `amount` (bruto), `taxes` (IR),
+  `amountWithdrawal` (líquido), `rate`/`rateType` (ex.: 120 CDI), `dueDate`,
+  `issuer`.
+- **Renda variável:** `code` (ticker), `quantity`, `value` (preço do dia
+  anterior) e `balance`. Não vem `amountOriginal`, mas o custo se reconstrói
+  pelas movimentações `BUY` (quantidade × preço).
+
+**Movimentações (381):** BUY 198, SELL 163 e INTEREST 20 (proventos de
+FII/ações/BDR). Os campos são `amount`, `netAmount`, `quantity`, `value` e
+`date`. Elas explicam os "Aplicação RDB" / "Resgate RDB" / "Valor recebido de
+Investimentos" da conta corrente, o que confirma que são **movimentos internos**.
+
+**Limitação:** a Pluggy só dá o saldo **atual**. A evolução do patrimônio ao
+longo do tempo só existe se gravarmos um snapshot a cada sincronização.

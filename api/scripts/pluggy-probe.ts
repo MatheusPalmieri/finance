@@ -14,8 +14,10 @@
 //   5. Se dá para conciliar com o histórico CSV já importado: o `providerId`
 //      bate com o Identificador do extrato Nubank? Se não, quanto casa por
 //      data + valor.
+//   6. Investimentos: posições por classe, saldo e movimentações
+//      (BUY/SELL/INTEREST).
 //
-// O payload bruto vai para `api/tmp/pluggy-probe.json` (gitignored — é extrato
+// Os payloads brutos vão para `api/tmp/pluggy-probe*.json` (gitignored — é extrato
 // bancário). Ver .claude/docs/infra/pluggy-probe.md.
 
 import { mkdir } from "node:fs/promises"
@@ -227,6 +229,59 @@ if (nubank) {
   console.log(`  por identificador (providerId/id = Identificador do extrato): ${byId} (${pct(byId, bankTx.length)})`)
   console.log(`  por data + valor: ${byKey} (${pct(byKey, bankTx.length)})`)
 }
+
+// ── Investimentos ────────────────────────────────────────────────────────────
+
+interface PluggyInvestment {
+  id: string
+  type?: string
+  subtype?: string
+  balance?: number | null
+  [key: string]: unknown
+}
+
+interface PluggyInvestmentTransaction {
+  type?: string
+  [key: string]: unknown
+}
+
+const investments: PluggyInvestment[] = []
+const investmentTx: Record<string, PluggyInvestmentTransaction[]> = {}
+for (const itemId of itemIds) {
+  const res = await authed<{ results: PluggyInvestment[] }>(
+    `/investments?itemId=${encodeURIComponent(itemId)}&pageSize=500`
+  )
+  investments.push(...res.results)
+}
+for (const investment of investments) {
+  const res = await authed<{ results: PluggyInvestmentTransaction[] }>(
+    `/investments/${investment.id}/transactions?pageSize=500`
+  )
+  investmentTx[investment.id] = res.results
+}
+await Bun.write(
+  "tmp/pluggy-probe-investments.json",
+  JSON.stringify({ investments, transactions: investmentTx }, null, 2)
+)
+
+console.log(`\n■ Investimentos: ${investments.length} posições`)
+const classes = new Map<string, { count: number; balance: number }>()
+for (const inv of investments.filter((i) => (i.balance ?? 0) > 0)) {
+  const key = `${inv.type}/${inv.subtype}`
+  const entry = classes.get(key) ?? { count: 0, balance: 0 }
+  entry.count++
+  entry.balance += inv.balance ?? 0
+  classes.set(key, entry)
+}
+for (const [key, e] of [...classes].sort((a, b) => b[1].balance - a[1].balance)) {
+  console.log(`  ${key}: ${e.count} ativas, R$ ${e.balance.toFixed(2)}`)
+}
+const invTypes = new Map<string, number>()
+for (const tx of Object.values(investmentTx).flat()) {
+  invTypes.set(tx.type ?? "?", (invTypes.get(tx.type ?? "?") ?? 0) + 1)
+}
+console.log(`  movimentações: ${[...invTypes].map(([t, n]) => `${t} ${n}`).join(", ")}`)
+console.log("✓ payload bruto em api/tmp/pluggy-probe-investments.json")
 
 console.log("\n■ Amostra (5 por conta)")
 for (const [accountId, txs] of Object.entries(raw.transactions)) {
