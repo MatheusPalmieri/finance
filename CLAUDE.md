@@ -110,6 +110,7 @@ Cada uma é autocontida e pode ser desenvolvida individualmente. Ver
 - ✅ `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas — **implementada**
 - ✅ `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA — **implementada**
 - ✅ `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?" — **implementada**
+- 🚧 `.claude/docs/specs/04-open-finance.md` — Open Finance (Pluggy) como fonte primária; **saldo e investimentos sempre buscados ao vivo, nunca persistidos** — **F0 concluída**
 
 ---
 
