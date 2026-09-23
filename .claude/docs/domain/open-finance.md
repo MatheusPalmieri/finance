@@ -76,3 +76,46 @@ O cartão traz as próximas parcelas como `pending` com data futura. Elas ficam 
 `transactions` e a projeção (spec 03) já as trata como transações conhecidas do
 mês em que caem (`knownTransactions`). O dashboard e o check-up do mês corrente
 não as veem, porque a data está no futuro.
+
+## Conciliação com o histórico (F4)
+
+- **Adoção no sync** (regra 4 acima): linha de CSV/manual da mesma conta, mesmo
+  valor absoluto e até 1 dia de diferença vira a transação do Open Finance,
+  mantendo nome, categoria, orçamento e observação.
+- **Caminho inverso:** `POST /transactions/bulk` (ImportModal) e
+  `bun run import:csv` pulam as linhas que o Open Finance já trouxe
+  (`modules/open-finance/dedupe.ts`, mesma regra de casamento). O bulk responde
+  `{ created, skipped }` e o toast mostra quantas foram puladas. Lote com
+  `source: "manual"` nunca é pulado.
+
+### Primeira sincronização real (2026-09-23)
+
+| Conta | Lidas | Novas | Adotadas do CSV |
+|---|---|---|---|
+| Nubank (conta) | 511 | 188 | **323** (das 327 linhas do CSV) |
+| Nubank Cartão | 969 | 969 | — |
+
+- 2,9 s para a janela completa. O incremental e o completo seguintes rodaram com
+  0 mudanças (idempotente).
+- Das 969 do cartão, só 41 caíram em "Outros". O resto foi resolvido por regra,
+  histórico ou mapa de categoria da Pluggy.
+- As 188 novas na conta são set a out/25, março/26 (extrato nunca importado) e
+  micro-movimentos de RDB que o CSV não trazia.
+
+### Limitação conhecida: proventos agrupados no CSV
+
+O extrato CSV do Nubank **agrupa** os proventos do dia numa linha "Rendimento";
+a Pluggy manda um por ativo ("Valor recebido de Investimentos"). Os valores não
+casam um a um, então nem a adoção nem o dedupe os reconhecem. Na primeira
+sincronização sobraram 4 linhas `csv` "Rendimento" (07, 14 e 19/08/2026,
+R$ 23,40 no total) cuja soma por dia bate ao centavo com as linhas da Pluggy: são
+duplicatas de renda. Remover:
+
+```sql
+delete from transactions
+where source = 'csv' and name = 'Rendimento'
+  and date in ('2026-08-07', '2026-08-14', '2026-08-19');
+```
+
+Para os extratos futuros, o caminho é não importar por CSV o que o Open Finance
+já cobre.

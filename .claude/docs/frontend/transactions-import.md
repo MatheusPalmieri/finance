@@ -1,7 +1,7 @@
 ---
 title: Frontend — Importação de extrato CSV em Transações
 area: frontend
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -120,3 +120,11 @@ Se o usuário quiser mudar essencial/recorrência de uma linha importada, edita 
 
 - Sem deduplicação automática por `Identificador` — reimportar o mesmo período cria linhas duplicadas.
 - Sem suporte a outros formatos de banco além do layout Nubank (`Data,Valor,Identificador,Descrição`).
+
+
+## Dedupe com o Open Finance (2026-09-23)
+
+O `POST /transactions/bulk` pula as linhas que o Open Finance já trouxe (mesma
+conta, mesmo valor, até 1 dia de diferença) e responde `{ created, skipped }`.
+O toast mostra "N transações importadas · M já vieram pelo Open Finance". Ver
+`domain/open-finance.md`, "Conciliação com o histórico".

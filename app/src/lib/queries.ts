@@ -263,15 +263,18 @@ export function useBulkCreateTransactions() {
   return useMutation({
     mutationFn: (items: TransactionInput[]) =>
       api.transactions.bulkCreate(items),
-    onSuccess: ({ created }) => {
+    onSuccess: ({ created, skipped }) => {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
       qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       qc.invalidateQueries({ queryKey: keys.forecast.all })
+      const imported =
+        created === 1 ? "1 transação importada" : `${created} transações importadas`
+      // Linhas que o Open Finance já tinha trazido não são duplicadas
       toast.success(
-        created === 1
-          ? "1 transação importada"
-          : `${created} transações importadas`
+        skipped > 0
+          ? `${imported} · ${skipped} já vieram pelo Open Finance`
+          : imported
       )
     },
     onError: (e: Error) =>

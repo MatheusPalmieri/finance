@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm"
 import { db } from "./index"
 import { accounts, categories, transactions, type NewTransaction } from "./schema"
 import { suggest } from "../modules/classification/service"
+import { coveredByOpenFinance } from "../modules/open-finance/dedupe"
 
 interface StatementRow {
   date: string // ISO yyyy-mm-dd
@@ -131,6 +132,17 @@ for (const file of files) {
     if (r.identifier) importedIds.add(r.identifier)
     parsed.push(r)
   }
+}
+
+// Extrato importado depois do Open Finance: pula o que o sync já trouxe
+const covered = await coveredByOpenFinance(
+  parsed.map((r) => ({ accountId: account.id, date: r.date, amount: r.amount }))
+)
+if (covered.size > 0) {
+  console.log(`${covered.size} linhas já vieram pelo Open Finance — puladas`)
+  const remaining = parsed.filter((_, index) => !covered.has(index))
+  parsed.length = 0
+  parsed.push(...remaining)
 }
 
 if (parsed.length === 0) {

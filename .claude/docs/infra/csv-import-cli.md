@@ -31,7 +31,10 @@ nunca cria nada implicitamente.
 3. **Classificação** — chama `suggest()` do módulo de classificação com as três
    camadas (regras → histórico → IA), exatamente como a UI. Imprime as estatísticas
    por camada ao final.
-4. **Insert** — lote único em transação; se uma linha falhar, nenhuma entra.
+4. **Dedupe com o Open Finance** — pula as linhas que o sync já trouxe (mesma
+   conta, mesmo valor, até 1 dia; ver `domain/open-finance.md`).
+5. **Insert** — lote único em transação, com `source = csv`; se uma linha falhar,
+   nenhuma entra.
 
 ## Convenções aplicadas
 

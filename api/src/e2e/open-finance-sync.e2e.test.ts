@@ -17,7 +17,7 @@ import { __setProvider } from "../modules/open-finance/provider"
 import { MockOpenFinanceProvider } from "../modules/open-finance/providers/mock"
 import { refreshTiming, runSync, SyncBusyError } from "../modules/open-finance/sync"
 import type { ProviderTransaction } from "../modules/open-finance/types"
-import { makeAccount, makeCategory, makeTransactions, resetDatabase } from "../test/helpers"
+import { api, makeAccount, makeCategory, makeTransactions, resetDatabase } from "../test/helpers"
 
 let provider: MockOpenFinanceProvider
 
@@ -306,6 +306,63 @@ describe("e2e sync — conciliação com o histórico (F4)", () => {
     const report = await runSync({ trigger: "cli" })
     expect(report.adopted).toBe(0)
     expect(report.created).toBe(1)
+  })
+})
+
+describe("e2e — extrato CSV importado depois do Open Finance (F4)", () => {
+  test("o bulk pula o que o sync já trouxe e importa o resto", async () => {
+    const nubank = await makeAccount("Nubank")
+    const outros = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Outros") }))!
+    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
+    provider.transactions = { "acc-bank": [bankTx({ id: "of-1", amount: -32.5, date: daysAgo(4) })] }
+    await runSync({ trigger: "cli" })
+
+    const line = (amount: number, date: string) => ({
+      name: "Linha do extrato",
+      amount,
+      categoryId: outros.id,
+      paymentMethod: "pix" as const,
+      accountId: nubank.id,
+      isEssential: false,
+      recurrence: "variable" as const,
+      budgetId: null,
+      date,
+      notes: null,
+    })
+    const res = await api.post<{ created: number; skipped: number }>("/transactions/bulk", {
+      transactions: [
+        line(32.5, localDay(daysAgo(5))), // 1 dia de diferença → já existe
+        line(99, localDay(daysAgo(4))), // valor diferente → nova
+      ],
+    })
+    expect(res.body).toEqual({ created: 1, skipped: 1 })
+    expect(await db.select().from(transactions)).toHaveLength(2)
+  })
+
+  test("lançamento manual em lote nunca é pulado", async () => {
+    const nubank = await makeAccount("Nubank")
+    const outros = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Outros") }))!
+    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
+    provider.transactions = { "acc-bank": [bankTx({ id: "of-1", amount: -10 })] }
+    await runSync({ trigger: "cli" })
+    const res = await api.post<{ created: number; skipped: number }>("/transactions/bulk", {
+      source: "manual",
+      transactions: [
+        {
+          name: "Manual",
+          amount: 10,
+          categoryId: outros.id,
+          paymentMethod: "pix",
+          accountId: nubank.id,
+          isEssential: false,
+          recurrence: "variable",
+          budgetId: null,
+          date: localDay(daysAgo(3)),
+          notes: null,
+        },
+      ],
+    })
+    expect(res.body).toEqual({ created: 1, skipped: 0 })
   })
 })
 

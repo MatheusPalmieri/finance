@@ -232,7 +232,7 @@ export const api = {
         method: "DELETE",
       }),
     bulkCreate: (items: TransactionInput[]) =>
-      request<{ created: number }>("/transactions/bulk", {
+      request<{ created: number; skipped: number }>("/transactions/bulk", {
         method: "POST",
         body: JSON.stringify({ transactions: items }),
       }),

@@ -4,6 +4,7 @@ import { db } from "../db"
 import { accounts, transactions } from "../db/schema"
 import { isPaymentMethod } from "../lib/payment-methods"
 import { scheduleRecalculate } from "../modules/classification"
+import { coveredByOpenFinance } from "../modules/open-finance/dedupe"
 
 // Aceita tanto `db` quanto o `tx` de uma `db.transaction()` — só precisa de `.update()`.
 type Executor = Pick<typeof db, "update">
@@ -216,9 +217,15 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         resolvedItems.push({ item, budgetId: resolved.budgetId })
       }
 
+      // Extrato importado depois do Open Finance: pula o que o sync já trouxe
+      const source = body.source ?? "csv"
+      const covered =
+        source === "csv" ? await coveredByOpenFinance(body.transactions) : new Set<number>()
+      const toCreate = resolvedItems.filter((_, index) => !covered.has(index))
+
       // Transação única: se uma linha falhar no meio, nenhuma é aplicada
       const created = await db.transaction(async (tx) => {
-        for (const { item, budgetId } of resolvedItems) {
+        for (const { item, budgetId } of toCreate) {
           const amount = String(item.amount)
           await tx.insert(transactions).values({
             name: item.name,
@@ -232,17 +239,17 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
             date: item.date,
             notes: item.notes ?? null,
             // O bulk é o caminho da importação de extrato (ImportModal)
-            source: body.source ?? "csv",
+            source,
           })
           await adjustBalance(tx, item.accountId, amount, "subtract")
         }
-        return resolvedItems.length
+        return toCreate.length
       })
 
       // Debounce de 5s: uma importação inteira dispara um recálculo só
-      scheduleRecalculate()
+      if (created > 0) scheduleRecalculate()
 
-      return { created }
+      return { created, skipped: covered.size }
     },
     {
       body: t.Object({
