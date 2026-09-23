@@ -178,8 +178,16 @@ de formulário que o usuário confirma.
 | Ligada ao Open Finance, conta corrente | saldo **ao vivo** da Pluggy |
 | Ligada ao Open Finance, cartão | **negativo**: "<cartão> (fatura em aberto)" = usado do limite − parcelas futuras já em `transactions`. As parcelas entram no mês em que caem (`knownTransactions`); descontá-las aqui evita contá-las duas vezes |
 | Sem vínculo (não cartão, não sandbox) | `accounts.balance` cadastrado |
+| Renda fixa com **liquidez diária** (caixinhas/RDB) | linha "Investimentos com liquidez diária" (`id: investments-liquid`), valor ao vivo |
 
 `CashflowProjection.openingBalanceSource`: `"live"` ou `"stored"` (sem Open
 Finance, ou com a Pluggy fora do ar: aí as contas ligadas também caem no
 cadastrado). Os movimentos internos (fatura, RDB, transferência própria) ficam
 fora do histórico que alimenta a simulação (`COUNTED_TRANSACTIONS`).
+
+**Por que a renda fixa líquida conta como caixa:** aplicação e resgate são
+movimentos internos (`kind = investment`), fora do histórico que a simulação
+usa. Conta + RDB é, na prática, um só dinheiro disponível: o usuário paga a
+fatura resgatando da caixinha. Sem ela, a projeção real abria em −R$ 7,8 mil
+(48% de chance de ficar negativo); com ela abre em R$ 34 mil. Renda variável
+não entra, porque é volátil e não é reserva de liquidez.

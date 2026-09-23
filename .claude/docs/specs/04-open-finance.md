@@ -15,7 +15,7 @@ Esta spec substitui a decisão de `decisions/remocao-open-finance.md`. A
 implementação anterior falhou porque guardava os dados em tabelas `open_finance_*`
 que **nunca alimentavam `transactions`**, e porque só rodou em sandbox.
 
-**Status:** F0 a F5 concluídas. Primeira sincronização real feita em 2026-09-23. As carteiras foram removidas antes da F1
+**Status:** F0 a F5b concluídas. Primeira sincronização real feita em 2026-09-23. As carteiras foram removidas antes da F1
 (`decisions/remocao-carteiras.md`).
 
 ## Decisões
@@ -72,6 +72,6 @@ Detalhe em `infra/pluggy-probe.md`. O que muda o desenho:
 | F3 | Gatilhos: script + Agendador do Windows, botão "Sincronizar agora", sync em segundo plano quando o dado tem mais de 6 h. Incremental diário e conciliação completa semanal (exclusões) | ✅ `api/open-finance.md`, `infra/open-finance-sync.md` |
 | F4 | Conciliação com o histórico CSV (dry-run, depois aplicar) | ✅ 323/327 adotadas; ver `domain/open-finance.md` |
 | F5 | Domínio: movimentos internos fora das métricas, **saldo ao vivo** no dashboard e na projeção, parcelas futuras na projeção | ✅ `GET /open-finance/balances`; projeção abre com conta ao vivo − fatura em aberto (`domain/forecast.md`) |
-| F5b | Investimentos **ao vivo**: posições, alocação, rendimento dos CDBs, preço médio/rentabilidade pelas compras, proventos. Reserva do "posso comprar?" considera liquidez diária | a fazer |
+| F5b | Investimentos **ao vivo**: posições, alocação, rendimento dos CDBs, preço médio/rentabilidade pelas compras, proventos. Reserva do "posso comprar?" considera liquidez diária | ✅ `GET /open-finance/investments`; renda fixa líquida entra no caixa da projeção |
 | F6 | Frontend: página de integração (status, última sync, botão), selos de origem e de pendente | a fazer |
 | F7 | Testes (provider mock + fixtures anonimizadas) e docs | contínuo |

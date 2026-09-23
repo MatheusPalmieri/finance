@@ -12,6 +12,7 @@ import {
 } from "../../db/schema"
 import { COUNTED_TRANSACTIONS } from "../../lib/scope"
 import { getLiveBalances } from "../open-finance/balances"
+import { getLiveInvestments } from "../open-finance/investments"
 import { HISTORY_MONTHS, loadHistory } from "./history"
 import { horizonMonths, monthKey, SIMULATION_RUNS, simulate } from "./montecarlo"
 import { deriveSeed } from "./random"
@@ -111,6 +112,8 @@ interface ForecastInputs {
  * mês em que caem — sem esse desconto elas seriam contadas duas vezes, e sem a
  * fatura a projeção ignoraria compras já feitas e ainda não pagas.
  *
+ * Renda fixa com liquidez diária entra como caixa (ver abaixo).
+ *
  * Contas sem vínculo usam o `balance` cadastrado. Com a Pluggy fora do ar, as
  * ligadas também caem no cadastrado e `openingBalanceSource` vira "stored".
  */
@@ -154,6 +157,17 @@ async function loadOpeningBalance() {
         balance: round2(-openBill),
       })
     }
+  }
+
+  // Renda fixa com liquidez diária (caixinhas/RDB) é caixa: aplicação e resgate
+  // são movimentos internos, então conta + RDB formam um só dinheiro disponível
+  const investments = await getLiveInvestments()
+  if (investments.available && investments.liquid > 0) {
+    openingAccounts.push({
+      id: "investments-liquid",
+      name: "Investimentos com liquidez diária",
+      balance: investments.liquid,
+    })
   }
 
   return {

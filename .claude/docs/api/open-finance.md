@@ -21,6 +21,7 @@ O resto do app funciona normalmente.
 | GET | `/open-finance/status` | Estado da integração. **Com dados de mais de 6h (ou nunca sincronizados), dispara um sync em segundo plano**, a menos que venha `?autoSync=false` |
 | POST | `/open-finance/sync` | Body opcional `{ full?, refresh?, dryRun? }`. Real → `202 { started: true }` e roda em segundo plano. `dryRun` → `200` com o `SyncReport`, sem gravar nada. `409` se outro processo estiver sincronizando |
 | GET | `/open-finance/balances` | **Saldo ao vivo** (nunca persistido), cache de 60 s em memória; `?fresh=true` ignora o cache. Ver abaixo |
+| GET | `/open-finance/investments` | **Investimentos ao vivo** (nunca persistidos), cache de 5 min; `?fresh=true` ignora. Ver abaixo |
 | GET | `/open-finance/runs` | Histórico (`sync_runs`), mais recente primeiro. `?limit=` (máx. 100) |
 | PATCH | `/open-finance/accounts/:id` | `{ accountId }` troca a conta interna de uma conta do provedor e move as transações que o sync trouxe dela. `400` para conta sandbox ou inexistente; `404` para vínculo inexistente |
 
@@ -74,3 +75,29 @@ polling do `/status` até ele virar `false`.
 
 `GET /accounts` ganhou `openFinance: boolean`, que indica conta vinculada (o
 saldo mostrado vem daqui).
+
+### `GET /open-finance/investments`
+
+```json
+{ "available": true, "error": null, "fetchedAt": "…",
+  "total": 50527.13, "invested": 49199.8, "profit": 1327.33, "liquid": 42046.21,
+  "byClass": [{ "assetClass": "Renda fixa", "total": 42046.21, "pct": 83.22, "count": 12 }, …],
+  "positions": [{ "id": "…", "name": "WEGE3", "code": "WEGE3", "type": "EQUITY", "subtype": "STOCK",
+                  "assetClass": "Ações", "balance": 2072, "invested": 1856.8, "profit": 215.2, "profitPct": 11.59,
+                  "quantity": 40, "price": 51.8, "averagePrice": 46.42, "taxes": null, "rate": null,
+                  "rateType": null, "dueDate": null, "issuer": null, "liquid": false, "incomeLast12m": 0 }, …],
+  "income": { "last12m": 76.27, "byMonth": [{ "month": "2026-08", "total": 31.48 }, …] } }
+```
+
+Regras em `modules/open-finance/investments.ts`:
+- Só posições com saldo > 0: os CDBs resgatados (cada aplicação RDB vira um)
+  ficam de fora.
+- **Renda fixa:** `invested` = `amountOriginal`, `balance` já sem IR, `taxes` =
+  IR retido.
+- **Renda variável:** `invested` e `averagePrice` pelo **custo médio** das
+  movimentações BUY/SELL, porque a Pluggy não manda o aplicado.
+- `incomeLast12m` / `income`: movimentações `INTEREST` (proventos).
+- `liquid`: renda fixa sem carência (`gracePeriodDate` passada ou ausente). É
+  somado ao caixa da projeção.
+- Medido com a conta real: ~540 ms sem cache (lista + movimentações de 18 ativos
+  de renda variável).

@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { __clearBalanceCache } from "../modules/open-finance/balances"
+import { __clearInvestmentsCache } from "../modules/open-finance/investments"
 import { __setProvider } from "../modules/open-finance/provider"
 import { MockOpenFinanceProvider } from "../modules/open-finance/providers/mock"
 import { runSync } from "../modules/open-finance/sync"
@@ -40,12 +41,14 @@ function setup() {
 beforeEach(async () => {
   await resetDatabase()
   __clearBalanceCache()
+  __clearInvestmentsCache()
   await makeCategory("Outros")
   provider = new MockOpenFinanceProvider()
 })
 afterEach(() => {
   __setProvider(null)
   __clearBalanceCache()
+  __clearInvestmentsCache()
 })
 
 describe("e2e GET /open-finance/balances", () => {
@@ -125,6 +128,72 @@ describe("e2e projeção com saldo ao vivo", () => {
     const res = await api.get<CashflowProjection>("/forecast/cashflow?horizonMonths=3")
     expect(res.body.openingBalanceSource).toBe("stored")
     expect(res.body.openingBalance).toBe(300)
+  })
+})
+
+type InvestmentsBody = {
+  available: boolean
+  total: number
+  invested: number
+  profit: number
+  liquid: number
+  byClass: { assetClass: string; total: number; pct: number; count: number }[]
+  positions: { code: string | null; assetClass: string; averagePrice: number | null; liquid: boolean }[]
+  income: { last12m: number; byMonth: { month: string; total: number }[] }
+}
+
+function setupInvestments() {
+  const recent = new Date(Date.now() - 20 * 86_400_000).toISOString()
+  provider.investments = [
+    { id: "cdb-1", type: "FIXED_INCOME", subtype: "CDB", name: "CDB", balance: 1000, amountOriginal: 900, gracePeriodDate: "2025-01-01" },
+    { id: "cdb-locked", type: "FIXED_INCOME", subtype: "CDB", name: "CDB 2 anos", balance: 500, amountOriginal: 500, gracePeriodDate: "2099-01-01" },
+    { id: "cdb-closed", type: "FIXED_INCOME", subtype: "CDB", name: "CDB resgatado", balance: 0, status: "TOTAL_WITHDRAWAL" },
+    { id: "fii", type: "EQUITY", subtype: "REAL_ESTATE_FUND", name: "MXRF11", code: "MXRF11", balance: 500, quantity: 50, value: 10 },
+  ]
+  provider.investmentTransactions = {
+    fii: [
+      { id: "1", type: "BUY", quantity: 50, amount: 450, date: recent },
+      { id: "2", type: "INTEREST", amount: 4.5, date: recent },
+    ],
+  }
+}
+
+describe("e2e GET /open-finance/investments", () => {
+  test("sem configuração: indisponível", async () => {
+    const res = await api.get<InvestmentsBody>("/open-finance/investments")
+    expect(res.body.available).toBe(false)
+  })
+
+  test("posições ativas, alocação, lucro, liquidez e proventos", async () => {
+    __setProvider(provider)
+    setupInvestments()
+    const res = await api.get<InvestmentsBody>("/open-finance/investments")
+    expect(res.body).toMatchObject({ available: true, total: 2000, invested: 1850, profit: 150, liquid: 1000 })
+    expect(res.body.positions).toHaveLength(3) // o resgatado fica de fora
+    expect(res.body.byClass).toEqual([
+      { assetClass: "Renda fixa", total: 1500, pct: 75, count: 2 },
+      { assetClass: "FIIs", total: 500, pct: 25, count: 1 },
+    ])
+    expect(res.body.positions.find((p) => p.code === "MXRF11")!.averagePrice).toBe(9)
+    expect(res.body.income.last12m).toBe(4.5)
+  })
+
+  test("falha do provedor: indisponível", async () => {
+    __setProvider(provider)
+    provider.failWith = new Error("fora")
+    const res = await api.get<InvestmentsBody>("/open-finance/investments")
+    expect(res.body).toMatchObject({ available: false, error: "fora" })
+  })
+
+  test("a projeção soma a renda fixa com liquidez diária ao caixa", async () => {
+    __setProvider(provider)
+    setup()
+    setupInvestments()
+    await runSync({ trigger: "cli" })
+    const res = await api.get<CashflowProjection>("/forecast/cashflow?horizonMonths=3")
+    // 1000 (conta) − 400 (fatura em aberto) + 1000 (CDB líquido; o de carência não conta)
+    expect(res.body.openingBalance).toBe(1600)
+    expect(res.body.openingAccounts.find((a) => a.id === "investments-liquid")!.balance).toBe(1000)
   })
 })
 
