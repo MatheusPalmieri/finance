@@ -4,6 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
+import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 import {
   api,
@@ -70,6 +71,13 @@ export const keys = {
   llm: {
     all: ["llm"] as const,
     health: () => [...keys.llm.all, "health"] as const,
+  },
+  openFinance: {
+    all: ["open-finance"] as const,
+    status: () => [...keys.openFinance.all, "status"] as const,
+    runs: () => [...keys.openFinance.all, "runs"] as const,
+    balances: () => [...keys.openFinance.all, "balances"] as const,
+    investments: () => [...keys.openFinance.all, "investments"] as const,
   },
   dashboard: {
     all: ["dashboard"] as const,
@@ -269,7 +277,9 @@ export function useBulkCreateTransactions() {
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       qc.invalidateQueries({ queryKey: keys.forecast.all })
       const imported =
-        created === 1 ? "1 transação importada" : `${created} transações importadas`
+        created === 1
+          ? "1 transação importada"
+          : `${created} transações importadas`
       // Linhas que o Open Finance já tinha trazido não são duplicadas
       toast.success(
         skipped > 0
@@ -576,5 +586,123 @@ export function useDashboardSummary(params: DashboardParams = {}) {
   return useQuery({
     queryKey: keys.dashboard.summary(params),
     queryFn: () => api.dashboard.summary(params),
+  })
+}
+
+// ── Open Finance (spec 04) ────────────────────────────────────────────────────
+
+// Tudo que muda quando o sync grava transações novas
+const SYNC_AFFECTED = [
+  keys.transactions.all,
+  keys.dashboard.all,
+  keys.forecast.all,
+  keys.reports.all,
+  keys.recurring.all,
+  keys.accounts.all,
+  keys.openFinance.all,
+]
+
+/**
+ * Status da integração. O primeiro GET já dispara o sync em segundo plano se
+ * os dados tiverem mais de 6h; enquanto `running`, faz polling a cada 2s.
+ */
+export function useOpenFinanceStatus() {
+  return useQuery({
+    queryKey: keys.openFinance.status(),
+    queryFn: () => api.openFinance.status(),
+    refetchInterval: (query) => (query.state.data?.running ? 2000 : false),
+    // O polling só existe enquanto um sync roda — e precisa continuar com a
+    // aba em segundo plano, senão o "Sincronizando" fica preso até o foco voltar
+    refetchIntervalInBackground: true,
+    staleTime: 60 * 1000,
+  })
+}
+
+/**
+ * Observa o fim de um sync (running → parado) e atualiza as telas. Montado uma
+ * vez no AppLayout, então vale para o sync automático e para o botão.
+ */
+export function useOpenFinanceSyncWatcher() {
+  const qc = useQueryClient()
+  const { data } = useOpenFinanceStatus()
+  const wasRunning = useRef(false)
+
+  useEffect(() => {
+    if (!data) return
+    if (wasRunning.current && !data.running) {
+      for (const key of SYNC_AFFECTED) qc.invalidateQueries({ queryKey: key })
+      const run = data.lastRun
+      if (run?.status === "error") {
+        toast.error(`Falha ao sincronizar o Open Finance: ${run.errorMessage}`)
+      } else if (
+        run &&
+        run.created + run.updated + run.adopted + run.removed > 0
+      ) {
+        toast.success(
+          `Open Finance sincronizado: ${run.created} novas, ${run.updated} atualizadas`
+        )
+      }
+    }
+    wasRunning.current = data.running
+  }, [data, qc])
+}
+
+export function useSyncOpenFinance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { full?: boolean; refresh?: boolean } = {}) =>
+      api.openFinance.sync(body),
+    onSuccess: (_, body) => {
+      // O status passa a mostrar "sincronizando" e o watcher cuida do fim
+      qc.invalidateQueries({ queryKey: keys.openFinance.status() })
+      toast.info(
+        body?.refresh
+          ? "Pedindo dados novos ao banco — pode levar até 2 minutos"
+          : "Sincronização iniciada"
+      )
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao sincronizar"),
+  })
+}
+
+export function useSyncRuns() {
+  return useQuery({
+    queryKey: keys.openFinance.runs(),
+    queryFn: () => api.openFinance.runs(),
+  })
+}
+
+/** Saldo ao vivo (nunca persistido). O backend já tem cache de 60s. */
+export function useLiveBalances() {
+  return useQuery({
+    queryKey: keys.openFinance.balances(),
+    queryFn: () => api.openFinance.balances(),
+    staleTime: 60 * 1000,
+  })
+}
+
+/** Investimentos ao vivo (nunca persistidos). O backend tem cache de 5 min. */
+export function useLiveInvestments() {
+  return useQuery({
+    queryKey: keys.openFinance.investments(),
+    queryFn: () => api.openFinance.investments(),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useRelinkOpenFinanceAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, accountId }: { id: string; accountId: string }) =>
+      api.openFinance.relink(id, accountId),
+    onSuccess: ({ movedTransactions }) => {
+      for (const key of SYNC_AFFECTED) qc.invalidateQueries({ queryKey: key })
+      toast.success(
+        movedTransactions === 1
+          ? "Vínculo alterado — 1 transação movida"
+          : `Vínculo alterado — ${movedTransactions} transações movidas`
+      )
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao trocar o vínculo"),
   })
 }

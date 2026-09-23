@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod/v4"
@@ -42,15 +43,17 @@ import {
   useAccounts,
   useCreateAccount,
   useDeleteAccount,
+  useLiveBalances,
   useUpdateAccount,
 } from "@/lib/queries"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PICKER_COLOR, PICKER_SWATCHES, tint } from "@/lib/tokens"
 import {
   ACCOUNT_TYPE_LABELS,
   type Account,
   type AccountType,
+  type LiveAccountBalance,
 } from "@/types/finance"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
@@ -89,7 +92,20 @@ export function Accounts() {
   const { data: accounts, isLoading, isError, refetch } = useAccounts()
   const deleteMutation = useDeleteAccount()
 
-  const netWorth = accounts?.reduce((sum, a) => sum + Number(a.balance), 0) ?? 0
+  // Contas ligadas ao Open Finance mostram o saldo ao vivo (nunca persistido);
+  // no cartão, o "saldo" é o usado do limite e entra negativo no patrimônio
+  const { data: balances } = useLiveBalances()
+  const liveById = new Map(
+    (balances?.available ? balances.accounts : []).map((b) => [b.accountId, b])
+  )
+  const netWorth =
+    accounts
+      ?.filter((a) => !a.isSandbox)
+      .reduce((sum, a) => {
+        const live = liveById.get(a.id)
+        if (!live) return sum + Number(a.balance)
+        return sum + (live.type === "CREDIT" ? -live.balance : live.balance)
+      }, 0) ?? 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,10 +124,10 @@ export function Accounts() {
         </Button>
       </div>
 
-      {/* Patrimônio líquido */}
+      {/* Saldo das contas — o patrimônio com investimentos fica no Início */}
       {!isLoading && accounts && (
         <div className="rounded-xl border bg-card p-5">
-          <p className="text-sm text-muted-foreground">Patrimônio líquido</p>
+          <p className="text-sm text-muted-foreground">Saldo das contas</p>
           <p
             className={cn(
               "mt-1 text-4xl font-bold tabular-nums",
@@ -121,7 +137,19 @@ export function Accounts() {
             {formatCurrency(netWorth)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            soma de todas as contas
+            soma das contas
+            {liveById.size > 0 && (
+              <>
+                {" "}
+                · Open Finance ao vivo, com o usado do cartão descontado ·{" "}
+                <Link
+                  to="/investments"
+                  className="underline underline-offset-2"
+                >
+                  investimentos à parte
+                </Link>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -152,6 +180,7 @@ export function Accounts() {
             <AccountCard
               key={account.id}
               account={account}
+              live={liveById.get(account.id)}
               onEdit={() => setEditing(account)}
               onDelete={() => setDeleting(account)}
             />
@@ -210,15 +239,22 @@ export function Accounts() {
 // ── Card de conta ─────────────────────────────────────────────────────────────
 function AccountCard({
   account,
+  live,
   onEdit,
   onDelete,
 }: {
   account: Account
+  live?: LiveAccountBalance
   onEdit: () => void
   onDelete: () => void
 }) {
   const Icon = ACCOUNT_ICONS[account.type]
-  const balance = Number(account.balance)
+  // Cartão ao vivo: mostra o usado do limite como valor a pagar (negativo)
+  const balance = live
+    ? live.type === "CREDIT"
+      ? -live.balance
+      : live.balance
+    : Number(account.balance)
 
   return (
     <div className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-5 transition-shadow hover:shadow-md">
@@ -265,6 +301,16 @@ function AccountCard({
               Padrão
             </span>
           )}
+          {account.openFinance && (
+            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+              {live ? "Open Finance · ao vivo" : "Open Finance"}
+            </span>
+          )}
+          {account.isSandbox && (
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Sandbox
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           {ACCOUNT_TYPE_LABELS[account.type]}
@@ -279,6 +325,14 @@ function AccountCard({
       >
         {formatCurrency(balance)}
       </p>
+      {live?.type === "CREDIT" && live.creditLimit != null && (
+        <p className="-mt-2 text-xs text-muted-foreground tabular-nums">
+          usado de {formatCurrency(live.creditLimit)}
+          {live.dueDate &&
+            live.dueDate >= new Date().toISOString().slice(0, 10) &&
+            ` · vence ${formatDate(live.dueDate)}`}
+        </p>
+      )}
     </div>
   )
 }

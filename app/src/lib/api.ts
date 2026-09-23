@@ -10,6 +10,8 @@ import type {
   Category,
   ClassificationRule,
   DashboardSummary,
+  LiveBalances,
+  LiveInvestments,
   LlmHealth,
   MonthlyReport,
   MonthlyReportSummary,
@@ -24,6 +26,9 @@ import type {
   RuleSource,
   RuleTestResponse,
   SuggestResponse,
+  OpenFinanceStatus,
+  SyncReport,
+  SyncRun,
   Transaction,
   TransactionsResponse,
 } from "@/types/finance"
@@ -200,7 +205,6 @@ export const api = {
       request<{ success: boolean }>(`/categories/${id}`, { method: "DELETE" }),
   },
 
-
   transactions: {
     list: (params: ListTransactionsParams = {}) => {
       const q = new URLSearchParams()
@@ -348,10 +352,7 @@ export const api = {
         q.set("horizonMonths", String(params.horizonMonths))
       return request<CashflowProjection>(`/forecast/cashflow?${q}`)
     },
-    simulate: (body: {
-      horizonMonths?: number
-      events: ScenarioEvent[]
-    }) =>
+    simulate: (body: { horizonMonths?: number; events: ScenarioEvent[] }) =>
       request<SimulateResponse>("/forecast/simulate", {
         method: "POST",
         body: JSON.stringify(body),
@@ -378,6 +379,39 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(body),
       }),
+  },
+
+  // Open Finance (spec 04) — saldo e investimentos sempre ao vivo
+  openFinance: {
+    status: (autoSync = true) =>
+      request<OpenFinanceStatus>(
+        `/open-finance/status${autoSync ? "" : "?autoSync=false"}`
+      ),
+    sync: (body: { full?: boolean; refresh?: boolean } = {}) =>
+      request<{ started: boolean }>("/open-finance/sync", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    simulate: (body: { full?: boolean } = {}) =>
+      request<SyncReport>("/open-finance/sync", {
+        method: "POST",
+        body: JSON.stringify({ ...body, dryRun: true }),
+      }),
+    runs: (limit = 20) =>
+      request<SyncRun[]>(`/open-finance/runs?limit=${limit}`),
+    balances: (fresh = false) =>
+      request<LiveBalances>(
+        `/open-finance/balances${fresh ? "?fresh=true" : ""}`
+      ),
+    investments: (fresh = false) =>
+      request<LiveInvestments>(
+        `/open-finance/investments${fresh ? "?fresh=true" : ""}`
+      ),
+    relink: (id: string, accountId: string) =>
+      request<{ id: string; accountId: string; movedTransactions: number }>(
+        `/open-finance/accounts/${id}`,
+        { method: "PATCH", body: JSON.stringify({ accountId }) }
+      ),
   },
 
   llm: {

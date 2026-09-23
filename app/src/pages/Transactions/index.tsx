@@ -65,6 +65,7 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_ORDER,
   RECURRENCE_LABELS,
+  TRANSACTION_KIND_LABELS,
   type Recurrence,
   type Transaction,
 } from "@/types/finance"
@@ -548,10 +549,27 @@ function TransactionRow({
             )}
             {RECURRENCE_LABELS[tx.recurrence]}
           </span>
+          {tx.status === "pending" && (
+            <span
+              className="shrink-0 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400"
+              title="Ainda não lançada pelo banco (fatura aberta ou parcela futura)"
+            >
+              Pendente
+            </span>
+          )}
+          {tx.kind !== "regular" && (
+            <span
+              className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              title={`${TRANSACTION_KIND_LABELS[tx.kind]} — dinheiro mudando de lugar; fica fora do dashboard, check-up e projeção`}
+            >
+              Interno
+            </span>
+          )}
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {tx.category?.name ?? "Sem categoria"} ·{" "}
           {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
+          {tx.source === "open_finance" && " · Open Finance"}
         </p>
       </div>
 

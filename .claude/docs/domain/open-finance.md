@@ -32,7 +32,7 @@ especial.
 | `date` | ISO UTC da Pluggy → dia em `America/Sao_Paulo` |
 | `amount` | `type === "DEBIT"` → `+|v|` (despesa); `CREDIT` → `-|v|` (entrada). O sinal cru da Pluggy se inverte entre conta e cartão; o `type` não |
 | `status` | `PENDING` → `pending`; o resto → `posted` |
-| `kind` | Fatura (`05100000` ou "Pagamento de fatura/recebido") → `bill_payment`; RDB e compra/venda de ativos (texto ou categoria `03*`) → `investment`; `04000000` Same person transfer → `own_transfer`; o resto → `regular` |
+| `kind` | Fatura (`05100000` ou "Pagamento de fatura/recebido") → `bill_payment`; RDB e compra/venda de ativos — inclusive "Compra de Renda Variável", que a Pluggy categoriza como Shopping — (texto ou categoria `03*`) → `investment`; `04000000` Same person transfer → `own_transfer`; o resto → `regular` |
 | `name` | "Transferência enviada\|X" → "Pix para X"; "Tipo\|X" → "Tipo - X". É o formato do extrato CSV, então as regras e o histórico existentes continuam valendo (ex.: a regra de salário) |
 | `paymentMethod` | Cartão → `credit_card`; conta → `paymentData` (PIX/BOLETO/TED), senão o texto ("Compra no débito" → `debit_card`) |
 | categoria | Só quando regra/histórico/IA não resolvem: mapa da categoria da Pluggy (prefixo mais longo) para o nome local; sem mapa → "Outros" |
@@ -119,3 +119,16 @@ where source = 'csv' and name = 'Rendimento'
 
 Para os extratos futuros, o caminho é não importar por CSV o que o Open Finance
 já cobre.
+
+### Check-ups salvos depois do primeiro sync
+
+Os relatórios mensais são snapshots: os de antes do Open Finance contavam a
+fatura e as aplicações como gasto. Em 2026-09-23 foram regerados
+(`bun run report:monthly 2026-01|02|08`). Agosto passou de +R$ 33,8 mil para
+−R$ 2,2 mil (inclui um pagamento real de R$ 15,4 mil à Santander
+Financiamentos). Ao mudar muito o histórico, regerar pelo botão da página
+Check-up ou pelo script.
+
+"Valor recebido de Investimentos" mistura proventos e a devolução do troco de
+compras na corretora (centavos a poucos reais). Fica `regular`: a distorção é
+irrelevante e separar exigiria cruzar com as movimentações de investimento.

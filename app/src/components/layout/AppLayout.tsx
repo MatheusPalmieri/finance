@@ -3,11 +3,15 @@ import { Outlet } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 
 import { usePageTitle } from "@/hooks/usePageTitle"
+import { useOpenFinanceSyncWatcher } from "@/lib/queries"
 import { Sidebar } from "./Sidebar"
 import { MobileTopbar } from "./MobileTopbar"
 
 export function AppLayout() {
   usePageTitle()
+  // Abrir o app com dados velhos dispara o sync do Open Finance; o watcher
+  // atualiza as telas quando ele termina
+  useOpenFinanceSyncWatcher()
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

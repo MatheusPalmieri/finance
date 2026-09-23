@@ -4,7 +4,7 @@ area: frontend
 updated: 2026-09-23
 ---
 
-> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/accounts`, `/budgets`, `/categories`, `/forecast`, `/reports`, `/rules`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
+> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/accounts`, `/budgets`, `/categories`, `/investments`, `/forecast`, `/reports`, `/rules`, `/open-finance`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
 >
 > **2026-09-23**: rota `/wallets` e seletor de carteira removidos — ver `.claude/docs/decisions/remocao-carteiras.md`.
 >

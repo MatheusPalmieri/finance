@@ -53,6 +53,9 @@ describe("detectKind", () => {
     expect(detectKind(tx({ description: "Resgate RDB", type: "CREDIT" }))).toBe("investment")
     expect(detectKind(tx({ description: "Compra de FII|MXRF11" }))).toBe("investment")
     expect(detectKind(tx({ description: "Venda de criptomoedas" }))).toBe("investment")
+    // Formato real da Pluggy para a corretora (vem categorizado como Shopping)
+    expect(detectKind(tx({ description: "Compra de Renda Variável", categoryId: "08000000" }))).toBe("investment")
+    expect(detectKind(tx({ description: "Venda de Renda Variavel", type: "CREDIT" }))).toBe("investment")
   })
 
   test("transferência para conta própria", () => {

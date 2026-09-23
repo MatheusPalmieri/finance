@@ -29,6 +29,8 @@ export interface Account {
   isDefault: boolean
   /** Conta de testes: aparece na listagem, fica fora de toda análise */
   isSandbox: boolean
+  /** Ligada ao Open Finance: o saldo mostrado vem ao vivo (só em GET /accounts) */
+  openFinance?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -52,6 +54,10 @@ export interface Transaction {
   budgetId: string | null
   date: string
   notes: string | null
+  source: TransactionSource
+  externalId: string | null
+  status: TransactionStatus
+  kind: TransactionKind
   createdAt: string
   updatedAt: string
   account?: Account
@@ -406,6 +412,8 @@ export interface ProjectedMonth {
 export interface CashflowProjection {
   openingBalance: number
   openingAccounts: { id: string; name: string; balance: number }[]
+  /** "live" = saldo ao vivo do Open Finance; "stored" = saldo cadastrado. */
+  openingBalanceSource: "live" | "stored"
   months: ProjectedMonth[]
   summary: {
     endBalanceP50: number
@@ -635,3 +643,170 @@ export const MONTHS = [
   "Novembro",
   "Dezembro",
 ]
+
+// ── Open Finance (spec 04) ────────────────────────────────────────────────────
+
+export type TransactionSource = "manual" | "csv" | "open_finance"
+export type TransactionStatus = "posted" | "pending"
+// Só `regular` entra nas análises — os demais são dinheiro mudando de lugar
+export type TransactionKind =
+  | "regular"
+  | "bill_payment"
+  | "investment"
+  | "own_transfer"
+
+export const TRANSACTION_KIND_LABELS: Record<TransactionKind, string> = {
+  regular: "Regular",
+  bill_payment: "Pagamento de fatura",
+  investment: "Aplicação/resgate",
+  own_transfer: "Transferência própria",
+}
+
+export type SyncTrigger = "manual" | "stale" | "cli"
+
+export const SYNC_TRIGGER_LABELS: Record<SyncTrigger, string> = {
+  manual: "Manual",
+  stale: "Ao abrir o app",
+  cli: "Script/agendador",
+}
+
+export interface SyncRun {
+  id: string
+  trigger: SyncTrigger
+  status: "running" | "success" | "error"
+  full: boolean
+  fetched: number
+  created: number
+  updated: number
+  adopted: number
+  removed: number
+  errorMessage: string | null
+  startedAt: string
+  finishedAt: string | null
+}
+
+export interface OpenFinanceLinkedAccount {
+  id: string
+  providerAccountId: string
+  type: "BANK" | "CREDIT"
+  subtype: string | null
+  name: string | null
+  number: string | null
+  accountId: string
+  accountName: string
+}
+
+export interface OpenFinanceStatus {
+  configured: boolean
+  running: boolean
+  stale: boolean
+  startedBackgroundSync: boolean
+  lastSyncedAt: string | null
+  items: {
+    itemId: string
+    connectorName: string | null
+    status: string | null
+    executionStatus: string | null
+    providerUpdatedAt: string | null
+    lastSyncedAt: string | null
+    lastFullSyncAt: string | null
+  }[]
+  accounts: OpenFinanceLinkedAccount[]
+  lastRun: SyncRun | null
+}
+
+export interface LiveAccountBalance {
+  accountId: string
+  accountName: string
+  providerAccountId: string
+  type: "BANK" | "CREDIT"
+  /** Conta: saldo disponível. Cartão: usado do limite. */
+  balance: number
+  creditLimit: number | null
+  availableCredit: number | null
+  dueDate: string | null
+  minimumPayment: number | null
+}
+
+export interface LiveBalances {
+  available: boolean
+  error: string | null
+  fetchedAt: string
+  accounts: LiveAccountBalance[]
+  cash: number
+  cardDebt: number
+}
+
+export type InvestmentClass =
+  | "Renda fixa"
+  | "FIIs"
+  | "Ações"
+  | "BDRs"
+  | "ETFs"
+  | "Fundos"
+  | "Previdência"
+  | "Outros"
+
+export interface InvestmentPosition {
+  id: string
+  name: string
+  code: string | null
+  type: string | null
+  subtype: string | null
+  assetClass: InvestmentClass
+  balance: number
+  invested: number | null
+  profit: number | null
+  profitPct: number | null
+  quantity: number | null
+  price: number | null
+  averagePrice: number | null
+  taxes: number | null
+  rate: number | null
+  rateType: string | null
+  dueDate: string | null
+  issuer: string | null
+  liquid: boolean
+  incomeLast12m: number
+}
+
+export interface LiveInvestments {
+  available: boolean
+  error: string | null
+  fetchedAt: string
+  total: number
+  invested: number
+  profit: number
+  liquid: number
+  byClass: {
+    assetClass: InvestmentClass
+    total: number
+    pct: number
+    count: number
+  }[]
+  positions: InvestmentPosition[]
+  income: { last12m: number; byMonth: { month: string; total: number }[] }
+}
+
+export const ASSET_CLASS_HEX: Record<InvestmentClass, string> = {
+  "Renda fixa": PALETTE.emerald,
+  FIIs: PALETTE.blue,
+  Ações: PALETTE.amber,
+  BDRs: PALETTE.violet,
+  ETFs: PALETTE.cyan,
+  Fundos: PALETTE.rose,
+  Previdência: PALETTE.orange,
+  Outros: FINANCE.neutral,
+}
+
+export interface SyncReport {
+  runId: string | null
+  dryRun: boolean
+  full: boolean
+  fetched: number
+  created: number
+  updated: number
+  adopted: number
+  removed: number
+  unchanged: number
+}

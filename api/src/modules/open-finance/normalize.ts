@@ -38,8 +38,10 @@ const SAME_PERSON_CATEGORY = "04000000" // Same person transfer
 const INVESTMENTS_CATEGORY_PREFIX = "03" // Investments e subcategorias
 
 const BILL_PAYMENT_RE = /^pagamento (de fatura|recebido)\b/i
+// Formatos do extrato CSV ("Compra de FII") e da Pluggy, que descreve a
+// corretora como "Compra de Renda Variável" — e a categoriza como Shopping
 const INVESTMENT_RE =
-  /^(aplica[cç][aã]o|resgate) rdb\b|^(compra|venda) de (fii|a[cç][oõ]es|bdr|etf|criptomoedas)\b/i
+  /^(aplica[cç][aã]o|resgate) rdb\b|^(compra|venda) de (fii|a[cç][oõ]es|bdr|etf|criptomoedas|renda vari[aá]vel)\b/i
 
 /**
  * Natureza do movimento. Só `regular` entra nas análises — ver

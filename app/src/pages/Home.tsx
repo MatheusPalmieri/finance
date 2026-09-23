@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Sparkles,
+  Wallet,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -30,6 +31,8 @@ import {
   useCashflow,
   useCurrentReport,
   useDashboardSummary,
+  useLiveBalances,
+  useLiveInvestments,
 } from "@/lib/queries"
 import {
   formatCurrency,
@@ -124,7 +127,8 @@ export function Home() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <BalanceCard />
         <ForecastCard />
         <CheckupCard />
       </div>
@@ -695,6 +699,65 @@ function ForecastCard() {
           {formatCurrency(current.balance.p75)}
         </span>
       </p>
+    </Link>
+  )
+}
+
+// ── Card de patrimônio ao vivo ───────────────────────────────────────────────
+// Conta + investimentos − fatura em aberto, direto do Open Finance (nunca
+// persistido). Sem Open Finance configurado, o card não aparece.
+function BalanceCard() {
+  const { data: balances, isLoading } = useLiveBalances()
+  const { data: investments } = useLiveInvestments()
+
+  if (isLoading) return <Skeleton className="h-24 rounded-xl" />
+  if (!balances || balances.error === "Open Finance não configurado")
+    return null
+
+  const invested = investments?.available ? investments.total : 0
+  const total = balances.cash + invested - balances.cardDebt
+  const card = balances.accounts.find((a) => a.type === "CREDIT")
+
+  return (
+    <Link
+      to="/open-finance"
+      className="flex flex-col gap-2 rounded-xl border bg-card p-5 transition-shadow hover:shadow-md"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <Wallet size={15} className="text-muted-foreground" />
+          Patrimônio agora
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span
+            className="size-1.5 rounded-full"
+            style={{
+              backgroundColor: balances.available
+                ? FINANCE.income
+                : FINANCE.neutral,
+            }}
+          />
+          {balances.available ? "ao vivo" : "indisponível"}
+        </span>
+      </div>
+
+      {balances.available ? (
+        <>
+          <p className="text-lg font-semibold tracking-tight tabular-nums">
+            {formatCurrency(total)}
+          </p>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            Conta {formatCurrency(balances.cash)}
+            {investments?.available &&
+              ` · Investido ${formatCurrencyCompact(invested)}`}
+            {card && ` · Fatura −${formatCurrencyCompact(card.balance)}`}
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Não foi possível consultar o banco agora
+        </p>
+      )}
     </Link>
   )
 }

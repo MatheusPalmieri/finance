@@ -1,5 +1,7 @@
 import {
   ArrowLeftRight,
+  Cable,
+  ChartPie,
   FileText,
   Home,
   Landmark,
@@ -27,11 +29,13 @@ export const navItems: NavItemDef[] = [
   { to: "/", icon: Home, label: "Início" },
   { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
   { to: "/accounts", icon: Landmark, label: "Contas" },
+  { to: "/investments", icon: ChartPie, label: "Investimentos" },
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
   { to: "/forecast", icon: TrendingUp, label: "Projeção" },
   { to: "/reports", icon: FileText, label: "Check-up" },
   { to: "/categories", icon: Tag, label: "Categorias" },
   { to: "/rules", icon: ListFilter, label: "Classificação" },
+  { to: "/open-finance", icon: Cable, label: "Open Finance" },
 ]
 
 // Retorna true se a rota atual corresponde ao item de navegação
