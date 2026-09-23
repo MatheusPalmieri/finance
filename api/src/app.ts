@@ -15,6 +15,7 @@ import { classificationRoute, recurringRoute } from "./modules/classification"
 import { llmRoute } from "./modules/llm"
 import { reportsRoute } from "./modules/reports"
 import { forecastRoute, settingsRoute } from "./modules/forecast"
+import { openFinanceRoute } from "./modules/open-finance"
 
 export function createApp() {
   return (
@@ -44,6 +45,7 @@ export function createApp() {
       .use(forecastRoute)
       .use(settingsRoute)
       .use(llmRoute)
+      .use(openFinanceRoute)
   )
 }
 

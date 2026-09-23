@@ -15,7 +15,7 @@ Esta spec substitui a decisão de `decisions/remocao-open-finance.md`. A
 implementação anterior falhou porque guardava os dados em tabelas `open_finance_*`
 que **nunca alimentavam `transactions`**, e porque só rodou em sandbox.
 
-**Status:** F0, F1 e F2 concluídas. As carteiras foram removidas antes da F1
+**Status:** F0 a F3 concluídas. As carteiras foram removidas antes da F1
 (`decisions/remocao-carteiras.md`).
 
 ## Decisões
@@ -69,7 +69,7 @@ Detalhe em `infra/pluggy-probe.md`. O que muda o desenho:
 | F0 | `bun run pluggy:probe`: sondagem somente leitura | ✅ |
 | F1 | Schema: `source`, `external_id`, `status` e `kind` (gasto/renda/interno) em `transactions`; tabelas `pluggy_items`, `pluggy_accounts` (vínculo com `accounts`) e payload bruto; conta "Nubank Cartão" | ✅ (a conta do cartão é criada pelo sync, F2) |
 | F2 | Motor de sync: busca → payload bruto → projeção em `transactions`. Classificação só nas novas, campos do usuário nunca sobrescritos, idempotente com lock | ✅ `domain/open-finance.md` |
-| F3 | Gatilhos: script + Agendador do Windows, botão "Sincronizar agora", sync em segundo plano quando o dado tem mais de 6 h. Incremental diário e conciliação completa semanal (exclusões) | a fazer |
+| F3 | Gatilhos: script + Agendador do Windows, botão "Sincronizar agora", sync em segundo plano quando o dado tem mais de 6 h. Incremental diário e conciliação completa semanal (exclusões) | ✅ `api/open-finance.md`, `infra/open-finance-sync.md` |
 | F4 | Conciliação com o histórico CSV (dry-run, depois aplicar) | a fazer |
 | F5 | Domínio: movimentos internos fora das métricas, **saldo ao vivo** no dashboard e na projeção, parcelas futuras na projeção | a fazer |
 | F5b | Investimentos **ao vivo**: posições, alocação, rendimento dos CDBs, preço médio/rentabilidade pelas compras, proventos. Reserva do "posso comprar?" considera liquidez diária | a fazer |

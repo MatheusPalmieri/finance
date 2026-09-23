@@ -13,3 +13,11 @@ process.env.DATABASE_URL = resolveTestDatabaseUrl()
 // os testes saírem pela rede e ficarem lentos e instáveis.
 process.env.LLM_PROVIDER = "mock"
 process.env.LLM_ENABLED = "true"
+
+// O Open Finance também nunca sai pela rede nos testes: sem credenciais o
+// módulo se considera "não configurado", e quem precisa dele injeta o
+// provedor mock com `__setProvider()`. Sem isto, as credenciais reais do
+// api/.env fariam um teste de rota sincronizar com a Pluggy de verdade.
+process.env.PLUGGY_CLIENT_ID = ""
+process.env.PLUGGY_CLIENT_SECRET = ""
+process.env.PLUGGY_ITEM_IDS = ""

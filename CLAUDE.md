@@ -67,6 +67,7 @@ Docs existentes:
 - `.claude/docs/frontend/forecast.md` — página /forecast (gráfico de leque, painel de cenário) e card no Home
 - `.claude/docs/domain/classification.md` — motor de classificação em 3 camadas (regras/histórico/IA), regras aprendidas e detector de recorrências
 - `.claude/docs/domain/monthly-report.md` — check-up mensal: métricas, anomalias (mediana/MAD), insights e validação anti-alucinação
+- `.claude/docs/api/open-finance.md` — endpoints /open-finance (status com auto-sync, sync, runs, vínculo de contas)
 - `.claude/docs/api/classification.md` — endpoints /classification e /recurring
 - `.claude/docs/api/reports.md` — endpoints /reports (check-up mensal)
 - `.claude/docs/api/llm.md` — camada `LlmProvider` (Ollama/Anthropic/mock), env vars, degradação e telemetria
@@ -75,6 +76,7 @@ Docs existentes:
 - `.claude/docs/infra/scheduler.md` — agendamento mensal no Windows e fallback in-app
 - `.claude/docs/infra/testing.md` — suíte da API: banco de teste isolado, helpers de e2e e o que cada suíte cobre
 - `.claude/docs/infra/pluggy-probe.md` — `bun run pluggy:probe`: sondagem somente leitura da Pluggy (F0 do Open Finance), env vars e o que ela mede
+- `.claude/docs/infra/open-finance-sync.md` — gatilhos do sync, `bun run sync:pluggy` e a tarefa do Agendador do Windows
 - `.claude/docs/infra/csv-import-cli.md` — `bun run import:csv`: importa vários extratos de uma vez, com dedupe e classificação
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo, conta padrão e conta sandbox
@@ -189,6 +191,7 @@ bun run db:seed:rules  # Regras de classificação (idempotente)
 bun run report:monthly # Gera o check-up mensal — aceita YYYY-MM
 bun run import:csv <conta> <arquivo.csv> [...]  # Importa extratos em lote (idempotente)
 bun run pluggy:probe   # F0 Open Finance: sonda a conta Meu Pluggy (somente leitura)
+bun run sync:pluggy    # Sincroniza o Open Finance — aceita --full --refresh --dry-run --ai
 ```
 
 API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.env` with `DATABASE_URL`.
