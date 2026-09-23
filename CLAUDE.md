@@ -73,6 +73,7 @@ Docs existentes:
 - `.claude/docs/frontend/reports.md` — página /reports (check-up) e card no Home
 - `.claude/docs/infra/scheduler.md` — agendamento mensal no Windows e fallback in-app
 - `.claude/docs/infra/testing.md` — suíte da API: banco de teste isolado, helpers de e2e e o que cada suíte cobre
+- `.claude/docs/infra/pluggy-probe.md` — `bun run pluggy:probe`: sondagem somente leitura da Pluggy (F0 do Open Finance), env vars e o que ela mede
 - `.claude/docs/infra/csv-import-cli.md` — `bun run import:csv`: importa vários extratos de uma vez, com dedupe e classificação
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo, conta padrão e conta sandbox
@@ -185,6 +186,7 @@ bun run db:studio      # Drizzle Studio (GUI)
 bun run db:seed:rules  # Regras de classificação (idempotente)
 bun run report:monthly # Gera o check-up mensal — aceita YYYY-MM
 bun run import:csv <conta> <arquivo.csv> [...]  # Importa extratos em lote (idempotente)
+bun run pluggy:probe   # F0 Open Finance: sonda a conta Meu Pluggy (somente leitura)
 ```
 
 API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.env` with `DATABASE_URL`.

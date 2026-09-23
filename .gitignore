@@ -3,6 +3,8 @@ node_modules/
 
 # Extratos bancários (dados sensíveis)
 NU_*.csv
+# Payloads crus da Pluggy (pluggy:probe) — extrato bancário
+api/tmp/
 
 # Build outputs
 dist/

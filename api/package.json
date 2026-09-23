@@ -15,7 +15,8 @@
     "db:seed:dev": "bun run src/db/seed-dev.ts",
     "db:seed:rules": "bun run src/db/seed-rules.ts",
     "import:csv": "bun run src/db/import-statements.ts",
-    "report:monthly": "bun run scripts/monthly-report.ts"
+    "report:monthly": "bun run scripts/monthly-report.ts",
+    "pluggy:probe": "bun run scripts/pluggy-probe.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
