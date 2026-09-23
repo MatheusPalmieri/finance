@@ -11,6 +11,7 @@ import {
   type AppSettings,
 } from "../../db/schema"
 import { COUNTED_TRANSACTIONS } from "../../lib/scope"
+import { getLiveBalances } from "../open-finance/balances"
 import { HISTORY_MONTHS, loadHistory } from "./history"
 import { horizonMonths, monthKey, SIMULATION_RUNS, simulate } from "./montecarlo"
 import { deriveSeed } from "./random"
@@ -25,6 +26,7 @@ import type {
   AffordabilityVerdict,
   CashflowProjection,
   MonthPlan,
+  OpeningBalanceSource,
   RangeBudget,
   ScenarioEvent,
 } from "./types"
@@ -89,6 +91,7 @@ export async function updateSettings(input: {
 interface ForecastInputs {
   openingBalance: number
   openingAccounts: { id: string; name: string; balance: number }[]
+  openingBalanceSource: OpeningBalanceSource
   months: MonthPlan[]
   horizon: { month: number; year: number; label: string; key: string }[]
   categories: Awaited<ReturnType<typeof loadHistory>>["categories"]
@@ -100,11 +103,21 @@ interface ForecastInputs {
 }
 
 /**
- * Saldo inicial: soma das contas **que não são cartão de crédito**. Cartão tem
- * saldo com semântica de fatura, não de dinheiro disponível — incluí-lo
- * distorceria a projeção.
+ * Saldo inicial.
+ *
+ * Contas ligadas ao Open Finance usam o saldo **ao vivo** (spec 04: saldo nunca
+ * é persistido). O cartão entra negativo com a **fatura em aberto**: o usado
+ * do limite menos as parcelas futuras, que já estão em `knownTransactions` do
+ * mês em que caem — sem esse desconto elas seriam contadas duas vezes, e sem a
+ * fatura a projeção ignoraria compras já feitas e ainda não pagas.
+ *
+ * Contas sem vínculo usam o `balance` cadastrado. Com a Pluggy fora do ar, as
+ * ligadas também caem no cadastrado e `openingBalanceSource` vira "stored".
  */
 async function loadOpeningBalance() {
+  const live = await getLiveBalances()
+  const liveIds = new Set(live.available ? live.accounts.map((a) => a.accountId) : [])
+
   const rows = await db
     .select({
       id: accounts.id,
@@ -115,17 +128,40 @@ async function loadOpeningBalance() {
     // Cartão tem saldo com semântica de fatura; sandbox é dado de teste
     .where(and(ne(accounts.type, "CREDIT_CARD"), eq(accounts.isSandbox, false)))
 
-  const openingAccounts = rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    balance: Number(r.balance),
-  }))
+  const openingAccounts: { id: string; name: string; balance: number }[] = rows
+    .filter((r) => !liveIds.has(r.id))
+    .map((r) => ({ id: r.id, name: r.name, balance: Number(r.balance) }))
+
+  if (live.available) {
+    for (const account of live.accounts.filter((a) => a.type === "BANK")) {
+      openingAccounts.push({ id: account.accountId, name: account.accountName, balance: account.balance })
+    }
+    for (const card of live.accounts.filter((a) => a.type === "CREDIT")) {
+      const [future] = await db
+        .select({ total: sql<string>`coalesce(sum(${transactions.amount}::numeric), 0)` })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.accountId, card.accountId),
+            gt(transactions.date, today()),
+            COUNTED_TRANSACTIONS
+          )
+        )
+      const openBill = Math.max(0, card.balance - Number(future?.total ?? 0))
+      openingAccounts.push({
+        id: card.accountId,
+        name: `${card.accountName} (fatura em aberto)`,
+        balance: round2(-openBill),
+      })
+    }
+  }
 
   return {
     openingAccounts,
     openingBalance: round2(
       openingAccounts.reduce((sum, a) => sum + a.balance, 0)
     ),
+    openingBalanceSource: (live.available ? "live" : "stored") as OpeningBalanceSource,
   }
 }
 
@@ -160,7 +196,7 @@ async function buildInputs(
     Number(historyKeys[historyKeys.length - 1].slice(5))
   )
 
-  const [{ openingBalance, openingAccounts }, history, budgetRows] =
+  const [{ openingBalance, openingAccounts, openingBalanceSource }, history, budgetRows] =
     await Promise.all([
       loadOpeningBalance(),
       loadHistory(historyStart.from, historyEnd.to, historyKeys),
@@ -253,6 +289,7 @@ async function buildInputs(
   return {
     openingBalance,
     openingAccounts,
+    openingBalanceSource,
     months,
     horizon,
     categories: history.categories,
@@ -279,6 +316,7 @@ function project(
   return {
     openingBalance: inputs.openingBalance,
     openingAccounts: inputs.openingAccounts,
+    openingBalanceSource: inputs.openingBalanceSource,
     months: result.months,
     summary: result.summary,
     assumptions: {

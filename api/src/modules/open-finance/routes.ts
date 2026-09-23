@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia"
+import { getLiveBalances } from "./balances"
 import { isConfigured } from "./provider"
 import * as service from "./service"
 import { runSync, SyncBusyError } from "./sync"
@@ -44,6 +45,10 @@ export const openFinanceRoute = new Elysia({ prefix: "/open-finance" })
       ),
     }
   )
+  // Saldo ao vivo (nunca persistido), com cache de 60s; `fresh=true` ignora o cache
+  .get("/balances", ({ query }) => getLiveBalances({ fresh: query.fresh === "true" }), {
+    query: t.Object({ fresh: t.Optional(t.String()) }),
+  })
   .get("/runs", ({ query }) => service.listRuns(query.limit ? Number(query.limit) : 20), {
     query: t.Object({ limit: t.Optional(t.String()) }),
   })

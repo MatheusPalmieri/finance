@@ -167,3 +167,19 @@ de formulário que o usuário confirma.
 | Tela | `.claude/docs/frontend/forecast.md` |
 | Camada de IA | `.claude/docs/api/llm.md` |
 | Código | `api/src/modules/forecast/` |
+
+
+## Saldo de abertura ao vivo (spec 04, F5)
+
+`loadOpeningBalance()` em `forecast/service.ts`:
+
+| Conta | Entra como |
+|---|---|
+| Ligada ao Open Finance, conta corrente | saldo **ao vivo** da Pluggy |
+| Ligada ao Open Finance, cartão | **negativo**: "<cartão> (fatura em aberto)" = usado do limite − parcelas futuras já em `transactions`. As parcelas entram no mês em que caem (`knownTransactions`); descontá-las aqui evita contá-las duas vezes |
+| Sem vínculo (não cartão, não sandbox) | `accounts.balance` cadastrado |
+
+`CashflowProjection.openingBalanceSource`: `"live"` ou `"stored"` (sem Open
+Finance, ou com a Pluggy fora do ar: aí as contas ligadas também caem no
+cadastrado). Os movimentos internos (fatura, RDB, transferência própria) ficam
+fora do histórico que alimenta a simulação (`COUNTED_TRANSACTIONS`).

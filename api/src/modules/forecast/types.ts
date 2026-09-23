@@ -110,9 +110,13 @@ export interface ProjectionAssumptions {
   }
 }
 
+/** "live" = saldo da Pluggy; "stored" = `accounts.balance` (sem Open Finance ou fora do ar). */
+export type OpeningBalanceSource = "live" | "stored"
+
 export interface CashflowProjection {
   openingBalance: number
   openingAccounts: { id: string; name: string; balance: number }[]
+  openingBalanceSource: OpeningBalanceSource
   months: ProjectedMonth[]
   summary: ProjectionSummary
   assumptions: ProjectionAssumptions

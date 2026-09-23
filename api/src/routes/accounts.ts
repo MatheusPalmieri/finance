@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia"
-import { eq, ne } from "drizzle-orm"
+import { eq, getTableColumns, ne, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts } from "../db/schema"
 
@@ -21,7 +21,19 @@ async function unsetOtherDefaults(exceptId?: string) {
 }
 
 export const accountsRoute = new Elysia({ prefix: "/accounts" })
-  .get("/", () => db.select().from(accounts).orderBy(accounts.createdAt))
+  .get("/", () =>
+    db
+      .select({
+        ...getTableColumns(accounts),
+        // Ligada ao Open Finance: o saldo mostrado vem ao vivo da Pluggy.
+        // Coluna qualificada à mão: dentro de um campo do select o Drizzle
+        // renderiza `${accounts.id}` só como "id", que na subconsulta seria o
+        // id da própria pluggy_accounts.
+        openFinance: sql<boolean>`exists (select 1 from pluggy_accounts pa where pa.account_id = "accounts"."id")`,
+      })
+      .from(accounts)
+      .orderBy(accounts.createdAt)
+  )
   // Rota estática antes da dinâmica (/:id) para não colidir
   .get("/default", async () => {
     const [account] = await db

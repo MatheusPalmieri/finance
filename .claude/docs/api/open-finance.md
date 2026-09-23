@@ -20,6 +20,7 @@ O resto do app funciona normalmente.
 |---|---|---|
 | GET | `/open-finance/status` | Estado da integração. **Com dados de mais de 6h (ou nunca sincronizados), dispara um sync em segundo plano**, a menos que venha `?autoSync=false` |
 | POST | `/open-finance/sync` | Body opcional `{ full?, refresh?, dryRun? }`. Real → `202 { started: true }` e roda em segundo plano. `dryRun` → `200` com o `SyncReport`, sem gravar nada. `409` se outro processo estiver sincronizando |
+| GET | `/open-finance/balances` | **Saldo ao vivo** (nunca persistido), cache de 60 s em memória; `?fresh=true` ignora o cache. Ver abaixo |
 | GET | `/open-finance/runs` | Histórico (`sync_runs`), mais recente primeiro. `?limit=` (máx. 100) |
 | PATCH | `/open-finance/accounts/:id` | `{ accountId }` troca a conta interna de uma conta do provedor e move as transações que o sync trouxe dela. `400` para conta sandbox ou inexistente; `404` para vínculo inexistente |
 
@@ -52,3 +53,24 @@ polling do `/status` até ele virar `false`.
   "accounts": [{ "accountName": "Nubank", "type": "BANK", "from": "2025-09-23",
                  "fetched": 511, "created": 181, "adopted": 323, "updated": 0, "removed": 0, "unchanged": 7 }] }
 ```
+
+### `GET /open-finance/balances`
+
+```json
+{ "available": true, "error": null, "fetchedAt": "…", "cash": 773.86, "cardDebt": 11130.74,
+  "accounts": [
+    { "accountId": "uuid", "accountName": "Nubank", "providerAccountId": "…", "type": "BANK",
+      "balance": 773.86, "creditLimit": null, "availableCredit": null, "dueDate": null, "minimumPayment": null },
+    { "accountId": "uuid", "accountName": "Nubank Cartão", "type": "CREDIT", "balance": 11130.74,
+      "creditLimit": 13500, "availableCredit": 973.26, "dueDate": "2026-09-08", "minimumPayment": 847.29 } ] }
+```
+
+- `balance`: na conta é o saldo disponível; no cartão é o **usado do limite**
+  (inclui parcelas futuras).
+- `available: false` quando não está configurado, quando nunca sincronizou (não
+  há vínculo de contas) ou quando a Pluggy falhou (`error` traz o motivo). Falha
+  não entra no cache.
+- Medido com a conta real: ~300 ms sem cache.
+
+`GET /accounts` ganhou `openFinance: boolean`, que indica conta vinculada (o
+saldo mostrado vem daqui).
