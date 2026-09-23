@@ -17,7 +17,6 @@ export interface NullableScalar {
 export interface ReportPeriod {
   month: number
   year: number
-  walletId: string | null
   from: string
   to: string
   /** `true` quando o mês ainda está em curso — o comparativo fica enviesado. */

@@ -1,4 +1,4 @@
-// Gera o check-up mensal de todas as carteiras (ou de um mês específico).
+// Gera o check-up mensal (do mês anterior ou de um mês específico).
 //
 //   bun run api/scripts/monthly-report.ts            # mês anterior
 //   bun run api/scripts/monthly-report.ts 2026-08    # mês específico
@@ -8,8 +8,6 @@
 //
 // Agendamento no Windows: ver `.claude/docs/infra/scheduler.md`.
 
-import { db } from "../src/db"
-import { wallets } from "../src/db/schema"
 import { reportsService } from "../src/modules/reports"
 
 function parseArg(arg: string | undefined): { month: number; year: number } {
@@ -36,34 +34,16 @@ function parseArg(arg: string | undefined): { month: number; year: number } {
 const { month, year } = parseArg(process.argv[2])
 const period = `${year}-${String(month).padStart(2, "0")}`
 
-const walletRows = await db.select({ id: wallets.id, name: wallets.name }).from(wallets)
-// `null` = escopo global (transações sem carteira). Sempre gerado.
-const scopes: { id: string | null; name: string }[] = [
-  { id: null, name: "Sem carteira" },
-  ...walletRows,
-]
+console.log(`Gerando check-up de ${period}...`)
 
-console.log(`Gerando check-up de ${period} para ${scopes.length} escopo(s)...`)
-
-let failures = 0
-for (const scope of scopes) {
-  try {
-    const report = await reportsService.generate({
-      month,
-      year,
-      walletId: scope.id,
-    })
-    const critical = report.insights.filter((i) => i.severity === "critical")
-    console.log(
-      `✓ ${scope.name}: ${report.status}, ${report.insights.length} insight(s), ${critical.length} crítico(s)`
-    )
-  } catch (err) {
-    failures++
-    console.error(
-      `✗ ${scope.name}:`,
-      err instanceof Error ? err.message : err
-    )
-  }
+try {
+  const report = await reportsService.generate({ month, year })
+  const critical = report.insights.filter((i) => i.severity === "critical")
+  console.log(
+    `✓ ${report.status}, ${report.insights.length} insight(s), ${critical.length} crítico(s)`
+  )
+  process.exit(0)
+} catch (err) {
+  console.error("✗", err instanceof Error ? err.message : err)
+  process.exit(1)
 }
-
-process.exit(failures > 0 ? 1 : 0)

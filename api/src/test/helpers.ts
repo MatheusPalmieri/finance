@@ -9,7 +9,6 @@ import {
   budgets,
   categories,
   transactions,
-  wallets,
   type AccountType,
   type BudgetType,
   type PaymentMethod,
@@ -75,7 +74,6 @@ const TABLES_IN_DELETE_ORDER = [
   "budgets",
   "categories",
   "accounts",
-  "wallets",
 ] as const
 
 /**
@@ -145,11 +143,6 @@ export async function withAiDisabled<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Fábricas ─────────────────────────────────────────────────────────────────
 
-export async function makeWallet(name = "Carteira teste", color = "#10b981") {
-  const [row] = await db.insert(wallets).values({ name, color }).returning()
-  return row
-}
-
 export async function makeCategory(name: string, color = "#6366f1") {
   const [row] = await db.insert(categories).values({ name, color }).returning()
   return row
@@ -157,7 +150,12 @@ export async function makeCategory(name: string, color = "#6366f1") {
 
 export async function makeAccount(
   name = "Conta teste",
-  options: { type?: AccountType; balance?: number; isDefault?: boolean } = {}
+  options: {
+    type?: AccountType
+    balance?: number
+    isDefault?: boolean
+    isSandbox?: boolean
+  } = {}
 ) {
   const [row] = await db
     .insert(accounts)
@@ -166,6 +164,7 @@ export async function makeAccount(
       type: options.type ?? "CHECKING",
       balance: String(options.balance ?? 0),
       isDefault: options.isDefault ?? false,
+      isSandbox: options.isSandbox ?? false,
     })
     .returning()
   return row
@@ -202,7 +201,6 @@ export interface TransactionSeed {
   date: string
   categoryId: string
   accountId: string
-  walletId?: string | null
   paymentMethod?: PaymentMethod
   recurrence?: Recurrence
   isEssential?: boolean
@@ -218,7 +216,6 @@ export async function makeTransaction(seed: TransactionSeed) {
       date: seed.date,
       categoryId: seed.categoryId,
       accountId: seed.accountId,
-      walletId: seed.walletId ?? null,
       paymentMethod: seed.paymentMethod ?? "credit_card",
       recurrence: seed.recurrence ?? "variable",
       isEssential: seed.isEssential ?? false,

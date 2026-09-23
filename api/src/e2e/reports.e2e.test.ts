@@ -12,7 +12,6 @@ import {
   makeCategory,
   makeTransaction,
   makeTransactions,
-  makeWallet,
   monthOffset,
   resetDatabase,
   useMockLlm,
@@ -38,7 +37,7 @@ beforeEach(resetDatabase)
 afterEach(() => __setLlm(null))
 
 async function generate(
-  overrides: Partial<{ month: number; year: number; walletId: string | null; narrate: boolean }> = {}
+  overrides: Partial<{ month: number; year: number; narrate: boolean }> = {}
 ) {
   return api.post<ReportBody>("/reports/monthly/generate", {
     month: REPORT.month,
@@ -49,20 +48,19 @@ async function generate(
 }
 
 describe("e2e POST /reports/monthly/generate — totais", () => {
-  test("os totais batem exatamente com o dashboard do mesmo mês e carteira", async () => {
-    const wallet = await makeWallet()
+  test("os totais batem exatamente com o dashboard do mesmo mês", async () => {
     const account = await makeAccount()
     const category = await makeCategory("Alimentação")
 
     await makeTransactions([
-      { name: "Mercado", amount: 500, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, walletId: wallet.id },
-      { name: "Padaria", amount: 120.5, date: dayIn(1, 9), categoryId: category.id, accountId: account.id, walletId: wallet.id },
-      { name: "Salário", amount: -8000, date: dayIn(1, 1), categoryId: category.id, accountId: account.id, walletId: wallet.id },
+      { name: "Mercado", amount: 500, date: dayIn(1, 5), categoryId: category.id, accountId: account.id },
+      { name: "Padaria", amount: 120.5, date: dayIn(1, 9), categoryId: category.id, accountId: account.id },
+      { name: "Salário", amount: -8000, date: dayIn(1, 1), categoryId: category.id, accountId: account.id },
     ])
 
-    const report = await generate({ walletId: wallet.id })
+    const report = await generate()
     const dashboard = await api.get<{ totalExpenses: string; transactionCount: number }>(
-      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}&walletId=${wallet.id}`
+      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}`
     )
 
     expect(report.body.metrics.totals.totalExpenses.current).toBe(620.5)
@@ -135,19 +133,22 @@ describe("e2e POST /reports/monthly/generate — totais", () => {
     expect(metrics.totals.avgTicket.current).toBeCloseTo(2050 / 3, 2)
   })
 
-  test("o escopo por carteira isola de verdade", async () => {
-    const mine = await makeWallet("Minha")
-    const other = await makeWallet("Outra")
+  test("transações de conta sandbox ficam fora do relatório e do dashboard", async () => {
     const account = await makeAccount()
+    const sandbox = await makeAccount("Claude", { isSandbox: true })
     const category = await makeCategory("Alimentação")
 
     await makeTransactions([
-      { name: "Minha", amount: 100, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, walletId: mine.id },
-      { name: "Outra", amount: 999, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, walletId: other.id },
+      { name: "Real", amount: 100, date: dayIn(1, 5), categoryId: category.id, accountId: account.id },
+      { name: "Teste", amount: 999, date: dayIn(1, 5), categoryId: category.id, accountId: sandbox.id },
     ])
 
-    const report = await generate({ walletId: mine.id })
+    const report = await generate()
+    const dashboard = await api.get<{ totalExpenses: string }>(
+      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}`
+    )
     expect(report.body.metrics.totals.totalExpenses.current).toBe(100)
+    expect(Number(dashboard.body.totalExpenses)).toBe(100)
   })
 })
 

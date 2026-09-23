@@ -14,6 +14,7 @@ import {
   type RuleMatchType,
   type RuleSource,
 } from "../../db/schema"
+import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { aiAvailable } from "../llm"
 import { classifyWithLlm } from "./llm"
 import { knnSuggest, loadKnnIndex } from "./knn"
@@ -41,7 +42,6 @@ import {
 } from "./types"
 
 export interface SuggestInput {
-  walletId?: string | null
   /** `false` pula a camada 3. */
   useAi?: boolean
   items: SuggestItem[]
@@ -86,7 +86,7 @@ export async function suggest(input: SuggestInput): Promise<SuggestResult> {
   // ── Camada 2: kNN sobre o histórico já classificado ────────────────────────
   const residualAfterKnn: SuggestItem[] = []
   if (residualAfterRules.length > 0) {
-    const index = await loadKnnIndex(input.walletId ?? null)
+    const index = await loadKnnIndex()
     for (const item of residualAfterRules) {
       const match = knnSuggest(index, item.description)
       if (!match) {
@@ -380,21 +380,19 @@ export async function testRule(pattern: string, matchType: RuleMatchType) {
 // ── Séries recorrentes ───────────────────────────────────────────────────────
 
 export interface ListRecurringParams {
-  walletId?: string | null
   status?: RecurringStatus
   includeDismissed?: boolean
 }
 
 export async function listRecurring(params: ListRecurringParams = {}) {
   const conditions = []
-  if (params.walletId) conditions.push(eq(recurringSeries.walletId, params.walletId))
   if (params.status) conditions.push(eq(recurringSeries.status, params.status))
   if (!params.includeDismissed)
     conditions.push(eq(recurringSeries.dismissed, false))
 
   const rows = await db.query.recurringSeries.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
-    with: { category: true, wallet: true },
+    with: { category: true },
     orderBy: [desc(recurringSeries.averageAmount)],
   })
 
@@ -434,12 +432,8 @@ export async function recurringTransactions(id: string) {
     .limit(1)
   if (!serie) return null
 
-  const scope = serie.walletId
-    ? eq(transactions.walletId, serie.walletId)
-    : undefined
-
   const rows = await db.query.transactions.findMany({
-    where: scope,
+    where: REAL_TRANSACTIONS,
     with: { category: true, account: true },
     orderBy: [desc(transactions.date)],
     limit: 500,

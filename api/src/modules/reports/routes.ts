@@ -8,27 +8,19 @@ export const reportsRoute = new Elysia({ prefix: "/reports" })
       service.generate({
         month: body.month,
         year: body.year,
-        walletId: body.walletId ?? null,
         narrate: body.narrate,
       }),
     {
       body: t.Object({
         month: t.Number({ minimum: 1, maximum: 12 }),
         year: t.Number({ minimum: 2000, maximum: 2100 }),
-        walletId: t.Optional(t.Nullable(t.String())),
         narrate: t.Optional(t.Boolean()),
       }),
     }
   )
-  .get("/monthly", ({ query }) => service.list(query.walletId || null), {
-    query: t.Object({ walletId: t.Optional(t.String()) }),
-  })
+  .get("/monthly", () => service.list())
   // Antes de "/monthly/:id" para não ser capturado como id
-  .get(
-    "/monthly/current",
-    ({ query }) => service.current(query.walletId || null),
-    { query: t.Object({ walletId: t.Optional(t.String()) }) }
-  )
+  .get("/monthly/current", () => service.current())
   .get("/monthly/:id", async ({ params, status }) => {
     const report = await service.getById(params.id)
     return report ?? status(404, { message: "Relatório não encontrado" })

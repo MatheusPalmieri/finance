@@ -10,6 +10,7 @@ import {
   transactions,
   type AppSettings,
 } from "../../db/schema"
+import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { HISTORY_MONTHS, loadHistory } from "./history"
 import { horizonMonths, monthKey, SIMULATION_RUNS, simulate } from "./montecarlo"
 import { deriveSeed } from "./random"
@@ -33,10 +34,6 @@ export const MAX_HORIZON_MONTHS = 12
 
 function round2(value: number): number {
   return Number(value.toFixed(2))
-}
-
-function walletScope(walletId: string | null) {
-  return walletId ? eq(transactions.walletId, walletId) : undefined
 }
 
 /** YYYY-MM-DD de hoje. */
@@ -115,7 +112,8 @@ async function loadOpeningBalance() {
       balance: accounts.balance,
     })
     .from(accounts)
-    .where(ne(accounts.type, "CREDIT_CARD"))
+    // Cartão tem saldo com semântica de fatura; sandbox é dado de teste
+    .where(and(ne(accounts.type, "CREDIT_CARD"), eq(accounts.isSandbox, false)))
 
   const openingAccounts = rows.map((r) => ({
     id: r.id,
@@ -132,7 +130,6 @@ async function loadOpeningBalance() {
 }
 
 async function buildInputs(
-  walletId: string | null,
   requestedHorizon: number | undefined
 ): Promise<ForecastInputs> {
   const settings = await getSettings()
@@ -166,7 +163,7 @@ async function buildInputs(
   const [{ openingBalance, openingAccounts }, history, budgetRows] =
     await Promise.all([
       loadOpeningBalance(),
-      loadHistory(walletId, historyStart.from, historyEnd.to, historyKeys),
+      loadHistory(historyStart.from, historyEnd.to, historyKeys),
       db.select().from(budgets),
     ])
 
@@ -197,7 +194,7 @@ async function buildInputs(
       total: sql<string>`sum(${transactions.amount}::numeric)`,
     })
     .from(transactions)
-    .where(and(gt(transactions.date, today()), walletScope(walletId)))
+    .where(and(gt(transactions.date, today()), REAL_TRANSACTIONS))
     .groupBy(sql`to_char(${transactions.date}::date, 'YYYY-MM')`)
   const futureByMonth = new Map(
     futureRows.map((r) => [r.month, Number(r.total)])
@@ -216,7 +213,7 @@ async function buildInputs(
     .where(
       and(
         between(transactions.date, currentRange.from, today()),
-        walletScope(walletId)
+        REAL_TRANSACTIONS
       )
     )
   const realizedIncome = Number(realized?.income ?? 0)
@@ -263,7 +260,7 @@ async function buildInputs(
     historyMonths: history.historyMonths,
     minimumReserveBrl,
     minimumReserveIsDefault,
-    seed: deriveSeed(currentMonth, currentYear, walletId),
+    seed: deriveSeed(currentMonth, currentYear),
   }
 }
 
@@ -314,10 +311,9 @@ function project(
 // ── API pública do módulo ────────────────────────────────────────────────────
 
 export async function cashflow(
-  walletId: string | null,
   horizon?: number
 ): Promise<CashflowProjection> {
-  const inputs = await buildInputs(walletId, horizon)
+  const inputs = await buildInputs(horizon)
   return project(inputs, inputs.months)
 }
 
@@ -328,11 +324,10 @@ export interface SimulateResult {
 }
 
 export async function simulateScenario(
-  walletId: string | null,
   events: ScenarioEvent[],
   horizon?: number
 ): Promise<SimulateResult> {
-  const inputs = await buildInputs(walletId, horizon)
+  const inputs = await buildInputs(horizon)
   const base = project(inputs, inputs.months)
   const withScenario = project(inputs, applyScenario(inputs.months, events))
 
@@ -348,7 +343,6 @@ export async function simulateScenario(
 }
 
 export interface AffordInput {
-  walletId: string | null
   totalAmount: number
   installments?: number
   monthlyInterestPct?: number
@@ -371,7 +365,7 @@ export interface AffordResult {
  * binária — o banco é lido uma vez só.
  */
 export async function afford(input: AffordInput): Promise<AffordResult> {
-  const inputs = await buildInputs(input.walletId, input.horizonMonths)
+  const inputs = await buildInputs(input.horizonMonths)
 
   const event: Extract<ScenarioEvent, { kind: "installment_purchase" }> = {
     kind: "installment_purchase",

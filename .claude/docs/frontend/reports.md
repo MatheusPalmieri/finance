@@ -1,13 +1,13 @@
 ---
 title: Página /reports — Check-up mensal
 area: frontend
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
 
-Rota `/reports`, item "Check-up" na sidebar (ícone `FileText`). Escopada pela
-carteira ativa (ver `.claude/docs/frontend/active-wallet.md`).
+Rota `/reports`, item "Check-up" na sidebar (ícone `FileText`). Um relatório por
+mês, sobre todas as transações reais (contas sandbox ficam fora).
 
 Arquivo: `app/src/pages/Reports/index.tsx` (lazy em `App.tsx`).
 Domínio: `.claude/docs/domain/monthly-report.md`.
@@ -88,7 +88,7 @@ teve movimento.
 `api.reports.*` em `lib/api.ts`. Chaves em `lib/queries.ts`:
 
 ```ts
-reports: { all, list(walletId), detail(id), current(walletId) }
+reports: { all, list(), detail(id), current() }
 ```
 
 Hooks: `useCurrentReport` (`staleTime` de 5 min e `retry: false` — a geração sob

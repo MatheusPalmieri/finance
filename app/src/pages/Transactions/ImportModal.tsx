@@ -39,7 +39,6 @@ import {
   useDeleteRule,
 } from "@/lib/queries"
 import type { TransactionInput } from "@/lib/api"
-import { useActiveWallet } from "@/components/wallet-provider"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE } from "@/lib/tokens"
@@ -103,8 +102,6 @@ export function ImportModal({
   const suggest = useClassificationSuggest()
   const feedback = useClassificationFeedback()
   const deleteRule = useDeleteRule()
-  // Transações importadas entram na carteira ativa da sidebar
-  const { walletId } = useActiveWallet()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>("file")
@@ -173,7 +170,6 @@ export function ImportModal({
       // linhas ficam sem categoria, exatamente como antes do motor existir.
       try {
         const result = await suggest.mutateAsync({
-          walletId,
           items: parsed.map((r, i) => ({
             index: i,
             description: r.name,
@@ -320,7 +316,6 @@ export function ImportModal({
       isEssential: !r.isIncome,
       recurrence: r.recurrence,
       budgetId: null,
-      walletId,
       date: r.date,
       notes: r.identifier ? `Importado via CSV — ID ${r.identifier}` : null,
     }))

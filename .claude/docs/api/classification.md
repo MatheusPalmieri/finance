@@ -1,7 +1,7 @@
 ---
 title: Endpoints /classification e /recurring
 area: api
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -21,7 +21,6 @@ Coração do motor. Recebe descrições cruas, devolve sugestões com a origem.
 ```jsonc
 // request
 {
-  "walletId": "uuid | null",   // escopa o índice do kNN
   "useAi": true,               // false pula a camada 3
   "items": [
     { "index": 0, "description": "PAG*Netflix", "date": "2026-09-03", "amount": 55.9 }
@@ -129,8 +128,8 @@ Varre as 500 transações mais recentes e devolve no máximo 20 casos.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/recurring` | Query: `walletId`, `status`, `includeDismissed` |
-| POST | `/recurring/recalculate` | `{ walletId }` → `{ detected, updated, removed }` |
+| GET | `/recurring` | Query: `status`, `includeDismissed` |
+| POST | `/recurring/recalculate` | Sem body → `{ detected, updated, removed }` |
 | PATCH | `/recurring/:id/dismiss` | Marca `dismissed: true` |
 | GET | `/recurring/:id/transactions` | As transações que compõem a série |
 
@@ -152,7 +151,7 @@ Varre as 500 transações mais recentes e devolve no máximo 20 casos.
       "expectedNextDate": "2026-09-04",
       "status": "ACTIVE | OVERDUE | CANCELLED",
       "dismissed": false,
-      "category": { }, "wallet": { },
+      "category": { },
       "monthlyCostBrl": 55.9,
       "priceChangePct": null,
       "priceChangeSince": null

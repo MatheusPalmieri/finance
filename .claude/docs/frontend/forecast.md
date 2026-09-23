@@ -1,13 +1,13 @@
 ---
 title: Página /forecast — Projeção
 area: frontend
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
 
-Rota `/forecast`, item "Projeção" na sidebar (ícone `TrendingUp`). Escopada pela
-carteira ativa (ver `.claude/docs/frontend/active-wallet.md`).
+Rota `/forecast`, item "Projeção" na sidebar (ícone `TrendingUp`). Considera todas
+as transações reais (contas sandbox ficam fora).
 
 Arquivo: `app/src/pages/Forecast/index.tsx` (lazy em `App.tsx`).
 Domínio: `.claude/docs/domain/forecast.md`.

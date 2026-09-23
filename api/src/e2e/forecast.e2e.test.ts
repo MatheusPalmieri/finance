@@ -15,7 +15,6 @@ import {
   makeCategory,
   makeTransaction,
   makeTransactions,
-  makeWallet,
   monthsAgo,
   resetDatabase,
   useMockLlm,
@@ -35,8 +34,7 @@ beforeEach(resetDatabase)
 afterEach(() => __setLlm(null))
 
 /** Base saudável: 6 meses de salário e um gasto variável estável. */
-async function seedHealthyWallet() {
-  const wallet = await makeWallet()
+async function seedHealthyHistory() {
   const checking = await makeAccount("Nubank", {
     type: "CHECKING",
     balance: 20000,
@@ -50,7 +48,6 @@ async function seedHealthyWallet() {
       date: monthsAgo(i + 1, 5),
       categoryId: category.id,
       accountId: checking.id,
-      walletId: wallet.id,
       paymentMethod: "transfer" as const,
     })),
     ...Array.from({ length: 6 }, (_, i) => ({
@@ -59,12 +56,11 @@ async function seedHealthyWallet() {
       date: monthsAgo(i + 1, 12),
       categoryId: category.id,
       accountId: checking.id,
-      walletId: wallet.id,
       isEssential: true,
     })),
   ])
 
-  return { wallet, checking, category }
+  return { checking, category }
 }
 
 describe("e2e GET /forecast/cashflow", () => {
@@ -83,20 +79,20 @@ describe("e2e GET /forecast/cashflow", () => {
   })
 
   test("a mesma projeção consultada duas vezes devolve números idênticos", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
     const first = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}&horizonMonths=6`
+      `/forecast/cashflow?horizonMonths=6`
     )
     const second = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}&horizonMonths=6`
+      `/forecast/cashflow?horizonMonths=6`
     )
     expect(second.body).toEqual(first.body)
   })
 
   test("os percentis são monotônicos em todos os meses", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
     const res = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}&horizonMonths=6`
+      `/forecast/cashflow?horizonMonths=6`
     )
 
     for (const month of res.body.months) {
@@ -127,9 +123,9 @@ describe("e2e GET /forecast/cashflow", () => {
   })
 
   test("detecta a receita recorrente e a expõe nas premissas", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
     const res = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}`
+      `/forecast/cashflow`
     )
 
     const income = res.body.assumptions.recurringIncome
@@ -141,7 +137,6 @@ describe("e2e GET /forecast/cashflow", () => {
   })
 
   test("entrada esporádica não vira receita recorrente", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 1000 })
     const category = await makeCategory("Extra")
     // Só 3 dos últimos 6 meses — abaixo do mínimo
@@ -152,28 +147,26 @@ describe("e2e GET /forecast/cashflow", () => {
         date: monthsAgo(i, 5),
         categoryId: category.id,
         accountId: account.id,
-        walletId: wallet.id,
       }))
     )
 
     const res = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}`
+      `/forecast/cashflow`
     )
     expect(res.body.assumptions.recurringIncome.sources).toHaveLength(0)
     expect(res.body.months[1].expectedIncome).toBe(0)
   })
 
   test("base com pouco histórico é sinalizada, não apresentada como certeza", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 1000 })
     const category = await makeCategory("Lazer")
     await makeTransactions([
-      { name: "Cinema", amount: 50, date: monthsAgo(1, 5), categoryId: category.id, accountId: account.id, walletId: wallet.id },
-      { name: "Cinema", amount: 60, date: monthsAgo(2, 5), categoryId: category.id, accountId: account.id, walletId: wallet.id },
+      { name: "Cinema", amount: 50, date: monthsAgo(1, 5), categoryId: category.id, accountId: account.id },
+      { name: "Cinema", amount: 60, date: monthsAgo(2, 5), categoryId: category.id, accountId: account.id },
     ])
 
     const res = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}`
+      `/forecast/cashflow`
     )
     expect(res.body.assumptions.historyMonths).toBeLessThan(3)
     expect(res.body.assumptions.lowConfidenceCategories).toContain("Lazer")
@@ -192,7 +185,6 @@ describe("e2e GET /forecast/cashflow", () => {
   })
 
   test("transações já lançadas no futuro entram no mês certo", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 10000 })
     const category = await makeCategory("Impostos")
     await makeTransaction({
@@ -201,20 +193,19 @@ describe("e2e GET /forecast/cashflow", () => {
       date: monthsAgo(-1, 10), // mês que vem
       categoryId: category.id,
       accountId: account.id,
-      walletId: wallet.id,
     })
 
     const res = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}&horizonMonths=3`
+      `/forecast/cashflow?horizonMonths=3`
     )
     expect(res.body.months[1].knownTransactions).toBe(1800)
     expect(res.body.months[0].knownTransactions).toBe(0)
   })
 
   test("as premissas expõem o modelo por inteiro", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
     const res = await api.get<CashflowProjection>(
-      `/forecast/cashflow?walletId=${wallet.id}`
+      `/forecast/cashflow`
     )
     const { assumptions } = res.body
 
@@ -228,10 +219,9 @@ describe("e2e GET /forecast/cashflow", () => {
 
 describe("e2e POST /forecast/simulate", () => {
   test("10x sem juros aplica exatamente total/10 em 10 meses consecutivos", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const res = await api.post<SimulateBody>("/forecast/simulate", {
-      walletId: wallet.id,
       horizonMonths: 12,
       events: [
         {
@@ -251,10 +241,9 @@ describe("e2e POST /forecast/simulate", () => {
   })
 
   test("devolve base e cenário para a UI sobrepor as curvas", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const res = await api.post<SimulateBody>("/forecast/simulate", {
-      walletId: wallet.id,
       events: [
         { kind: "one_off", label: "Viagem", amount: 5000, month: nextMonthKey() },
       ],
@@ -271,16 +260,14 @@ describe("e2e POST /forecast/simulate", () => {
   })
 
   test("eventos empilham: comprar e cortar ao mesmo tempo", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const onlyBuy = await api.post<SimulateBody>("/forecast/simulate", {
-      walletId: wallet.id,
       events: [
         { kind: "recurring_change", label: "Academia", monthlyAmount: 200 },
       ],
     })
     const buyAndCut = await api.post<SimulateBody>("/forecast/simulate", {
-      walletId: wallet.id,
       events: [
         { kind: "recurring_change", label: "Academia", monthlyAmount: 200 },
         { kind: "recurring_change", label: "Cortar streaming", monthlyAmount: -55 },
@@ -293,10 +280,9 @@ describe("e2e POST /forecast/simulate", () => {
   })
 
   test("aumento de renda melhora a projeção", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const res = await api.post<SimulateBody>("/forecast/simulate", {
-      walletId: wallet.id,
       events: [
         { kind: "income_change", label: "Aumento", monthlyAmount: 1000 },
       ],
@@ -308,9 +294,8 @@ describe("e2e POST /forecast/simulate", () => {
   })
 
   test("cenário vazio devolve base e cenário iguais", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
     const res = await api.post<SimulateBody>("/forecast/simulate", {
-      walletId: wallet.id,
       events: [],
     })
     expect(res.body.withScenario.months).toEqual(res.body.base.months)
@@ -319,10 +304,9 @@ describe("e2e POST /forecast/simulate", () => {
 
 describe("e2e POST /forecast/afford", () => {
   test("compra pequena numa base saudável é aprovada", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const res = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id,
       totalAmount: 500,
       installments: 1,
       label: "Fone",
@@ -334,11 +318,10 @@ describe("e2e POST /forecast/afford", () => {
   })
 
   test("gasto absurdo devolve 'no' sem travar", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const started = Date.now()
     const res = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id,
       totalAmount: 500000,
       installments: 1,
       label: "Absurdo",
@@ -350,10 +333,9 @@ describe("e2e POST /forecast/afford", () => {
   })
 
   test("os acionáveis são coerentes com o veredito", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const res = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id,
       totalAmount: 30000,
       installments: 1,
       label: "Carro usado",
@@ -370,15 +352,13 @@ describe("e2e POST /forecast/afford", () => {
   })
 
   test("parcelar alivia o impacto mensal", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const aVista = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id,
       totalAmount: 12000,
       installments: 1,
     })
     const parcelado = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id,
       totalAmount: 12000,
       installments: 12,
     })
@@ -389,13 +369,11 @@ describe("e2e POST /forecast/afford", () => {
   })
 
   test("juros aumentam a parcela", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
-    const semJuros = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id, totalAmount: 6000, installments: 6,
+    const semJuros = await api.post<AffordBody>("/forecast/afford", { totalAmount: 6000, installments: 6,
     })
-    const comJuros = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id, totalAmount: 6000, installments: 6,
+    const comJuros = await api.post<AffordBody>("/forecast/afford", { totalAmount: 6000, installments: 6,
       monthlyInterestPct: 3,
     })
 
@@ -414,16 +392,14 @@ describe("e2e POST /forecast/afford", () => {
   })
 
   test("a reserva mínima configurada muda o veredito", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
-    const semReserva = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id, totalAmount: 15000, installments: 1,
+    const semReserva = await api.post<AffordBody>("/forecast/afford", { totalAmount: 15000, installments: 1,
     })
 
     await api.put("/settings", { minimumReserveBrl: 50000 })
 
-    const comReserva = await api.post<AffordBody>("/forecast/afford", {
-      walletId: wallet.id, totalAmount: 15000, installments: 1,
+    const comReserva = await api.post<AffordBody>("/forecast/afford", { totalAmount: 15000, installments: 1,
     })
 
     expect(comReserva.body.verdict.minimumReserveBrl).toBe(50000)
@@ -515,14 +491,13 @@ describe("e2e POST /forecast/parse", () => {
 
 describe("e2e — a projeção não depende de IA", () => {
   test("com LLM_ENABLED=false o motor inteiro continua funcionando", async () => {
-    const { wallet } = await seedHealthyWallet()
+    await seedHealthyHistory()
 
     const { cashflow, afford } = await withAiDisabled(async () => ({
       cashflow: await api.get<CashflowProjection>(
-        `/forecast/cashflow?walletId=${wallet.id}`
+        `/forecast/cashflow`
       ),
       afford: await api.post<AffordBody>("/forecast/afford", {
-        walletId: wallet.id,
         totalAmount: 1000,
         installments: 1,
       }),

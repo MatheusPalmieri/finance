@@ -27,17 +27,13 @@ describe("mulberry32", () => {
 })
 
 describe("deriveSeed", () => {
-  test("é estável para o mesmo período e carteira", () => {
-    expect(deriveSeed(9, 2026, "w1")).toBe(deriveSeed(9, 2026, "w1"))
+  test("é estável para o mesmo período", () => {
+    expect(deriveSeed(9, 2026)).toBe(deriveSeed(9, 2026))
   })
 
-  test("muda com a carteira e com o período", () => {
-    expect(deriveSeed(9, 2026, "w1")).not.toBe(deriveSeed(9, 2026, "w2"))
-    expect(deriveSeed(9, 2026, "w1")).not.toBe(deriveSeed(10, 2026, "w1"))
-  })
-
-  test("carteira nula tem semente própria e estável", () => {
-    expect(deriveSeed(9, 2026, null)).toBe(deriveSeed(9, 2026, null))
+  test("muda com o período", () => {
+    expect(deriveSeed(9, 2026)).not.toBe(deriveSeed(10, 2026))
+    expect(deriveSeed(9, 2026)).not.toBe(deriveSeed(9, 2027))
   })
 })
 

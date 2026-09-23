@@ -31,7 +31,6 @@ import {
   useCurrentReport,
   useDashboardSummary,
 } from "@/lib/queries"
-import { useActiveWallet } from "@/components/wallet-provider"
 import {
   formatCurrency,
   formatCurrencyCompact,
@@ -62,13 +61,9 @@ export function Home() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
 
-  // Carteira ativa (sidebar) — escopa todo o painel
-  const { walletId } = useActiveWallet()
-
   const { data, isLoading, isError, refetch } = useDashboardSummary({
     month,
     year,
-    walletId: walletId ?? undefined,
   })
 
   function prevMonth() {
@@ -130,8 +125,8 @@ export function Home() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ForecastCard walletId={walletId} />
-        <CheckupCard walletId={walletId} />
+        <ForecastCard />
+        <CheckupCard />
       </div>
 
       {isError ? (
@@ -594,8 +589,8 @@ function RecentTransactionRow({ tx }: { tx: Transaction }) {
 // ── Card do check-up mensal ──────────────────────────────────────────────────
 // Só aparece quando existe (ou dá para gerar) o relatório do mês anterior.
 // Os números vêm das métricas persistidas — nunca do texto da IA.
-function CheckupCard({ walletId }: { walletId: string | null }) {
-  const { data: report, isLoading, isError } = useCurrentReport(walletId)
+function CheckupCard() {
+  const { data: report, isLoading, isError } = useCurrentReport()
 
   if (isLoading) return <Skeleton className="h-24 rounded-xl" />
   if (isError || !report) return null
@@ -659,11 +654,8 @@ function CheckupCard({ walletId }: { walletId: string | null }) {
 // ── Card da projeção do mês ──────────────────────────────────────────────────
 // Saldo previsto para o fim do mês corrente (p50) e a chance de fechar positivo.
 // Os números vêm do motor determinístico, nunca de IA.
-function ForecastCard({ walletId }: { walletId: string | null }) {
-  const { data, isLoading, isError } = useCashflow({
-    walletId,
-    horizonMonths: 1,
-  })
+function ForecastCard() {
+  const { data, isLoading, isError } = useCashflow({ horizonMonths: 1 })
 
   if (isLoading) return <Skeleton className="h-24 rounded-xl" />
   if (isError || !data?.months.length) return null

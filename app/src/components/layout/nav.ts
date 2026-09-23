@@ -22,8 +22,7 @@ export interface NavItemDef {
 }
 
 // Fonte única dos itens de navegação — consumida pela Sidebar (desktop)
-// e pela MobileTopbar (drawer em telas pequenas). Carteiras não entra aqui:
-// virou seletor global (WalletSwitcher), com o CRUD acessível pelo dropdown.
+// e pela MobileTopbar (drawer em telas pequenas).
 export const navItems: NavItemDef[] = [
   { to: "/", icon: Home, label: "Início" },
   { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },

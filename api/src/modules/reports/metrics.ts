@@ -4,7 +4,7 @@
 //
 // Convenção de sinal do projeto: amount > 0 é despesa, amount < 0 é entrada.
 
-import { and, between, desc, eq, isNull, sql } from "drizzle-orm"
+import { and, between, desc, eq, sql } from "drizzle-orm"
 import { db } from "../../db"
 import {
   budgets,
@@ -15,6 +15,7 @@ import {
 } from "../../db/schema"
 import { merchantKey } from "../classification/normalize"
 import { monthlyCost, priceChangePct } from "../classification/recurring"
+import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { MIN_HISTORY_POINTS, robustZ } from "../../lib/stats"
 import type {
   Anomaly,
@@ -185,10 +186,6 @@ export function classifyAnomaly(z: number): AnomalySeverity | null {
 
 // ── Consultas ────────────────────────────────────────────────────────────────
 
-function walletScope(walletId: string | null) {
-  return walletId ? eq(transactions.walletId, walletId) : undefined
-}
-
 const IS_EXPENSE = sql`${transactions.amount}::numeric > 0`
 const IS_INCOME = sql`${transactions.amount}::numeric < 0`
 
@@ -201,8 +198,7 @@ interface PeriodTotals {
 
 async function periodTotals(
   from: string,
-  to: string,
-  walletId: string | null
+  to: string
 ): Promise<PeriodTotals> {
   const [row] = await db
     .select({
@@ -211,13 +207,13 @@ async function periodTotals(
       transactionCount: sql<number>`count(*) filter (where ${IS_EXPENSE})::int`,
     })
     .from(transactions)
-    .where(and(between(transactions.date, from, to), walletScope(walletId)))
+    .where(and(between(transactions.date, from, to), REAL_TRANSACTIONS))
 
   const dates = await db
     .selectDistinct({ date: transactions.date })
     .from(transactions)
     .where(
-      and(between(transactions.date, from, to), IS_EXPENSE, walletScope(walletId))
+      and(between(transactions.date, from, to), IS_EXPENSE, REAL_TRANSACTIONS)
     )
 
   return {
@@ -230,8 +226,7 @@ async function periodTotals(
 
 async function expensesByCategory(
   from: string,
-  to: string,
-  walletId: string | null
+  to: string
 ) {
   return db
     .select({
@@ -243,7 +238,7 @@ async function expensesByCategory(
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
-      and(between(transactions.date, from, to), IS_EXPENSE, walletScope(walletId))
+      and(between(transactions.date, from, to), IS_EXPENSE, REAL_TRANSACTIONS)
     )
     .groupBy(transactions.categoryId, categories.name, categories.color)
 }
@@ -251,8 +246,7 @@ async function expensesByCategory(
 /** Série mensal por categoria nos N meses anteriores ao mês do relatório. */
 async function categoryHistory(
   historyFrom: string,
-  historyTo: string,
-  walletId: string | null
+  historyTo: string
 ) {
   return db
     .select({
@@ -265,7 +259,7 @@ async function categoryHistory(
       and(
         between(transactions.date, historyFrom, historyTo),
         IS_EXPENSE,
-        walletScope(walletId)
+        REAL_TRANSACTIONS
       )
     )
     .groupBy(transactions.categoryId, sql`to_char(${transactions.date}::date, 'YYYY-MM')`)
@@ -275,8 +269,7 @@ async function categoryHistory(
 
 export async function computeMetrics(
   month: number,
-  year: number,
-  walletId: string | null
+  year: number
 ): Promise<MonthlyReportMetrics> {
   const range = monthRange(year, month)
   const prev = previousMonth(year, month)
@@ -286,8 +279,8 @@ export async function computeMetrics(
   const partial = today <= range.to
 
   const [current, previous] = await Promise.all([
-    periodTotals(range.from, range.to, walletId),
-    periodTotals(prevRange.from, prevRange.to, walletId),
+    periodTotals(range.from, range.to),
+    periodTotals(prevRange.from, prevRange.to),
   ])
 
   const netCurrent = current.income - current.expenses
@@ -328,7 +321,7 @@ export async function computeMetrics(
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, walletScope(walletId))
+      and(between(transactions.date, range.from, range.to), IS_EXPENSE, REAL_TRANSACTIONS)
     )
     .orderBy(desc(sql`${transactions.amount}::numeric`))
     .limit(1)
@@ -346,7 +339,7 @@ export async function computeMetrics(
       and(
         between(transactions.date, range.from, range.to),
         IS_EXPENSE,
-        walletScope(walletId)
+        REAL_TRANSACTIONS
       )
     )
     .groupBy(transactions.budgetId)
@@ -384,7 +377,7 @@ export async function computeMetrics(
     .from(transactions)
     .leftJoin(budgets, eq(transactions.budgetId, budgets.id))
     .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, walletScope(walletId))
+      and(between(transactions.date, range.from, range.to), IS_EXPENSE, REAL_TRANSACTIONS)
     )
     .groupBy(transactions.recurrence, transactions.isEssential, budgets.type)
 
@@ -399,11 +392,10 @@ export async function computeMetrics(
   const distribution = buildDistribution(byType)
 
   // ── Anomalias e top movers ─────────────────────────────────────────────────
-  const currentByCategory = await expensesByCategory(range.from, range.to, walletId)
+  const currentByCategory = await expensesByCategory(range.from, range.to)
   const previousByCategory = await expensesByCategory(
     prevRange.from,
-    prevRange.to,
-    walletId
+    prevRange.to
   )
 
   // Janela de histórico: os 6 meses ANTERIORES ao do relatório (o mês corrente
@@ -419,8 +411,7 @@ export async function computeMetrics(
   )
   const history = await categoryHistory(
     historyStart.from,
-    prevRange.to,
-    walletId
+    prevRange.to
   )
 
   const historyByCategory = new Map<string, { month: string; amount: number }[]>()
@@ -460,7 +451,7 @@ export async function computeMetrics(
           between(transactions.date, range.from, range.to),
           eq(transactions.categoryId, row.categoryId),
           IS_EXPENSE,
-          walletScope(walletId)
+          REAL_TRANSACTIONS
         )
       )
       .orderBy(desc(sql`${transactions.amount}::numeric`))
@@ -530,7 +521,7 @@ export async function computeMetrics(
     })
     .from(transactions)
     .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, walletScope(walletId))
+      and(between(transactions.date, range.from, range.to), IS_EXPENSE, REAL_TRANSACTIONS)
     )
 
   const historyNames = await db
@@ -540,7 +531,7 @@ export async function computeMetrics(
       and(
         between(transactions.date, historyStart.from, prevRange.to),
         IS_EXPENSE,
-        walletScope(walletId)
+        REAL_TRANSACTIONS
       )
     )
   const seenKeys = new Set(historyNames.map((r) => merchantKey(r.name)))
@@ -568,13 +559,12 @@ export async function computeMetrics(
     .slice(0, 5)
 
   // ── Assinaturas (só quando a spec 01 já produziu séries) ───────────────────
-  const subscriptions = await buildSubscriptions(walletId, range.from, range.to)
+  const subscriptions = await buildSubscriptions(range.from, range.to)
 
   return {
     period: {
       month,
       year,
-      walletId,
       from: range.from,
       to: range.to,
       partial,
@@ -599,21 +589,13 @@ export async function computeMetrics(
 }
 
 async function buildSubscriptions(
-  walletId: string | null,
   from: string,
   to: string
 ): Promise<SubscriptionsSection | null> {
   const rows = await db
     .select()
     .from(recurringSeries)
-    .where(
-      and(
-        eq(recurringSeries.dismissed, false),
-        walletId
-          ? eq(recurringSeries.walletId, walletId)
-          : isNull(recurringSeries.walletId)
-      )
-    )
+    .where(eq(recurringSeries.dismissed, false))
 
   if (rows.length === 0) return null
 

@@ -34,7 +34,6 @@ import {
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { SegmentedControl } from "@/components/charts"
-import { useActiveWallet } from "@/components/wallet-provider"
 import {
   useCategories,
   useCreateRule,
@@ -579,9 +578,7 @@ const STATUS_HEX: Record<RecurringStatus, string> = {
 }
 
 function RecurringTab() {
-  const { walletId } = useActiveWallet()
-  const params = useMemo(() => ({ walletId }), [walletId])
-  const { data, isLoading, isError, refetch } = useRecurring(params)
+  const { data, isLoading, isError, refetch } = useRecurring()
   const recalculate = useRecalculateRecurring()
   const dismiss = useDismissRecurring()
 
@@ -631,7 +628,7 @@ function RecurringTab() {
           variant="outline"
           size="sm"
           className="gap-2"
-          onClick={() => recalculate.mutate(walletId)}
+          onClick={() => recalculate.mutate()}
           disabled={recalculate.isPending}
         >
           <Repeat size={14} />

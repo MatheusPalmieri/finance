@@ -10,7 +10,6 @@ function metrics(
     period: {
       month: 11,
       year: 2025,
-      walletId: null,
       from: "2025-11-01",
       to: "2025-11-30",
       partial: false,

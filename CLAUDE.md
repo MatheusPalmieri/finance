@@ -21,17 +21,18 @@ Antes de encerrar a resposta, rode `git status` e confirme que está limpo e sin
 ## Regra de dados de teste (OBRIGATÓRIA)
 
 **Toda transação criada para teste, depuração ou verificação manual deve ficar
-na carteira chamada `Claude`.** Nunca misture dados de teste com as carteiras
-reais do usuário.
+na conta sandbox chamada `Claude`** (`accounts.is_sandbox = true`). Nunca misture
+dados de teste com as contas reais do usuário.
 
-- Se a carteira `Claude` não existir, crie antes de testar:
-  `POST /wallets` com `{ "name": "Claude", "color": "#d97757" }`.
-- Selecione a carteira `Claude` no seletor da sidebar antes de criar as
-  transações — elas nascem na carteira ativa
-  (ver `.claude/docs/frontend/active-wallet.md`).
+- Se a conta `Claude` não existir, crie antes de testar:
+  `POST /accounts` com
+  `{ "name": "Claude", "type": "CHECKING", "color": "#d97757", "isSandbox": true }`.
+- Escolha a conta `Claude` no formulário da transação (ou no `ImportModal`).
+  Transações de conta sandbox aparecem na listagem, mas ficam fora de toda
+  análise (ver `.claude/docs/domain/transaction.md`, "Conta sandbox").
 - A mesma regra vale para importação de CSV de teste e para inserts feitos
   direto no Postgres.
-- Não é preciso apagar os dados depois: eles ficam isolados nessa carteira.
+- Não é preciso apagar os dados depois: eles ficam isolados nessa conta.
 
 ---
 
@@ -74,17 +75,16 @@ Docs existentes:
 - `.claude/docs/infra/testing.md` — suíte da API: banco de teste isolado, helpers de e2e e o que cada suíte cobre
 - `.claude/docs/infra/csv-import-cli.md` — `bun run import:csv`: importa vários extratos de uma vez, com dedupe e classificação
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
-- `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo e conta padrão
+- `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo, conta padrão e conta sandbox
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
-- `.claude/docs/domain/wallet.md` — entidade Carteira (escopo global do app, independente de Conta)
-- `.claude/docs/frontend/active-wallet.md` — carteira ativa: seletor na sidebar, WalletProvider e telas escopadas
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
-- `.claude/docs/api/lookups.md` — endpoints /categories e /wallets (bancos e formas de pagamento removidos como CRUD)
+- `.claude/docs/api/lookups.md` — endpoints /categories (bancos, carteiras e formas de pagamento removidos como CRUD)
 - `.claude/docs/api/transactions.md` — endpoints /transactions, /accounts (padrão) e /dashboard
 - `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
-- `.claude/docs/frontend/transactions-filters.md` — navegação por mês e filtro de período específico em Transações
+- `.claude/docs/frontend/transactions-filters.md` — navegação por mês, período específico e filtro por conta em Transações
 - `.claude/docs/frontend/transactions-import.md` — importação de extrato CSV (Nubank) com revisão antes de salvar
+- `.claude/docs/decisions/remocao-carteiras.md` — ADR: por que as carteiras saíram e como a conta sandbox isola dados de teste
 - `.claude/docs/decisions/remocao-open-finance.md` — ADR: por que a integração Open Finance (Pluggy) foi removida
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
@@ -184,7 +184,7 @@ bun run db:push        # Push schema directly (dev only)
 bun run db:studio      # Drizzle Studio (GUI)
 bun run db:seed:rules  # Regras de classificação (idempotente)
 bun run report:monthly # Gera o check-up mensal — aceita YYYY-MM
-bun run import:csv <carteira> <conta> <arquivo.csv> [...]  # Importa extratos em lote (idempotente)
+bun run import:csv <conta> <arquivo.csv> [...]  # Importa extratos em lote (idempotente)
 ```
 
 API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.env` with `DATABASE_URL`.

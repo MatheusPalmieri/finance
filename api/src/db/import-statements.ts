@@ -2,7 +2,7 @@
 // Mesmo caminho do ImportModal (parse → classificação em 3 camadas → bulk),
 // só que sem UI: serve para carregar vários extratos de uma vez.
 //
-//   bun run import:csv <carteira> <conta> <arquivo.csv> [...]
+//   bun run import:csv <conta> <arquivo.csv> [...]
 //
 // Idempotente: pula linhas cujo identificador do extrato já esteja em `notes`
 // (mesma marca que o ImportModal grava). Não mexe no saldo das contas — o
@@ -10,7 +10,7 @@
 
 import { eq } from "drizzle-orm"
 import { db } from "./index"
-import { accounts, categories, transactions, wallets, type NewTransaction } from "./schema"
+import { accounts, categories, transactions, type NewTransaction } from "./schema"
 import { suggest } from "../modules/classification/service"
 
 interface StatementRow {
@@ -96,15 +96,12 @@ function parseStatementCsv(text: string): StatementRow[] {
 }
 
 // ── Execução ─────────────────────────────────────────────────────────────────
-const [walletName, accountName, ...files] = process.argv.slice(2)
+const [accountName, ...files] = process.argv.slice(2)
 
-if (!walletName || !accountName || files.length === 0) {
-  console.error("Uso: bun run import:csv <carteira> <conta> <arquivo.csv> [...]")
+if (!accountName || files.length === 0) {
+  console.error("Uso: bun run import:csv <conta> <arquivo.csv> [...]")
   process.exit(1)
 }
-
-const wallet = await db.query.wallets.findFirst({ where: eq(wallets.name, walletName) })
-if (!wallet) throw new Error(`Carteira "${walletName}" não encontrada.`)
 
 const account = await db.query.accounts.findFirst({ where: eq(accounts.name, accountName) })
 if (!account) throw new Error(`Conta "${accountName}" não encontrada.`)
@@ -143,7 +140,6 @@ if (parsed.length === 0) {
 
 console.log(`\nClassificando ${parsed.length} linhas (regras → histórico → IA)...`)
 const result = await suggest({
-  walletId: wallet.id,
   items: parsed.map((r, i) => ({
     index: i,
     description: r.name,
@@ -175,7 +171,6 @@ const values: NewTransaction[] = parsed.map((r, i) => {
     isEssential: isIncome ? false : (s?.isEssential ?? false),
     recurrence: s?.recurrence ?? "variable",
     budgetId: null,
-    walletId: wallet.id,
     date: r.date,
     notes: r.identifier ? `Importado via CSV — ID ${r.identifier}` : null,
   }
@@ -186,5 +181,5 @@ await db.transaction(async (tx) => {
   await tx.insert(transactions).values(values)
 })
 
-console.log(`\n${values.length} transações importadas em "${walletName}" / "${accountName}".`)
+console.log(`\n${values.length} transações importadas em "${accountName}".`)
 process.exit(0)

@@ -57,7 +57,6 @@ import {
   useTransactions,
   useUpdateTransaction,
 } from "@/lib/queries"
-import { useActiveWallet } from "@/components/wallet-provider"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE, tint } from "@/lib/tokens"
@@ -97,7 +96,6 @@ const schema = z
     isEssential: z.boolean(),
     recurrence: z.enum(["fixed", "variable"]),
     budgetId: z.string().optional(),
-    walletId: z.string().optional(),
     date: z.string().min(1, "Informe a data"),
     notes: z.string().optional(),
   })
@@ -120,6 +118,7 @@ export function Transactions() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [filterCategoryId, setFilterCategoryId] = useState("")
+  const [filterAccountId, setFilterAccountId] = useState("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
@@ -133,18 +132,6 @@ export function Transactions() {
   const [importing, setImporting] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
-
-  // Carteira ativa (sidebar) — escopa toda a listagem
-  const { walletId: activeWalletId } = useActiveWallet()
-
-  // Trocar de carteira reinicia a paginação — a lista muda por completo.
-  // Ajuste durante o render (em vez de effect) para não renderizar uma
-  // página inexistente antes de corrigir.
-  const [lastWalletId, setLastWalletId] = useState(activeWalletId)
-  if (lastWalletId !== activeWalletId) {
-    setLastWalletId(activeWalletId)
-    setPage(1)
-  }
 
   const { from, to } = customRange ?? monthRange(month, year)
   const isCurrentMonth =
@@ -186,7 +173,7 @@ export function Transactions() {
     limit: 30,
     search: search || undefined,
     categoryId: filterCategoryId || undefined,
-    walletId: activeWalletId ?? undefined,
+    accountId: filterAccountId || undefined,
     recurrence: filterRecurrence || undefined,
     from,
     to,
@@ -194,6 +181,7 @@ export function Transactions() {
 
   const { data, isLoading, isError, refetch } = useTransactions(params)
   const { data: categories } = useCategories()
+  const { data: accounts } = useAccounts()
 
   const deleteMutation = useDeleteTransaction()
 
@@ -351,6 +339,27 @@ export function Transactions() {
             {categories?.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filterAccountId || "all"}
+          onValueChange={(v) => {
+            setFilterAccountId(v === "all" ? "" : v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Conta" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as contas</SelectItem>
+            {accounts?.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.name}
+                {a.isSandbox ? " (sandbox)" : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -543,7 +552,6 @@ function TransactionRow({
         <p className="truncate text-xs text-muted-foreground">
           {tx.category?.name ?? "Sem categoria"} ·{" "}
           {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
-          {tx.wallet?.name ? ` · ${tx.wallet.name}` : ""}
         </p>
       </div>
 
@@ -596,7 +604,6 @@ function TransactionModal({
   const { data: accounts } = useAccounts()
   const { data: categories } = useCategories()
   const { data: defaultAccount } = useDefaultAccount()
-  const { walletId: activeWalletId } = useActiveWallet()
   const create = useCreateTransaction()
   const update = useUpdateTransaction()
 
@@ -622,7 +629,6 @@ function TransactionModal({
           isEssential: defaultValues.isEssential,
           recurrence: defaultValues.recurrence,
           budgetId: defaultValues.budgetId ?? undefined,
-          walletId: defaultValues.walletId ?? undefined,
           date: defaultValues.date,
           notes: defaultValues.notes ?? undefined,
         }
@@ -631,8 +637,6 @@ function TransactionModal({
           isIncome: false,
           recurrence: "variable",
           date: today,
-          // Novas transações nascem na carteira ativa da sidebar
-          walletId: activeWalletId ?? undefined,
           accountId: defaultAccount?.id ?? "",
           // "Cartão de crédito" é a forma de pagamento mais comum — pré-seleciona em transações novas
           paymentMethod: "credit_card",
@@ -650,7 +654,6 @@ function TransactionModal({
       // Essencial só existe em saída — entrada é sempre gravada como não essencial
       isEssential: income ? false : values.isEssential,
       budgetId: values.recurrence === "fixed" ? values.budgetId : null,
-      walletId: values.walletId || null,
       notes: values.notes || null,
     }
     const finish = () => {

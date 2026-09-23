@@ -2,7 +2,7 @@
 // A narrativa é a única parte que depende de IA; tudo antes dela é
 // determinístico e já é um relatório completo.
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { db } from "../../db"
 import { monthlyReports, type MonthlyReport } from "../../db/schema"
 import { aiAvailable } from "../llm"
@@ -18,7 +18,6 @@ import type {
 export interface GenerateInput {
   month: number
   year: number
-  walletId?: string | null
   /** Default `true`. */
   narrate?: boolean
 }
@@ -41,14 +40,8 @@ function hydrate(row: MonthlyReport, ai: boolean): ReportPayload {
   }
 }
 
-function periodScope(month: number, year: number, walletId: string | null) {
-  return and(
-    eq(monthlyReports.month, month),
-    eq(monthlyReports.year, year),
-    walletId
-      ? eq(monthlyReports.walletId, walletId)
-      : isNull(monthlyReports.walletId)
-  )
+function periodScope(month: number, year: number) {
+  return and(eq(monthlyReports.month, month), eq(monthlyReports.year, year))
 }
 
 /**
@@ -56,8 +49,7 @@ function periodScope(month: number, year: number, walletId: string | null) {
  * o relatório é derivado, não há histórico de versões.
  */
 export async function generate(input: GenerateInput): Promise<ReportPayload> {
-  const walletId = input.walletId ?? null
-  const metrics = await computeMetrics(input.month, input.year, walletId)
+  const metrics = await computeMetrics(input.month, input.year)
   const insights = buildInsights(metrics)
 
   let narrative: string | null = null
@@ -92,7 +84,6 @@ export async function generate(input: GenerateInput): Promise<ReportPayload> {
   const values = {
     month: input.month,
     year: input.year,
-    walletId,
     status,
     metrics,
     insights,
@@ -106,7 +97,7 @@ export async function generate(input: GenerateInput): Promise<ReportPayload> {
   const [existing] = await db
     .select({ id: monthlyReports.id })
     .from(monthlyReports)
-    .where(periodScope(input.month, input.year, walletId))
+    .where(periodScope(input.month, input.year))
     .limit(1)
 
   const [row] = existing
@@ -168,13 +159,12 @@ export async function narrate(
 }
 
 /** Lista resumida, sem carregar o jsonb inteiro na resposta. */
-export async function list(walletId?: string | null) {
+export async function list() {
   const rows = await db
     .select({
       id: monthlyReports.id,
       month: monthlyReports.month,
       year: monthlyReports.year,
-      walletId: monthlyReports.walletId,
       status: monthlyReports.status,
       generatedAt: monthlyReports.generatedAt,
       totalExpenses: sql<string>`(${monthlyReports.metrics} #>> '{totals,totalExpenses,current}')`,
@@ -185,11 +175,6 @@ export async function list(walletId?: string | null) {
       )`,
     })
     .from(monthlyReports)
-    .where(
-      walletId
-        ? eq(monthlyReports.walletId, walletId)
-        : isNull(monthlyReports.walletId)
-    )
     .orderBy(desc(monthlyReports.year), desc(monthlyReports.month))
 
   return rows.map((row) => ({
@@ -214,23 +199,21 @@ export async function getById(id: string): Promise<ReportPayload | null> {
  * Atalho da página: o relatório do mês anterior ao atual, gerado na hora se
  * não existir. É o fallback obrigatório que torna o agendador uma conveniência.
  */
-export async function current(
-  walletId?: string | null
-): Promise<ReportPayload> {
+export async function current(): Promise<ReportPayload> {
   const now = new Date()
   const prev = previousMonth(now.getFullYear(), now.getMonth() + 1)
 
   const [row] = await db
     .select()
     .from(monthlyReports)
-    .where(periodScope(prev.month, prev.year, walletId ?? null))
+    .where(periodScope(prev.month, prev.year))
     .limit(1)
 
   if (row) {
     const health = await aiAvailable()
     return hydrate(row, health.available)
   }
-  return generate({ month: prev.month, year: prev.year, walletId })
+  return generate({ month: prev.month, year: prev.year })
 }
 
 export async function remove(id: string) {

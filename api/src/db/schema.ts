@@ -59,6 +59,9 @@ export const accounts = pgTable("accounts", {
   icon: varchar("icon", { length: 50 }).default("wallet").notNull(),
   // Conta padrão pré-selecionada no formulário de transação (apenas uma por vez)
   isDefault: boolean("is_default").default(false).notNull(),
+  // Conta de testes/depuração: suas transações aparecem na listagem, mas ficam
+  // fora de toda análise (dashboard, check-up, projeção, classificação)
+  isSandbox: boolean("is_sandbox").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -67,15 +70,6 @@ export const accounts = pgTable("accounts", {
 })
 
 export const categories = pgTable("categories", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 100 }).notNull(),
-  color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-})
-
-// Agrupamento livre e opcional para transações (ex: "Carteira Pessoal", "Carteira Empresa")
-// — independente de `accounts` (que representa banco/tipo de conta com saldo)
-export const wallets = pgTable("wallets", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
   color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
@@ -97,8 +91,6 @@ export const transactions = pgTable("transactions", {
   recurrence: recurrenceEnum("recurrence").notNull(),
   // Obrigatório quando recurrence = 'fixed' (validado na rota); nulo se 'variable'
   budgetId: uuid("budget_id").references(() => budgets.id),
-  // Opcional — agrupamento livre, ver `wallets`
-  walletId: uuid("wallet_id").references(() => wallets.id),
   date: date("date").default(sql`CURRENT_DATE`).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -203,9 +195,6 @@ export const recurringSeries = pgTable(
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
-    walletId: uuid("wallet_id").references(() => wallets.id, {
-      onDelete: "cascade",
-    }),
     // Intervalo típico em dias (30 = mensal, 365 = anual, 7 = semanal)
     intervalDays: integer("interval_days").notNull(),
     occurrences: integer("occurrences").notNull(),
@@ -228,12 +217,7 @@ export const recurringSeries = pgTable(
       .notNull(),
   },
   (table) => [
-    // `wallet_id` é nullable e NULL não colide em unique — por isso o índice
-    // usa coalesce com o UUID zero para tratar "sem carteira" como um valor.
-    uniqueIndex("recurring_series_merchant_wallet_uq").on(
-      table.merchantKey,
-      sql`coalesce(${table.walletId}, '00000000-0000-0000-0000-000000000000'::uuid)`
-    ),
+    uniqueIndex("recurring_series_merchant_uq").on(table.merchantKey),
   ]
 )
 
@@ -251,9 +235,6 @@ export const monthlyReports = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     month: integer("month").notNull(), // 1–12
     year: integer("year").notNull(),
-    walletId: uuid("wallet_id").references(() => wallets.id, {
-      onDelete: "cascade",
-    }),
     status: reportStatusEnum("status").default("GENERATED").notNull(),
     /** Todas as métricas das seções 1–6, no formato MonthlyReportMetrics */
     metrics: jsonb("metrics").notNull(),
@@ -268,11 +249,7 @@ export const monthlyReports = pgTable(
     generatedAt: timestamp("generated_at").defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("monthly_reports_period_wallet_uq").on(
-      table.month,
-      table.year,
-      sql`coalesce(${table.walletId}, '00000000-0000-0000-0000-000000000000'::uuid)`
-    ),
+    uniqueIndex("monthly_reports_period_uq").on(table.month, table.year),
   ]
 )
 
@@ -321,10 +298,6 @@ export const categoriesRelations = relations(categories, ({ many }) => ({
   transactions: many(transactions),
 }))
 
-export const walletsRelations = relations(wallets, ({ many }) => ({
-  transactions: many(transactions),
-}))
-
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   account: one(accounts, {
     fields: [transactions.accountId],
@@ -337,10 +310,6 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   budget: one(budgets, {
     fields: [transactions.budgetId],
     references: [budgets.id],
-  }),
-  wallet: one(wallets, {
-    fields: [transactions.walletId],
-    references: [wallets.id],
   }),
 }))
 
@@ -369,19 +338,8 @@ export const recurringSeriesRelations = relations(
       fields: [recurringSeries.categoryId],
       references: [categories.id],
     }),
-    wallet: one(wallets, {
-      fields: [recurringSeries.walletId],
-      references: [wallets.id],
-    }),
   })
 )
-
-export const monthlyReportsRelations = relations(monthlyReports, ({ one }) => ({
-  wallet: one(wallets, {
-    fields: [monthlyReports.walletId],
-    references: [wallets.id],
-  }),
-}))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type Account = typeof accounts.$inferSelect
@@ -390,9 +348,6 @@ export type AccountType = (typeof accountTypeEnum.enumValues)[number]
 
 export type Category = typeof categories.$inferSelect
 export type NewCategory = typeof categories.$inferInsert
-
-export type Wallet = typeof wallets.$inferSelect
-export type NewWallet = typeof wallets.$inferInsert
 
 export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number]
 

@@ -100,8 +100,7 @@ describe("buildNarrativePayload", () => {
   ): MonthlyReportMetrics {
     return {
       period: {
-        month: 11, year: 2025, walletId: null,
-        from: "2025-11-01", to: "2025-11-30", partial: false,
+        month: 11, year: 2025, from: "2025-11-01", to: "2025-11-30", partial: false,
       },
       totals: {
         totalExpenses: scalar(5000, 4000),
@@ -206,8 +205,7 @@ describe("buildNarrativePayload", () => {
     const payload = buildNarrativePayload(
       metrics({
         period: {
-          month: 11, year: 2025, walletId: null,
-          from: "2025-11-01", to: "2025-11-30", partial: true,
+          month: 11, year: 2025, from: "2025-11-01", to: "2025-11-30", partial: true,
         },
       }),
       []

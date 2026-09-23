@@ -1,7 +1,7 @@
 ---
 title: Check-up mensal (relatório e anomalias)
 area: domain
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -25,7 +25,7 @@ relatório continua correto e útil com a IA desligada.
 
 ## Escopo
 
-Mês + carteira (`walletId` opcional; `null` = transações sem carteira).
+Mês. Entram todas as transações reais; as de contas sandbox (`accounts.is_sandbox`) ficam fora. Até 2026-09-23 havia escopo por carteira, removido (ver `.claude/docs/decisions/remocao-carteiras.md`).
 Convenção de sinal do projeto: `amount > 0` é despesa, `amount < 0` é entrada
 (ver [`transaction.md`](./transaction.md)).
 
@@ -53,10 +53,6 @@ com aquele `budgetId`:
 
 Orçamento **sem nenhum lançamento no mês** entra com status `missing` — é assim
 que o relatório pega "esqueceu de lançar a conta de luz".
-
-> Orçamentos são globais e transações são escopadas por carteira. Num relatório
-> de carteira específica, orçamentos alimentados por outra carteira aparecem
-> como `missing`. É consequência do modelo, não bug.
 
 **b) Distribuição do gasto total** — gasto variável não tem `budgetId`, então a
 classificação é por outra regra, determinística:
@@ -133,7 +129,7 @@ estado vazio.
 
 ## Tabela `monthly_reports`
 
-Unique em `(month, year, walletId)`. Regerar **sobrescreve** a linha: o
+Unique em `(month, year)`. Regerar **sobrescreve** a linha: o
 relatório é derivado, não há histórico de versões.
 
 `metrics` e `insights` são `jsonb` porque o relatório é um snapshot imutável do

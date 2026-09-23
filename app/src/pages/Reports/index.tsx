@@ -18,7 +18,6 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
-import { useActiveWallet } from "@/components/wallet-provider"
 import {
   useCurrentReport,
   useGenerateReport,
@@ -45,7 +44,6 @@ import {
 const TYPE_ORDER: BudgetType[] = ["essential", "desire", "investment"]
 
 export function Reports() {
-  const { walletId } = useActiveWallet()
   const navigate = useNavigate()
 
   // `null` = mês anterior ao atual (o atalho /current). Navegar troca para um
@@ -54,7 +52,7 @@ export function Reports() {
     null
   )
 
-  const currentQuery = useCurrentReport(walletId)
+  const currentQuery = useCurrentReport()
   const generate = useGenerateReport()
   const narrate = useNarrateReport()
 
@@ -87,7 +85,7 @@ export function Reports() {
     setPeriod(next)
     setExplicitId(null)
     generate.mutate(
-      { ...next, walletId },
+      next,
       { onSuccess: (r) => setExplicitId(r.id) }
     )
   }
@@ -97,7 +95,7 @@ export function Reports() {
     setExplicitId(null)
     setPeriod(shown)
     generate.mutate(
-      { ...shown, walletId },
+      shown,
       { onSuccess: (r) => setExplicitId(r.id) }
     )
   }

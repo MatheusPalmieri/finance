@@ -6,6 +6,7 @@
 import { and, between, eq, sql } from "drizzle-orm"
 import { db } from "../../db"
 import { categories, transactions } from "../../db/schema"
+import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { merchantKey } from "../classification/normalize"
 import type { CategorySeries } from "./types"
 
@@ -168,10 +169,6 @@ export function detectRecurringIncome(rows: IncomeRow[]): {
 
 // ── Acesso ao banco ──────────────────────────────────────────────────────────
 
-function walletScope(walletId: string | null) {
-  return walletId ? eq(transactions.walletId, walletId) : undefined
-}
-
 const MONTH_EXPR = sql<string>`to_char(${transactions.date}::date, 'YYYY-MM')`
 
 export interface LoadedHistory {
@@ -184,7 +181,6 @@ export interface LoadedHistory {
 }
 
 export async function loadHistory(
-  walletId: string | null,
   from: string,
   to: string,
   monthKeys: string[]
@@ -206,7 +202,7 @@ export async function loadHistory(
         period,
         sql`${transactions.amount}::numeric > 0`,
         eq(transactions.recurrence, "variable"),
-        walletScope(walletId)
+        REAL_TRANSACTIONS
       )
     )
     .groupBy(transactions.categoryId, categories.name, MONTH_EXPR)
@@ -220,7 +216,7 @@ export async function loadHistory(
     })
     .from(transactions)
     .where(
-      and(period, sql`${transactions.amount}::numeric < 0`, walletScope(walletId))
+      and(period, sql`${transactions.amount}::numeric < 0`, REAL_TRANSACTIONS)
     )
     .groupBy(transactions.name, MONTH_EXPR)
 
@@ -230,7 +226,7 @@ export async function loadHistory(
       months: sql<number>`count(distinct ${MONTH_EXPR})::int`,
     })
     .from(transactions)
-    .where(and(period, walletScope(walletId)))
+    .where(and(period, REAL_TRANSACTIONS))
 
   const essentialRows = await db
     .select({
@@ -243,7 +239,7 @@ export async function loadHistory(
         period,
         sql`${transactions.amount}::numeric > 0`,
         eq(transactions.isEssential, true),
-        walletScope(walletId)
+        REAL_TRANSACTIONS
       )
     )
     .groupBy(MONTH_EXPR)

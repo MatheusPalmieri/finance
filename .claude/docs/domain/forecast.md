@@ -1,7 +1,7 @@
 ---
 title: Projeção de fluxo de caixa e simulador "posso comprar?"
 area: domain
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -69,7 +69,7 @@ histórico real calibra melhor que qualquer distribuição paramétrica ajustada
 
 - `SIMULATION_RUNS = 5000`. Em Bun, ~30ms para 6 meses × 15 categorias. Sem
   worker, sem fila.
-- **Semente fixa**, derivada de `mês|ano|walletId` por FNV-1a. A mesma projeção
+- **Semente fixa**, derivada de `ano-mês-global` por FNV-1a (o sufixo `global` preserva as sementes de antes da remoção das carteiras). A mesma projeção
   consultada duas vezes devolve exatamente os mesmos números — o usuário não
   pode ver o gráfico mudar sozinho ao dar F5. O PRNG é `mulberry32` em
   `random.ts`, nunca `Math.random()`.

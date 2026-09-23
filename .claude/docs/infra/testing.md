@@ -1,7 +1,7 @@
 ---
 title: Testes da API — unitários e e2e
 area: infra
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -51,7 +51,7 @@ máquina faria os testes saírem pela rede e ficarem lentos e instáveis.
 |---|---|
 | `api.get/post/put/patch/delete` | Cliente HTTP sobre `app.handle()`; devolve `{ status, body }` |
 | `resetDatabase()` | Esvazia as tabelas entre os testes |
-| `makeWallet/makeCategory/makeAccount/makeBudget/makeTransaction(s)` | Fábricas |
+| `makeCategory/makeAccount/makeBudget/makeTransaction(s)` (`makeAccount(name, { isSandbox: true })` cria conta sandbox) | Fábricas |
 | `useMockLlm(...respostas)` | Instala o `MockLlmProvider` com uma fila |
 | `withAiDisabled(fn)` | Roda um bloco com `LLM_ENABLED=false` |
 | `expectRejection(promise)` | Espera rejeição e devolve o erro |
@@ -112,7 +112,7 @@ assíncronas ao banco (a promessa fica pendente até o timeout do teste). O
 Os módulos das quatro specs ficam entre **86% e 100%** de linhas. O que fica de
 fora é deliberado:
 
-- `routes/{accounts,budgets,categories,wallets}` — CRUD anterior às specs, sem
+- `routes/{accounts,budgets,categories}` — CRUD anterior às specs, sem
   teste automatizado ainda.
 - `routes/transactions.ts` — os caminhos que as specs tocam (bulk, exclusão,
   criação e edição com recálculo) estão cobertos; o resto do CRUD, não.
@@ -121,5 +121,5 @@ fora é deliberado:
 
 **Não há testes automatizados no `app/`.** As seções "Testes" das quatro specs
 descrevem apenas testes da API, e a verificação do frontend nelas é manual (com
-a carteira `Claude`). Montar uma suíte de componentes é trabalho à parte, ainda
+a conta sandbox `Claude`). Montar uma suíte de componentes é trabalho à parte, ainda
 não feito.

@@ -41,13 +41,11 @@ export const classificationRoute = new Elysia({ prefix: "/classification" })
     "/suggest",
     ({ body }) =>
       service.suggest({
-        walletId: body.walletId ?? null,
         useAi: body.useAi,
         items: body.items,
       }),
     {
       body: t.Object({
-        walletId: t.Optional(t.Nullable(t.String())),
         useAi: t.Optional(t.Boolean()),
         items: t.Array(
           t.Object({
@@ -150,27 +148,17 @@ export const recurringRoute = new Elysia({ prefix: "/recurring" })
     "/",
     ({ query }) =>
       service.listRecurring({
-        walletId: query.walletId || null,
         status: query.status as RecurringStatus | undefined,
         includeDismissed: query.includeDismissed === "true",
       }),
     {
       query: t.Object({
-        walletId: t.Optional(t.String()),
         status: t.Optional(t.String()),
         includeDismissed: t.Optional(t.String()),
       }),
     }
   )
-  .post(
-    "/recalculate",
-    ({ body }) => service.recalculate(body?.walletId ?? null),
-    {
-      body: t.Optional(
-        t.Object({ walletId: t.Optional(t.Nullable(t.String())) })
-      ),
-    }
-  )
+  .post("/recalculate", () => service.recalculate())
   .patch("/:id/dismiss", async ({ params, status }) => {
     const updated = await service.dismissRecurring(params.id)
     return updated ?? status(404, { message: "Série não encontrada" })

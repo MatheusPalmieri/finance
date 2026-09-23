@@ -1,7 +1,7 @@
 ---
 title: Endpoints /forecast e /settings
 area: api
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -16,8 +16,8 @@ Código: `api/src/modules/forecast/`.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/forecast/cashflow` | `?walletId=&horizonMonths=` → projeção base |
-| POST | `/forecast/simulate` | `{ walletId?, horizonMonths?, events }` → `{ base, withScenario, verdict }` |
+| GET | `/forecast/cashflow` | `?horizonMonths=` → projeção base |
+| POST | `/forecast/simulate` | `{ horizonMonths?, events }` → `{ base, withScenario, verdict }` |
 | POST | `/forecast/afford` | Atalho com um único evento, focado no veredito e nos acionáveis |
 | POST | `/forecast/parse` | Frase livre → `ScenarioEvent[]` (único ponto de IA) |
 | GET / PUT | `/settings` | Preferências (singleton) |
@@ -78,7 +78,6 @@ orçamento ou conta.
 
 ```jsonc
 {
-  "walletId": "uuid | null",
   "horizonMonths": 6,
   "events": [
     { "kind": "installment_purchase", "label": "Notebook", "totalAmount": 4000, "installments": 10 },
@@ -111,7 +110,7 @@ Sem `startMonth`, o default é o **próximo** mês.
 
 ```jsonc
 // request
-{ "walletId": "uuid | null", "totalAmount": 4000, "installments": 10,
+{ "totalAmount": 4000, "installments": 10,
   "monthlyInterestPct": 0, "label": "Notebook", "categoryId": null, "horizonMonths": 6 }
 ```
 

@@ -9,6 +9,7 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm"
 import { db } from "../../db"
 import { transactions, type PaymentMethod, type Recurrence } from "../../db/schema"
 import { diceSimilarity, merchantKey, trigrams } from "./normalize"
+import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { EMPTY_PATCH, type ClassificationPatch } from "./types"
 
 /** Aplica só a partir deste limiar. Exportado para o teste. */
@@ -18,7 +19,6 @@ export const KNN_K = 5
 /** Quantas transações entram no índice. */
 export const KNN_SAMPLE_SIZE = 1000
 /** Abaixo disso, a carteira não tem histórico suficiente e usa o global. */
-export const KNN_MIN_WALLET_SAMPLE = 50
 
 export interface KnnEntry {
   key: string
@@ -132,40 +132,20 @@ export function knnSuggest(
   }
 }
 
-/**
- * Índice das últimas transações classificadas. Escopo: carteira ativa, caindo
- * para global quando a carteira tem menos de `KNN_MIN_WALLET_SAMPLE` linhas.
- */
-export async function loadKnnIndex(walletId?: string | null): Promise<KnnIndex> {
-  const select = () =>
-    db
-      .select({
-        name: transactions.name,
-        categoryId: transactions.categoryId,
-        paymentMethod: transactions.paymentMethod,
-        recurrence: transactions.recurrence,
-        isEssential: transactions.isEssential,
-      })
-      .from(transactions)
-
-  let rows = await select()
-    .where(
-      walletId
-        ? and(
-            eq(transactions.walletId, walletId),
-            isNotNull(transactions.categoryId)
-          )
-        : isNotNull(transactions.categoryId)
-    )
+/** Índice das últimas transações classificadas (sem as de contas sandbox). */
+export async function loadKnnIndex(): Promise<KnnIndex> {
+  const rows = await db
+    .select({
+      name: transactions.name,
+      categoryId: transactions.categoryId,
+      paymentMethod: transactions.paymentMethod,
+      recurrence: transactions.recurrence,
+      isEssential: transactions.isEssential,
+    })
+    .from(transactions)
+    .where(and(isNotNull(transactions.categoryId), REAL_TRANSACTIONS))
     .orderBy(desc(transactions.date), desc(transactions.createdAt))
     .limit(KNN_SAMPLE_SIZE)
-
-  if (walletId && rows.length < KNN_MIN_WALLET_SAMPLE) {
-    rows = await select()
-      .where(isNotNull(transactions.categoryId))
-      .orderBy(desc(transactions.date), desc(transactions.createdAt))
-      .limit(KNN_SAMPLE_SIZE)
-  }
 
   return buildKnnIndex(rows)
 }

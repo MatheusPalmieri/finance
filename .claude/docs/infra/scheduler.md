@@ -1,7 +1,7 @@
 ---
 title: Agendamento do check-up mensal
 area: infra
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -15,20 +15,20 @@ pronto antes de o usuário procurar.
 
 ```bash
 # Da raiz do projeto
-bun run api/scripts/monthly-report.ts            # mês anterior, todos os escopos
+bun run api/scripts/monthly-report.ts            # mês anterior
 bun run api/scripts/monthly-report.ts 2026-08    # mês específico (YYYY-MM)
 
 # De dentro de api/
 bun run report:monthly 2026-08
 ```
 
-Gera um relatório por escopo: o global (transações sem carteira) mais uma por
-carteira cadastrada. Chama o mesmo `service.generate()` da rota — a lógica nunca
+Gera um relatório só (todas as transações reais — contas sandbox ficam fora).
+Chama o mesmo `service.generate()` da rota — a lógica nunca
 é duplicada no script — e é **idempotente**: rodar duas vezes sobrescreve, não
 duplica.
 
-Sai com código 1 se algum escopo falhar, e imprime o status e a contagem de
-insights de cada um.
+Sai com código 1 se a geração falhar, e imprime o status e a contagem de
+insights.
 
 Requisitos: Postgres no ar e `api/.env` com `DATABASE_URL`. A IA é opcional —
 sem ela o relatório sai `GENERATED`, só sem narrativa.
@@ -52,7 +52,7 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
 
 Register-ScheduledTask -TaskName "Finance — check-up mensal" `
     -Action $action -Trigger $trigger -Settings $settings `
-    -Description "Gera o relatório mensal do mês anterior em todas as carteiras"
+    -Description "Gera o relatório mensal do mês anterior"
 ```
 
 `-StartWhenAvailable` cobre o caso da máquina estar desligada no dia 1: a tarefa

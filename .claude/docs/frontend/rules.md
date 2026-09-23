@@ -1,7 +1,7 @@
 ---
 title: Página /rules — Classificação
 area: frontend
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -49,8 +49,7 @@ basta salvar com a origem alterada.
 
 ## Aba Recorrentes
 
-Escopada pela carteira ativa (`WalletProvider`, ver
-`.claude/docs/frontend/active-wallet.md`).
+Escopo único: todas as transações reais (contas sandbox ficam fora).
 
 **Cabeçalho em destaque**: total mensal normalizado das séries `ACTIVE`, com a
 contagem e a explicação de que valores semanais e anuais já foram convertidos

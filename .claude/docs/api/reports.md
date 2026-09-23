@@ -1,7 +1,7 @@
 ---
 title: Endpoints /reports
 area: api
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -32,7 +32,6 @@ Código: `api/src/modules/reports/`.
 {
   "month": 8,
   "year": 2026,
-  "walletId": "uuid | null",
   "narrate": true            // default true
 }
 ```
@@ -53,7 +52,6 @@ Devolve o relatório completo (ver estrutura abaixo).
   "id": "uuid",
   "month": 8,
   "year": 2026,
-  "walletId": "uuid | null",
   "status": "GENERATED | NARRATED | NARRATION_FAILED",
   "generatedAt": "2026-09-19T21:00:00.000Z",
   "narrative": "string | null",
@@ -64,7 +62,7 @@ Devolve o relatório completo (ver estrutura abaixo).
   "narrativeModel": "qwen2.5:7b-instruct | null",
   "aiAvailable": false,
   "metrics": {
-    "period": { "month", "year", "walletId", "from", "to", "partial" },
+    "period": { "month", "year", "from", "to", "partial" },
     "totals": {
       "totalExpenses": { "current": 795.9, "previous": 575.9, "deltaPct": 38.2 },
       "totalIncome": { }, "netResult": { }, "savingsRate": { },
@@ -107,7 +105,7 @@ Lista resumida — não carrega o `jsonb` inteiro:
 
 ```jsonc
 [
-  { "id", "month", "year", "walletId", "status", "generatedAt",
+  { "id", "month", "year", "status", "generatedAt",
     "totalExpenses": 795.9, "netResult": 7204.1, "criticalInsights": 0 }
 ]
 ```

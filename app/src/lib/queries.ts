@@ -33,10 +33,6 @@ export const keys = {
     all: ["categories"] as const,
     list: () => [...keys.categories.all, "list"] as const,
   },
-  wallets: {
-    all: ["wallets"] as const,
-    list: () => [...keys.wallets.all, "list"] as const,
-  },
   transactions: {
     all: ["transactions"] as const,
     lists: () => [...keys.transactions.all, "list"] as const,
@@ -59,11 +55,9 @@ export const keys = {
   },
   reports: {
     all: ["reports"] as const,
-    list: (walletId?: string | null) =>
-      [...keys.reports.all, "list", walletId ?? ""] as const,
+    list: () => [...keys.reports.all, "list"] as const,
     detail: (id: string) => [...keys.reports.all, "detail", id] as const,
-    current: (walletId?: string | null) =>
-      [...keys.reports.all, "current", walletId ?? ""] as const,
+    current: () => [...keys.reports.all, "current"] as const,
   },
   forecast: {
     all: ["forecast"] as const,
@@ -204,59 +198,6 @@ export function useDeleteCategory() {
     },
     onError: (e: Error) =>
       toast.error(e.message ?? "Erro ao excluir categoria"),
-  })
-}
-
-// ── Wallets ───────────────────────────────────────────────────────────────────
-export function useWallets() {
-  return useQuery({
-    queryKey: keys.wallets.list(),
-    queryFn: api.wallets.list,
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCreateWallet() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: api.wallets.create,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.wallets.all })
-      toast.success("Carteira criada")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar carteira"),
-  })
-}
-
-export function useUpdateWallet() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      id,
-      ...body
-    }: {
-      id: string
-      name: string
-      color?: string
-    }) => api.wallets.update(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.wallets.all })
-      toast.success("Carteira atualizada")
-    },
-    onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao atualizar carteira"),
-  })
-}
-
-export function useDeleteWallet() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.wallets.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.wallets.all })
-      toast.success("Carteira excluída")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir carteira"),
   })
 }
 
@@ -486,8 +427,7 @@ export function useRecurring(params: ListRecurringParams = {}) {
 export function useRecalculateRecurring() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (walletId?: string | null) =>
-      api.recurring.recalculate(walletId),
+    mutationFn: () => api.recurring.recalculate(),
     onSuccess: ({ detected }) => {
       qc.invalidateQueries({ queryKey: keys.recurring.all })
       toast.success(
@@ -513,10 +453,10 @@ export function useDismissRecurring() {
 }
 
 // ── Check-up mensal ───────────────────────────────────────────────────────────
-export function useCurrentReport(walletId?: string | null) {
+export function useCurrentReport() {
   return useQuery({
-    queryKey: keys.reports.current(walletId),
-    queryFn: () => api.reports.current(walletId),
+    queryKey: keys.reports.current(),
+    queryFn: () => api.reports.current(),
     // A geração sob demanda pode levar alguns segundos; não refazer à toa
     staleTime: 5 * 60 * 1000,
     retry: false,
@@ -531,10 +471,10 @@ export function useReport(id: string | null) {
   })
 }
 
-export function useReportList(walletId?: string | null) {
+export function useReportList() {
   return useQuery({
-    queryKey: keys.reports.list(walletId),
-    queryFn: () => api.reports.list(walletId),
+    queryKey: keys.reports.list(),
+    queryFn: () => api.reports.list(),
   })
 }
 

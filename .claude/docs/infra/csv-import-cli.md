@@ -11,13 +11,13 @@ inviável para carregar meses de histórico de uma sentada.
 
 ```bash
 cd api
-bun run import:csv <carteira> <conta> <arquivo.csv> [...]
+bun run import:csv <conta> <arquivo.csv> [...]
 
-# exemplo: todo o histórico do Nubank na carteira "teste"
-bun run import:csv teste Nubank ../NU_*.csv
+# exemplo: todo o histórico do Nubank
+bun run import:csv Nubank ../NU_*.csv
 ```
 
-Carteira e conta são resolvidas **pelo nome** — o script falha se não existirem,
+A conta é resolvida **pelo nome** — o script falha se não existirem,
 nunca cria nada implicitamente.
 
 ## O que ele faz
@@ -49,7 +49,7 @@ nunca cria nada implicitamente.
 - **Não mexe no saldo das contas.** O extrato é fluxo; saldo é patrimônio e é
   editado na página de Contas. (O `POST /transactions/bulk` da API *ajusta* o
   saldo — o script não, de propósito.)
-- **Não cria carteira, conta nem categoria.**
+- **Não cria conta nem categoria.**
 - **Não revisa.** O que a classificação não resolver fica em "Outros" e precisa
   ser ajustado depois em `/transactions`.
 

@@ -26,7 +26,6 @@ import type {
   SuggestResponse,
   Transaction,
   TransactionsResponse,
-  Wallet,
 } from "@/types/finance"
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001"
@@ -49,7 +48,6 @@ export interface ListTransactionsParams {
   search?: string
   accountId?: string
   categoryId?: string
-  walletId?: string
   paymentMethod?: PaymentMethod | ""
   recurrence?: Recurrence | ""
   isEssential?: "true" | "false" | ""
@@ -66,7 +64,6 @@ export interface TransactionInput {
   isEssential: boolean
   recurrence: Recurrence
   budgetId?: string | null
-  walletId?: string | null
   date: string
   notes?: string | null
 }
@@ -83,7 +80,6 @@ export interface BudgetInput {
 export interface DashboardParams {
   month?: number
   year?: number
-  walletId?: string
 }
 
 export interface ListRulesParams {
@@ -108,7 +104,6 @@ export interface RuleInput {
 }
 
 export interface SuggestInput {
-  walletId?: string | null
   useAi?: boolean
   items: {
     index: number
@@ -130,7 +125,6 @@ export interface FeedbackInput {
 }
 
 export interface ListRecurringParams {
-  walletId?: string | null
   status?: RecurringStatus | ""
   includeDismissed?: boolean
 }
@@ -138,17 +132,14 @@ export interface ListRecurringParams {
 export interface GenerateReportInput {
   month: number
   year: number
-  walletId?: string | null
   narrate?: boolean
 }
 
 export interface ForecastParams {
-  walletId?: string | null
   horizonMonths?: number
 }
 
 export interface AffordInput {
-  walletId?: string | null
   totalAmount: number
   installments?: number
   monthlyInterestPct?: number
@@ -209,21 +200,6 @@ export const api = {
       request<{ success: boolean }>(`/categories/${id}`, { method: "DELETE" }),
   },
 
-  wallets: {
-    list: () => request<Wallet[]>("/wallets"),
-    create: (body: { name: string; color?: string }) =>
-      request<Wallet>("/wallets", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    update: (id: string, body: { name: string; color?: string }) =>
-      request<Wallet>(`/wallets/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/wallets/${id}`, { method: "DELETE" }),
-  },
 
   transactions: {
     list: (params: ListTransactionsParams = {}) => {
@@ -233,7 +209,6 @@ export const api = {
       if (params.search) q.set("search", params.search)
       if (params.accountId) q.set("accountId", params.accountId)
       if (params.categoryId) q.set("categoryId", params.categoryId)
-      if (params.walletId) q.set("walletId", params.walletId)
       if (params.paymentMethod) q.set("paymentMethod", params.paymentMethod)
       if (params.recurrence) q.set("recurrence", params.recurrence)
       if (params.isEssential) q.set("isEssential", params.isEssential)
@@ -330,15 +305,14 @@ export const api = {
   recurring: {
     list: (params: ListRecurringParams = {}) => {
       const q = new URLSearchParams()
-      if (params.walletId) q.set("walletId", params.walletId)
       if (params.status) q.set("status", params.status)
       if (params.includeDismissed) q.set("includeDismissed", "true")
       return request<RecurringResponse>(`/recurring?${q}`)
     },
-    recalculate: (walletId?: string | null) =>
+    recalculate: () =>
       request<{ detected: number; updated: number; removed: number }>(
         "/recurring/recalculate",
-        { method: "POST", body: JSON.stringify({ walletId: walletId ?? null }) }
+        { method: "POST" }
       ),
     dismiss: (id: string) =>
       request<{ id: string }>(`/recurring/${id}/dismiss`, { method: "PATCH" }),
@@ -354,15 +328,9 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    list: (walletId?: string | null) => {
-      const q = walletId ? `?walletId=${walletId}` : ""
-      return request<MonthlyReportSummary[]>(`/reports/monthly${q}`)
-    },
+    list: () => request<MonthlyReportSummary[]>("/reports/monthly"),
     get: (id: string) => request<MonthlyReport>(`/reports/monthly/${id}`),
-    current: (walletId?: string | null) => {
-      const q = walletId ? `?walletId=${walletId}` : ""
-      return request<MonthlyReport>(`/reports/monthly/current${q}`)
-    },
+    current: () => request<MonthlyReport>("/reports/monthly/current"),
     narrate: (id: string) =>
       request<MonthlyReport>(`/reports/monthly/${id}/narrate`, {
         method: "POST",
@@ -376,13 +344,11 @@ export const api = {
   forecast: {
     cashflow: (params: ForecastParams = {}) => {
       const q = new URLSearchParams()
-      if (params.walletId) q.set("walletId", params.walletId)
       if (params.horizonMonths)
         q.set("horizonMonths", String(params.horizonMonths))
       return request<CashflowProjection>(`/forecast/cashflow?${q}`)
     },
     simulate: (body: {
-      walletId?: string | null
       horizonMonths?: number
       events: ScenarioEvent[]
     }) =>
@@ -423,7 +389,6 @@ export const api = {
       const q = new URLSearchParams()
       if (params.month) q.set("month", String(params.month))
       if (params.year) q.set("year", String(params.year))
-      if (params.walletId) q.set("walletId", params.walletId)
       return request<DashboardSummary>(`/dashboard/summary?${q}`)
     },
   },

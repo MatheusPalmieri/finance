@@ -3,6 +3,7 @@ import { and, between, eq, desc, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, categories, transactions } from "../db/schema"
 import { PAYMENT_METHOD_HEX, PAYMENT_METHOD_LABELS } from "../lib/payment-methods"
+import { REAL_TRANSACTIONS } from "../lib/scope"
 
 // Valor negativo = entrada (ver routes/transactions.ts). Este painel é só de
 // despesas, então as agregações abaixo ignoram entradas.
@@ -19,14 +20,11 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
       const firstDay = `${year}-${String(month).padStart(2, "0")}-01`
       const lastDay = `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`
 
-      // Carteira global (opcional) — quando informada, todo o painel é escopado a ela
-      const walletId = query.walletId || null
-      const inWallet = walletId ? eq(transactions.walletId, walletId) : undefined
-
+      // Contas sandbox (dados de teste) ficam fora de todo o painel
       const inMonth = and(
         between(transactions.date, firstDay, lastDay),
         isExpense,
-        inWallet
+        REAL_TRANSACTIONS
       )
 
       // Totais do mês (despesas), com cortes por essencial e por recorrência
@@ -90,14 +88,14 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
         WHERE date >= (${firstDay}::date - INTERVAL '5 months')
           AND date <= ${lastDay}::date
           AND amount::numeric > 0
-          ${walletId ? sql`AND wallet_id = ${walletId}` : sql``}
+          AND ${REAL_TRANSACTIONS}
         GROUP BY TO_CHAR(date::date, 'YYYY-MM')
         ORDER BY month
       `)
 
       // Transações recentes
       const recentTransactions = await db.query.transactions.findMany({
-        where: inWallet,
+        where: REAL_TRANSACTIONS,
         with: { account: true, category: true, budget: true },
         orderBy: [desc(transactions.date), desc(transactions.createdAt)],
         limit: 10,
@@ -139,7 +137,6 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
       query: t.Object({
         month: t.Optional(t.String()),
         year: t.Optional(t.String()),
-        walletId: t.Optional(t.String()),
       }),
     }
   )

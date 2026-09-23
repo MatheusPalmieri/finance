@@ -1,7 +1,7 @@
 ---
 title: Domínio — Transação
 area: domain
-updated: 2026-07-01
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -43,6 +43,14 @@ Adicionado em 2026-07-01. Não existe campo `type`: o formulário (`app/src/page
 - **Criar** → subtrai `amount` do saldo (soma, se `amount` for negativo).
 - **Editar** → devolve o valor antigo à conta antiga (soma `amount` antigo) e subtrai o novo da conta nova.
 - **Excluir** → devolve o valor ao saldo (soma `amount`).
+
+### Conta sandbox (`accounts.isSandbox`)
+Adicionado em 2026-09-23, no lugar das carteiras (ver `.claude/docs/decisions/remocao-carteiras.md`). Uma conta marcada como sandbox guarda **dados de teste/depuração**:
+- suas transações **aparecem** em `GET /transactions`, e o filtro por conta as isola;
+- ficam **fora de toda análise**: dashboard, check-up, projeção (inclusive o saldo de abertura), kNN da classificação e detecção de recorrências;
+- o filtro único é `REAL_TRANSACTIONS` em `api/src/lib/scope.ts`. Toda consulta analítica nova precisa usá-lo.
+
+A conta sandbox `Claude` é a usada pelo agente em testes manuais (regra no `CLAUDE.md`).
 
 ### Conta padrão (`accounts.isDefault`)
 - Apenas **uma** conta pode ser padrão por vez. Ao marcar uma como padrão (criar/editar), as demais são desmarcadas (`unsetOtherDefaults` em `api/src/routes/accounts.ts`).

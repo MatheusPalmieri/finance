@@ -14,13 +14,10 @@ export function mulberry32(seed: number): () => number {
   }
 }
 
-/** Semente estável derivada do período e da carteira (hash FNV-1a de 32 bits). */
-export function deriveSeed(
-  month: number,
-  year: number,
-  walletId: string | null
-): number {
-  const input = `${year}-${month}-${walletId ?? "global"}`
+/** Semente estável derivada do período (hash FNV-1a de 32 bits). */
+export function deriveSeed(month: number, year: number): number {
+  // O sufixo "global" preserva as sementes de antes da remoção das carteiras
+  const input = `${year}-${month}-global`
   let hash = 0x811c9dc5
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i)

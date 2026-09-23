@@ -51,6 +51,7 @@ export const accountsRoute = new Elysia({ prefix: "/accounts" })
           color: body.color ?? "#6366f1",
           icon: body.icon ?? "wallet",
           isDefault: body.isDefault ?? false,
+          isSandbox: body.isSandbox ?? false,
         })
         .returning()
 
@@ -67,6 +68,8 @@ export const accountsRoute = new Elysia({ prefix: "/accounts" })
         color: t.Optional(t.String()),
         icon: t.Optional(t.String()),
         isDefault: t.Optional(t.Boolean()),
+        // Conta de testes: fica fora de toda análise (ver lib/scope.ts)
+        isSandbox: t.Optional(t.Boolean()),
       }),
     }
   )
@@ -82,6 +85,7 @@ export const accountsRoute = new Elysia({ prefix: "/accounts" })
           color: body.color,
           icon: body.icon,
           isDefault: body.isDefault,
+          isSandbox: body.isSandbox,
         })
         .where(eq(accounts.id, params.id))
         .returning()
@@ -99,6 +103,8 @@ export const accountsRoute = new Elysia({ prefix: "/accounts" })
         color: t.Optional(t.String()),
         icon: t.Optional(t.String()),
         isDefault: t.Optional(t.Boolean()),
+        // Conta de testes: fica fora de toda análise (ver lib/scope.ts)
+        isSandbox: t.Optional(t.Boolean()),
       }),
     }
   )

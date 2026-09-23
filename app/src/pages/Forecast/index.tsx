@@ -39,7 +39,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 import { SegmentedControl } from "@/components/charts"
-import { useActiveWallet } from "@/components/wallet-provider"
 import {
   useAfford,
   useCashflow,
@@ -68,14 +67,10 @@ const HORIZONS = [3, 6, 12] as const
 type Horizon = (typeof HORIZONS)[number]
 
 export function Forecast() {
-  const { walletId } = useActiveWallet()
   const [horizonMonths, setHorizonMonths] = useState<Horizon>(6)
   const [events, setEvents] = useState<ScenarioEvent[]>([])
 
-  const params = useMemo(
-    () => ({ walletId, horizonMonths }),
-    [walletId, horizonMonths]
-  )
+  const params = useMemo(() => ({ horizonMonths }), [horizonMonths])
   const { data: base, isLoading, isError, refetch } = useCashflow(params)
   const simulate = useSimulate()
   const afford = useAfford()
@@ -94,7 +89,7 @@ export function Forecast() {
       return
     }
 
-    simulate.mutate({ walletId, horizonMonths, events: next })
+    simulate.mutate({ horizonMonths, events: next })
 
     const purchases = next.filter((e) => e.kind === "installment_purchase")
     if (purchases.length === 1 && next.length === 1) {
@@ -103,7 +98,6 @@ export function Forecast() {
         { kind: "installment_purchase" }
       >
       afford.mutate({
-        walletId,
         horizonMonths,
         totalAmount: purchase.totalAmount,
         installments: purchase.installments,

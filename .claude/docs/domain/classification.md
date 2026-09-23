@@ -1,7 +1,7 @@
 ---
 title: Classificação inteligente e recorrências
 area: domain
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -136,7 +136,7 @@ que é o que mais reduz a deriva do modelo local.
 
 ## Detector de recorrências
 
-`recurring.ts`, sobre despesas (`amount > 0`), escopado por carteira:
+`recurring.ts`, sobre despesas (`amount > 0`) de contas reais (sandbox fica fora), num escopo único. `recurring_series` é única por `merchant_key`:
 
 1. Agrupa por `merchantKey`.
 2. Descarta grupos com menos de `MIN_OCCURRENCES` (3).

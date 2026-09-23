@@ -1,7 +1,7 @@
 ---
 title: Banco de dados — Drizzle ORM + PostgreSQL
 area: infra
-updated: 2026-07-01
+updated: 2026-09-23
 ---
 
 > ⚠️ **A confirmar:** a seção "Schema atual" abaixo (enum `client_status`, tabela `clients`) descreve um CRM diferente que não existe neste projeto Finance — parece copiado de outro projeto do monorepo. O schema real do Finance é `api/src/db/schema.ts` (`accounts`, `categories`, `transactions`, `budgets` + enums `account_type`, `recurrence`, `budget_type`, `budget_amount_type`, `payment_method`). A seção **Seed** abaixo é factual e específica deste projeto.
@@ -82,6 +82,6 @@ Dois scripts, propósitos diferentes — **não são pra rodar em sequência**, 
 - `seed.ts` roda sozinho quando executado diretamente (`if (import.meta.main)`), sem afetar o import feito por `seed-dev.ts`.
 - **Rode `db:seed` sempre que subir um banco novo** (container do zero) num ambiente de uso real — é o baseline de configuração (contas e categorias do dia a dia). Edite `accountsData`/`categoriesData` em `seed.ts` conforme sua necessidade real mudar.
 - **Rode `db:seed:dev` só em ambiente de desenvolvimento/teste** — nunca num banco que você quer manter "limpo" (ele gera dezenas de transações fake).
-- ⚠️ As transações do `seed-dev` nascem **sem carteira** (`wallet_id IS NULL`), então se misturam com as reais nas telas de escopo global e contaminam check-up e projeção. Em 2026-09-20 elas foram apagadas deste banco junto com os orçamentos fake (ver `decisions/remocao-open-finance.md` para o contexto da limpeza). Para popular dados de verdade, use `import:csv` — não o `seed-dev`.
+- ⚠️ As transações do `seed-dev` caem em contas reais, então se misturam com as reais e contaminam check-up e projeção. Em 2026-09-20 elas foram apagadas deste banco junto com os orçamentos fake (ver `decisions/remocao-open-finance.md` para o contexto da limpeza). Para popular dados de verdade, use `import:csv` — não o `seed-dev`.
 - Accounts padrão: `Nubank` (`isDefault: true`), `Itaú`, `Mercado Pago` — todas `CHECKING`, saldo `0.00` no seed padrão.
 - Categorias padrão: Lazer, Transporte, Estudos, Investimento, Alimentação, Office, Saúde, Compras, Música, Moradia, Assinaturas, Serviços, Outros.

@@ -1,7 +1,7 @@
 ---
-title: Frontend — CRUD de cadastro (Categorias, Carteiras)
+title: Frontend — CRUD de cadastro (Categorias)
 area: frontend
-updated: 2026-09-11
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -11,11 +11,10 @@ Páginas de CRUD (nome + cor), construídas sobre um componente genérico pensad
 | Rota | Página | Hooks (em `lib/queries.ts`) |
 |------|--------|------------------------------|
 | `/categories` | `pages/Categories/index.tsx` | `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory` |
-| `/wallets` | `pages/Wallets/index.tsx` | `useWallets`, `useCreateWallet`, `useUpdateWallet`, `useDeleteWallet` |
 
 Rotas registradas em `App.tsx` (lazy) e itens de navegação em `components/layout/nav.ts` (fonte única, consumida por `Sidebar.tsx` e `MobileTopbar.tsx`).
 
-> **Carteira** é um cadastro independente de Conta (`accounts`) — ver `.claude/docs/domain/wallet.md`. Desde 2026-09-19 ela é o **escopo global do app**: a rota `/wallets` saiu da sidebar e é alcançada pelo item "Gerenciar carteiras" do seletor de carteira. Ver `.claude/docs/frontend/active-wallet.md`.
+> **Carteiras** (`/wallets`, `pages/Wallets`, seletor na sidebar e `WalletProvider`) foram **removidas em 2026-09-23** — ver `.claude/docs/decisions/remocao-carteiras.md`.
 
 > **Removidos em 2026-07-01:**
 > - **Bancos** (`/banks`, `pages/Banks/index.tsx`, `useBanks`/`useCreateBank`/`useUpdateBank`/`useDeleteBank`) — apagado por completo. Era um cadastro avulso sem nenhuma ligação real com o resto do sistema (nunca teve FK de `accounts` ou `transactions` apontando pra ele).
@@ -25,7 +24,7 @@ Rotas registradas em `App.tsx` (lazy) e itens de navegação em `components/layo
 
 `components/crud/ColorEntityCrud.tsx` é genérico sobre `T extends ColorEntity` (`{ id, name, color }`). Recebe via props os textos (título, substantivo, gênero gramatical para concordância, placeholder, ícone de estado vazio) e os 4 hooks (`useList`, `useCreate`, `useUpdate`, `useDelete`).
 
-Cada página é um wrapper fino que apenas passa os hooks e os textos (`pages/Wallets/index.tsx` é uma cópia quase literal de `pages/Categories/index.tsx`). Para criar um novo módulo desse tipo:
+Cada página é um wrapper fino que apenas passa os hooks e os textos (ver `pages/Categories/index.tsx`). Para criar um novo módulo desse tipo:
 
 1. Crie tabela + rota no `api/` (ver `.claude/docs/api/lookups.md`).
 2. Adicione tipo em `types/finance.ts`, métodos em `lib/api.ts` e os 4 hooks em `lib/queries.ts`.

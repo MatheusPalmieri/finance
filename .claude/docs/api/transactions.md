@@ -1,7 +1,7 @@
 ---
 title: API — Transações, Contas (padrão) e Dashboard
 area: api
-updated: 2026-07-01
+updated: 2026-09-23
 ---
 
 ## Transações — `api/src/routes/transactions.ts` (prefixo `/transactions`)
@@ -10,14 +10,14 @@ updated: 2026-07-01
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/transactions` | Lista paginada com filtros, traz `account`, `category`, `budget`, `wallet` (`paymentMethod` não é mais relation — vem embutido como enum) |
+| GET | `/transactions` | Lista paginada com filtros, traz `account`, `category`, `budget` (`paymentMethod` não é mais relation — vem embutido como enum) |
 | GET | `/transactions/:id` | Busca por ID (com relations) |
 | POST | `/transactions` | Cria e subtrai o valor do saldo da conta |
 | POST | `/transactions/bulk` | Cria várias de uma vez (import CSV) — ver abaixo |
 | PUT | `/transactions/:id` | Atualiza; reverte saldo antigo e aplica o novo |
 | DELETE | `/transactions/:id` | Remove e devolve o valor ao saldo da conta |
 
-**Query params de GET `/transactions`:** `page`, `limit` (máx 100), `search` (ilike em `name`), `categoryId`, `walletId`, `paymentMethod` (um dos 6 valores do enum — validado por `isPaymentMethod()`, valor inválido é ignorado silenciosamente), `accountId`, `recurrence` (`fixed`\|`variable`), `isEssential` (`true`\|`false`), `from`, `to` (datas). Resposta: `{ data, total, page, limit }`.
+**Query params de GET `/transactions`:** `page`, `limit` (máx 100), `search` (ilike em `name`), `categoryId`, `paymentMethod` (um dos 6 valores do enum — validado por `isPaymentMethod()`, valor inválido é ignorado silenciosamente), `accountId`, `recurrence` (`fixed`\|`variable`), `isEssential` (`true`\|`false`), `from`, `to` (datas). Resposta: `{ data, total, page, limit }`.
 
 **Body (POST / PUT):**
 ```json
@@ -30,18 +30,17 @@ updated: 2026-07-01
   "isEssential": true,
   "recurrence": "variable",
   "budgetId": null,
-  "walletId": null,
   "date": "2026-06-23",
   "notes": null
 }
 ```
-Validações: `name` minLength 1; `amount` qualquer número diferente de zero (positivo = despesa, negativo = entrada); `categoryId`/`accountId` strings obrigatórias; `paymentMethod` ∈ {`cash`,`pix`,`credit_card`,`debit_card`,`boleto`,`transfer`} (ver `.claude/docs/domain/transaction.md`); `isEssential` boolean; `recurrence` ∈ {`fixed`,`variable`}; `date` string; `notes` e `walletId` opcionais/nullable.
+Validações: `name` minLength 1; `amount` qualquer número diferente de zero (positivo = despesa, negativo = entrada); `categoryId`/`accountId` strings obrigatórias; `paymentMethod` ∈ {`cash`,`pix`,`credit_card`,`debit_card`,`boleto`,`transfer`} (ver `.claude/docs/domain/transaction.md`); `isEssential` boolean; `recurrence` ∈ {`fixed`,`variable`}; `date` string; `notes` opcional/nullable.
 
 **`budgetId`** (FK → budgets, nullable): obrigatório quando `recurrence = fixed` (400 se ausente); forçado a `null` quando `recurrence = variable`. As respostas trazem a relation `budget`. Ver `.claude/docs/api/budgets.md`.
 
-**`walletId`** (FK → wallets, nullable): sempre opcional, sem regra condicional — agrupamento livre e independente de conta. Na prática o frontend preenche com a carteira ativa da sidebar (`.claude/docs/frontend/active-wallet.md`). Ver `.claude/docs/domain/wallet.md`.
+**Escopo:** não há mais carteira (removida em 2026-09-23, ver `.claude/docs/decisions/remocao-carteiras.md`). A listagem mostra todas as transações, inclusive as de contas sandbox; use `accountId` para filtrar.
 
-`GET /dashboard/summary` também aceita `walletId` (2026-09-19): quando informado, **todas** as agregações (totais, por categoria, por forma de pagamento, por conta, tendência de 6 meses e transações recentes) ficam restritas a essa carteira.
+`GET /dashboard/summary` considera só transações reais: as de contas sandbox (`accounts.is_sandbox`) ficam fora de todas as agregações (`REAL_TRANSACTIONS` em `api/src/lib/scope.ts`).
 
 ### `POST /transactions/bulk` — importação em lote
 

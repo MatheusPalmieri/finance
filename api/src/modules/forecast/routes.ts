@@ -42,12 +42,10 @@ export const forecastRoute = new Elysia({ prefix: "/forecast" })
     "/cashflow",
     ({ query }) =>
       service.cashflow(
-        query.walletId || null,
         query.horizonMonths ? Number(query.horizonMonths) : undefined
       ),
     {
       query: t.Object({
-        walletId: t.Optional(t.String()),
         horizonMonths: t.Optional(t.String()),
       }),
     }
@@ -56,13 +54,11 @@ export const forecastRoute = new Elysia({ prefix: "/forecast" })
     "/simulate",
     ({ body }) =>
       service.simulateScenario(
-        body.walletId ?? null,
         body.events as ScenarioEvent[],
         body.horizonMonths
       ),
     {
       body: t.Object({
-        walletId: t.Optional(t.Nullable(t.String())),
         horizonMonths: t.Optional(t.Number()),
         events: t.Array(scenarioEvent),
       }),
@@ -75,7 +71,6 @@ export const forecastRoute = new Elysia({ prefix: "/forecast" })
         return status(400, { message: "Informe um valor maior que zero" })
       }
       return service.afford({
-        walletId: body.walletId ?? null,
         totalAmount: body.totalAmount,
         installments: body.installments,
         monthlyInterestPct: body.monthlyInterestPct,
@@ -86,7 +81,6 @@ export const forecastRoute = new Elysia({ prefix: "/forecast" })
     },
     {
       body: t.Object({
-        walletId: t.Optional(t.Nullable(t.String())),
         totalAmount: t.Number(),
         installments: t.Optional(t.Number()),
         monthlyInterestPct: t.Optional(t.Number()),

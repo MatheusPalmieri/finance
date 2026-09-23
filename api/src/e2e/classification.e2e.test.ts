@@ -18,7 +18,6 @@ import {
   makeAccount,
   makeCategory,
   makeTransactions,
-  makeWallet,
   monthsAgo,
   resetDatabase,
   useMockLlm,
@@ -168,7 +167,6 @@ describe("e2e POST /classification/suggest — camada 1 (regras)", () => {
 
 describe("e2e POST /classification/suggest — camada 2 (histórico)", () => {
   test("deduz a categoria de transações parecidas já classificadas", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount()
     const streaming = await makeCategory("Streaming")
 
@@ -179,14 +177,12 @@ describe("e2e POST /classification/suggest — camada 2 (histórico)", () => {
         date: monthsAgo(i + 1),
         categoryId: streaming.id,
         accountId: account.id,
-        walletId: wallet.id,
         paymentMethod: "credit_card" as const,
       }))
     )
 
     const res = await api.post<SuggestBody>("/classification/suggest", {
       useAi: false,
-      walletId: wallet.id,
       items: [{ index: 0, description: "NETFLIX.COM 12/24" }],
     })
 
@@ -199,7 +195,6 @@ describe("e2e POST /classification/suggest — camada 2 (histórico)", () => {
   })
 
   test("histórico sem nada parecido não inventa categoria", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount()
     const category = await makeCategory("Alimentação")
     await makeTransactions([
@@ -209,13 +204,11 @@ describe("e2e POST /classification/suggest — camada 2 (histórico)", () => {
         date: monthsAgo(1),
         categoryId: category.id,
         accountId: account.id,
-        walletId: wallet.id,
       },
     ])
 
     const res = await api.post<SuggestBody>("/classification/suggest", {
       useAi: false,
-      walletId: wallet.id,
       items: [{ index: 0, description: "Oficina Mecânica Silva" }],
     })
 
@@ -612,7 +605,7 @@ describe("e2e CRUD /classification/rules", () => {
 })
 
 describe("e2e /recurring", () => {
-  async function seedMonthlyCharges(walletId: string) {
+  async function seedMonthlyCharges() {
     const account = await makeAccount()
     const category = await makeCategory("Streaming")
     await makeTransactions([
@@ -623,7 +616,6 @@ describe("e2e /recurring", () => {
         date: monthsAgo(4 - i, 5),
         categoryId: category.id,
         accountId: account.id,
-        walletId,
       })),
       // Supermercado: valores muito variáveis, não é assinatura
       ...[300, 780, 410].map((amount, i) => ({
@@ -632,23 +624,20 @@ describe("e2e /recurring", () => {
         date: monthsAgo(3 - i, 12),
         categoryId: category.id,
         accountId: account.id,
-        walletId,
       })),
     ])
     return { category }
   }
 
   test("detecta a assinatura e ignora o gasto instável", async () => {
-    const wallet = await makeWallet()
-    await seedMonthlyCharges(wallet.id)
+    await seedMonthlyCharges()
 
     const recalc = await api.post<{ detected: number }>(
-      "/recurring/recalculate",
-      { walletId: wallet.id }
+      "/recurring/recalculate"
     )
     expect(recalc.body.detected).toBe(1)
 
-    const list = await api.get<RecurringBody>(`/recurring?walletId=${wallet.id}`)
+    const list = await api.get<RecurringBody>(`/recurring`)
     expect(list.body.data).toHaveLength(1)
     const [serie] = list.body.data
     expect(serie.merchantKey).toBe("netflix")
@@ -658,7 +647,6 @@ describe("e2e /recurring", () => {
   })
 
   test("aumento de preço é sinalizado", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount()
     const category = await makeCategory("Streaming")
     await makeTransactions(
@@ -668,48 +656,45 @@ describe("e2e /recurring", () => {
         date: monthsAgo(4 - i, 5),
         categoryId: category.id,
         accountId: account.id,
-        walletId: wallet.id,
       }))
     )
 
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
-    const list = await api.get<RecurringBody>(`/recurring?walletId=${wallet.id}`)
+    await api.post("/recurring/recalculate")
+    const list = await api.get<RecurringBody>(`/recurring`)
 
     expect(list.body.data[0].priceChangePct).toBeCloseTo(17.8, 1)
     expect(list.body.data[0].priceChangeSince).not.toBeNull()
   })
 
   test("dispensar esconde a série e ela sobrevive ao recálculo", async () => {
-    const wallet = await makeWallet()
-    await seedMonthlyCharges(wallet.id)
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await seedMonthlyCharges()
+    await api.post("/recurring/recalculate")
 
-    const [serie] = (await api.get<RecurringBody>(`/recurring?walletId=${wallet.id}`))
+    const [serie] = (await api.get<RecurringBody>(`/recurring`))
       .body.data
     expect((await api.patch(`/recurring/${serie.id}/dismiss`)).status).toBe(200)
 
-    const hidden = await api.get<RecurringBody>(`/recurring?walletId=${wallet.id}`)
+    const hidden = await api.get<RecurringBody>(`/recurring`)
     expect(hidden.body.data).toHaveLength(0)
 
     // O recálculo não pode ressuscitar o que o usuário dispensou
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await api.post("/recurring/recalculate")
     const stillHidden = await api.get<RecurringBody>(
-      `/recurring?walletId=${wallet.id}`
+      `/recurring`
     )
     expect(stillHidden.body.data).toHaveLength(0)
 
     const withDismissed = await api.get<RecurringBody>(
-      `/recurring?walletId=${wallet.id}&includeDismissed=true`
+      `/recurring?includeDismissed=true`
     )
     expect(withDismissed.body.data).toHaveLength(1)
     expect(withDismissed.body.data[0].dismissed).toBe(true)
   })
 
   test("lista as transações que compõem a série", async () => {
-    const wallet = await makeWallet()
-    await seedMonthlyCharges(wallet.id)
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
-    const [serie] = (await api.get<RecurringBody>(`/recurring?walletId=${wallet.id}`))
+    await seedMonthlyCharges()
+    await api.post("/recurring/recalculate")
+    const [serie] = (await api.get<RecurringBody>(`/recurring`))
       .body.data
 
     const res = await api.get<{ data: { name: string }[] }>(
@@ -726,11 +711,10 @@ describe("e2e /recurring", () => {
   })
 
   test("o total mensal soma apenas as séries ativas", async () => {
-    const wallet = await makeWallet()
-    await seedMonthlyCharges(wallet.id)
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await seedMonthlyCharges()
+    await api.post("/recurring/recalculate")
 
-    const list = await api.get<RecurringBody>(`/recurring?walletId=${wallet.id}`)
+    const list = await api.get<RecurringBody>(`/recurring`)
     const active = list.body.data.filter((s) => s.status === "ACTIVE")
     const expected = active.reduce((sum, s) => sum + s.monthlyCostBrl, 0)
     expect(list.body.totalMonthly).toBeCloseTo(expected, 2)

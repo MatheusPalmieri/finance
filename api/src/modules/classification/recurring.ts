@@ -11,6 +11,7 @@ import {
   transactions,
   type RecurringStatus,
 } from "../../db/schema"
+import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { addDays, daysBetween, coefficientOfVariation, median } from "../../lib/stats"
 import { merchantKey } from "./normalize"
 
@@ -181,16 +182,10 @@ export interface RecalculateResult {
 }
 
 /**
- * Recalcula as séries de uma carteira (ou do escopo global quando `walletId`
- * é null) e sincroniza a tabela. `dismissed` sobrevive ao recálculo.
+ * Recalcula as séries a partir de todas as transações reais e sincroniza a
+ * tabela. `dismissed` sobrevive ao recálculo.
  */
-export async function recalculate(
-  walletId: string | null
-): Promise<RecalculateResult> {
-  const scope = walletId
-    ? eq(transactions.walletId, walletId)
-    : isNull(transactions.walletId)
-
+export async function recalculate(): Promise<RecalculateResult> {
   const rows = await db
     .select({
       name: transactions.name,
@@ -199,7 +194,7 @@ export async function recalculate(
       categoryId: transactions.categoryId,
     })
     .from(transactions)
-    .where(and(scope, sql`${transactions.amount}::numeric > 0`))
+    .where(and(REAL_TRANSACTIONS, sql`${transactions.amount}::numeric > 0`))
 
   const detected = detectSeries(
     rows.map((r) => ({
@@ -210,10 +205,6 @@ export async function recalculate(
     }))
   )
 
-  const walletScope = walletId
-    ? eq(recurringSeries.walletId, walletId)
-    : isNull(recurringSeries.walletId)
-
   const existing = await db
     .select({
       id: recurringSeries.id,
@@ -221,7 +212,6 @@ export async function recalculate(
       dismissed: recurringSeries.dismissed,
     })
     .from(recurringSeries)
-    .where(walletScope)
 
   const existingByKey = new Map(existing.map((e) => [e.merchantKey, e]))
   const detectedKeys = new Set(detected.map((s) => s.merchantKey))
@@ -232,7 +222,6 @@ export async function recalculate(
       merchantKey: serie.merchantKey,
       label: serie.label.slice(0, 255),
       categoryId: serie.categoryId,
-      walletId,
       intervalDays: serie.intervalDays,
       occurrences: serie.occurrences,
       averageAmount: serie.averageAmount.toFixed(2),
@@ -270,21 +259,16 @@ export async function recalculate(
 }
 
 // Recálculo em rajada (importação de CSV) colapsa num único disparo.
-const pending = new Map<string, ReturnType<typeof setTimeout>>()
+let pending: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE_MS = 5000
 
 /** Agenda o recálculo com debounce. Erros são logados, nunca propagados. */
-export function scheduleRecalculate(walletId: string | null) {
-  const key = walletId ?? "__global__"
-  const existing = pending.get(key)
-  if (existing) clearTimeout(existing)
-  pending.set(
-    key,
-    setTimeout(() => {
-      pending.delete(key)
-      recalculate(walletId).catch((err) =>
-        console.error("[classification] falha ao recalcular recorrências", err)
-      )
-    }, DEBOUNCE_MS)
-  )
+export function scheduleRecalculate() {
+  if (pending) clearTimeout(pending)
+  pending = setTimeout(() => {
+    pending = null
+    recalculate().catch((err) =>
+      console.error("[classification] falha ao recalcular recorrências", err)
+    )
+  }, DEBOUNCE_MS)
 }

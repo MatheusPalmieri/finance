@@ -27,19 +27,13 @@ export interface Account {
   color: string
   icon: string
   isDefault: boolean
+  /** Conta de testes: aparece na listagem, fica fora de toda análise */
+  isSandbox: boolean
   createdAt: string
   updatedAt: string
 }
 
 export interface Category {
-  id: string
-  name: string
-  color: string
-  createdAt: string
-}
-
-// Agrupamento livre e opcional para transações — independente de Account
-export interface Wallet {
   id: string
   name: string
   color: string
@@ -56,7 +50,6 @@ export interface Transaction {
   isEssential: boolean
   recurrence: Recurrence
   budgetId: string | null
-  walletId: string | null
   date: string
   notes: string | null
   createdAt: string
@@ -64,7 +57,6 @@ export interface Transaction {
   account?: Account
   category?: Category | null
   budget?: Budget | null
-  wallet?: Wallet | null
 }
 
 export interface Budget {
@@ -144,7 +136,6 @@ export interface RecurringSeries {
   merchantKey: string
   label: string
   categoryId: string | null
-  walletId: string | null
   intervalDays: number
   occurrences: number
   averageAmount: string
@@ -158,7 +149,6 @@ export interface RecurringSeries {
   detectedAt: string
   updatedAt: string
   category?: Category | null
-  wallet?: Wallet | null
   monthlyCostBrl: number
   priceChangePct: number | null
   priceChangeSince: string | null
@@ -270,7 +260,6 @@ export interface MonthlyReportMetrics {
   period: {
     month: number
     year: number
-    walletId: string | null
     from: string
     to: string
     partial: boolean
@@ -350,7 +339,6 @@ export interface MonthlyReport {
   id: string
   month: number
   year: number
-  walletId: string | null
   status: ReportStatus
   metrics: MonthlyReportMetrics
   insights: Insight[]
@@ -366,7 +354,6 @@ export interface MonthlyReportSummary {
   id: string
   month: number
   year: number
-  walletId: string | null
   status: ReportStatus
   generatedAt: string
   totalExpenses: number

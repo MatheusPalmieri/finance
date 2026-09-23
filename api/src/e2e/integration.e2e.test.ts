@@ -13,7 +13,6 @@ import {
   makeAccount,
   makeCategory,
   makeTransactions,
-  makeWallet,
   monthOffset,
   resetDatabase,
 } from "../test/helpers"
@@ -36,7 +35,6 @@ afterEach(() => __setLlm(null))
 
 describe("e2e — escritas de transação alimentam o detector", () => {
   test("POST /transactions/bulk dispara o recálculo das séries", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 10000 })
     const category = await makeCategory("Streaming")
 
@@ -49,7 +47,6 @@ describe("e2e — escritas de transação alimentam o detector", () => {
       isEssential: false,
       recurrence: "variable" as const,
       budgetId: null,
-      walletId: wallet.id,
       date: dayIn(4 - i, 5),
       notes: null,
     }))
@@ -63,14 +60,13 @@ describe("e2e — escritas de transação alimentam o detector", () => {
     // importação — aqui só confirmamos que o agendamento aconteceu, forçando.
     expect(await db.select().from(recurringSeries)).toHaveLength(0)
 
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await api.post("/recurring/recalculate")
     const series = await db.select().from(recurringSeries)
     expect(series).toHaveLength(1)
     expect(series[0].merchantKey).toBe("netflix")
   })
 
   test("excluir uma transação derruba a série no recálculo", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 10000 })
     const category = await makeCategory("Streaming")
 
@@ -81,21 +77,19 @@ describe("e2e — escritas de transação alimentam o detector", () => {
         date: dayIn(3 - i, 5),
         categoryId: category.id,
         accountId: account.id,
-        walletId: wallet.id,
       }))
     )
 
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await api.post("/recurring/recalculate")
     expect(await db.select().from(recurringSeries)).toHaveLength(1)
 
     // Sobram 2 ocorrências — abaixo do mínimo, a série deixa de existir
     await api.delete(`/transactions/${created[0].id}`)
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await api.post("/recurring/recalculate")
     expect(await db.select().from(recurringSeries)).toHaveLength(0)
   })
 
   test("criar e editar transação mantêm a série coerente", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 10000 })
     const category = await makeCategory("Streaming")
 
@@ -108,7 +102,6 @@ describe("e2e — escritas de transação alimentam o detector", () => {
       isEssential: false,
       recurrence: "variable" as const,
       budgetId: null,
-      walletId: wallet.id,
       date,
       notes: null,
     })
@@ -120,7 +113,7 @@ describe("e2e — escritas de transação alimentam o detector", () => {
       body(dayIn(0, 5))
     )
 
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await api.post("/recurring/recalculate")
     const [serie] = await db.select().from(recurringSeries)
     expect(serie.occurrences).toBe(3)
 
@@ -129,12 +122,11 @@ describe("e2e — escritas de transação alimentam o detector", () => {
       ...body(dayIn(0, 5)),
       name: "Outro Servico Totalmente Diferente",
     })
-    await api.post("/recurring/recalculate", { walletId: wallet.id })
+    await api.post("/recurring/recalculate")
     expect(await db.select().from(recurringSeries)).toHaveLength(0)
   })
 
   test("o saldo da conta é ajustado pelo bulk", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount("Nubank", { balance: 1000 })
     const category = await makeCategory("Diversos")
 
@@ -143,13 +135,13 @@ describe("e2e — escritas de transação alimentam o detector", () => {
         {
           name: "Gasto", amount: 300, categoryId: category.id,
           paymentMethod: "pix", accountId: account.id, isEssential: false,
-          recurrence: "variable", budgetId: null, walletId: wallet.id,
+          recurrence: "variable", budgetId: null,
           date: dayIn(0, 1), notes: null,
         },
         {
           name: "Entrada", amount: -500, categoryId: category.id,
           paymentMethod: "transfer", accountId: account.id, isEssential: false,
-          recurrence: "variable", budgetId: null, walletId: wallet.id,
+          recurrence: "variable", budgetId: null,
           date: dayIn(0, 1), notes: null,
         },
       ],
@@ -171,7 +163,7 @@ describe("e2e — assinaturas no check-up mensal", () => {
    * cobrança mais recente é do mês passado já nasce `OVERDUE`, e a seção de
    * assinaturas só conta as ativas.
    */
-  async function seedSubscriptions(walletId: string) {
+  async function seedSubscriptions() {
     const account = await makeAccount("Nubank", { balance: 10000 })
     const category = await makeCategory("Streaming")
 
@@ -182,7 +174,6 @@ describe("e2e — assinaturas no check-up mensal", () => {
         date: dayIn(5 - i, 5),
         categoryId: category.id,
         accountId: account.id,
-        walletId,
       })),
       ...[21.9, 21.9, 21.9, 21.9, 29.9, 29.9].map((amount, i) => ({
         name: "Spotify",
@@ -190,21 +181,18 @@ describe("e2e — assinaturas no check-up mensal", () => {
         date: dayIn(5 - i, 8),
         categoryId: category.id,
         accountId: account.id,
-        walletId,
       })),
     ])
 
-    await api.post("/recurring/recalculate", { walletId })
+    await api.post("/recurring/recalculate")
   }
 
   test("a seção lista o total mensal e os aumentos de preço", async () => {
-    const wallet = await makeWallet()
-    await seedSubscriptions(wallet.id)
+    await seedSubscriptions()
 
     const report = await api.post<ReportBody>("/reports/monthly/generate", {
       month: REPORT.month,
       year: REPORT.year,
-      walletId: wallet.id,
       narrate: false,
     })
 
@@ -219,13 +207,11 @@ describe("e2e — assinaturas no check-up mensal", () => {
   })
 
   test("o aumento de preço vira insight", async () => {
-    const wallet = await makeWallet()
-    await seedSubscriptions(wallet.id)
+    await seedSubscriptions()
 
     const report = await api.post<ReportBody>("/reports/monthly/generate", {
       month: REPORT.month,
       year: REPORT.year,
-      walletId: wallet.id,
       narrate: false,
     })
 
@@ -238,20 +224,18 @@ describe("e2e — assinaturas no check-up mensal", () => {
   })
 
   test("sem séries detectadas, a seção simplesmente não aparece", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount()
     const category = await makeCategory("Diversos")
     await makeTransactions([
       {
         name: "Compra avulsa", amount: 100, date: dayIn(1, 5),
-        categoryId: category.id, accountId: account.id, walletId: wallet.id,
+        categoryId: category.id, accountId: account.id,
       },
     ])
 
     const report = await api.post<ReportBody>("/reports/monthly/generate", {
       month: REPORT.month,
       year: REPORT.year,
-      walletId: wallet.id,
       narrate: false,
     })
 
@@ -259,11 +243,10 @@ describe("e2e — assinaturas no check-up mensal", () => {
   })
 
   test("série dispensada não entra no relatório", async () => {
-    const wallet = await makeWallet()
-    await seedSubscriptions(wallet.id)
+    await seedSubscriptions()
 
     const list = await api.get<{ data: { id: string; label: string }[] }>(
-      `/recurring?walletId=${wallet.id}`
+      `/recurring`
     )
     for (const serie of list.body.data) {
       await api.patch(`/recurring/${serie.id}/dismiss`)
@@ -272,7 +255,6 @@ describe("e2e — assinaturas no check-up mensal", () => {
     const report = await api.post<ReportBody>("/reports/monthly/generate", {
       month: REPORT.month,
       year: REPORT.year,
-      walletId: wallet.id,
       narrate: false,
     })
 
@@ -282,26 +264,25 @@ describe("e2e — assinaturas no check-up mensal", () => {
 
 describe("e2e — o dashboard e o relatório contam a mesma história", () => {
   test("despesas, contagem e categorias batem entre as duas telas", async () => {
-    const wallet = await makeWallet()
     const account = await makeAccount()
     const alimentacao = await makeCategory("Alimentação")
     const transporte = await makeCategory("Transporte")
 
     await makeTransactions([
-      { name: "Mercado", amount: 400, date: dayIn(1, 5), categoryId: alimentacao.id, accountId: account.id, walletId: wallet.id },
-      { name: "Padaria", amount: 50, date: dayIn(1, 6), categoryId: alimentacao.id, accountId: account.id, walletId: wallet.id },
-      { name: "Uber", amount: 120, date: dayIn(1, 7), categoryId: transporte.id, accountId: account.id, walletId: wallet.id },
+      { name: "Mercado", amount: 400, date: dayIn(1, 5), categoryId: alimentacao.id, accountId: account.id },
+      { name: "Padaria", amount: 50, date: dayIn(1, 6), categoryId: alimentacao.id, accountId: account.id },
+      { name: "Uber", amount: 120, date: dayIn(1, 7), categoryId: transporte.id, accountId: account.id },
     ])
 
     const report = await api.post<ReportBody>("/reports/monthly/generate", {
-      month: REPORT.month, year: REPORT.year, walletId: wallet.id, narrate: false,
+      month: REPORT.month, year: REPORT.year, narrate: false,
     })
     const dashboard = await api.get<{
       totalExpenses: string
       transactionCount: number
       expensesByCategory: { categoryName: string; amount: string }[]
     }>(
-      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}&walletId=${wallet.id}`
+      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}`
     )
 
     expect(Number(dashboard.body.totalExpenses)).toBe(
