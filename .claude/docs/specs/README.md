@@ -17,7 +17,7 @@ implementação e critérios de aceite.
 | [`01-smart-categorization.md`](./01-smart-categorization.md) | Classificação em 3 camadas que aprende com as correções + detecção de assinaturas | Opcional (camada 3) | ✅ implementada |
 | [`02-monthly-checkup.md`](./02-monthly-checkup.md) | Relatório mensal: 50/30/20, anomalias, insights e narrativa | Opcional (só o texto) | ✅ implementada |
 | [`03-cashflow-simulator.md`](./03-cashflow-simulator.md) | Projeção Monte Carlo do saldo e veredito "posso comprar?" | Opcional (só o parser de frase) | ✅ implementada |
-| [`04-open-finance.md`](./04-open-finance.md) | Open Finance (Pluggy) como fonte primária: sync de transações, saldo e investimentos ao vivo | Não | 🚧 F0 concluída |
+| [`04-open-finance.md`](./04-open-finance.md) | Open Finance (Pluggy) como fonte primária: sync de transações, saldo e investimentos ao vivo | Não | ✅ implementada |
 
 **As quatro specs estão implementadas.** Docs: `.claude/docs/api/llm.md`,
 `.claude/docs/domain/classification.md`, `.claude/docs/domain/monthly-report.md`

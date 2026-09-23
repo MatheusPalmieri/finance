@@ -1,7 +1,10 @@
 # ADR — Remoção da integração Open Finance (Pluggy)
 
 **Data:** 2026-09-20
-**Status:** Aceito — implementado
+**Status:** Substituído em 2026-09-23 pela spec 04
+(`.claude/docs/specs/04-open-finance.md`). O Open Finance voltou como fonte
+**primária**, agora conectado à conta real (Meu Pluggy) e alimentando
+`transactions`, que era o que faltava aqui. O texto abaixo fica como registro.
 
 ## Contexto
 

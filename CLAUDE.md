@@ -90,7 +90,7 @@ Docs existentes:
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês, período específico e filtro por conta em Transações
 - `.claude/docs/frontend/transactions-import.md` — importação de extrato CSV (Nubank) com revisão antes de salvar
 - `.claude/docs/decisions/remocao-carteiras.md` — ADR: por que as carteiras saíram e como a conta sandbox isola dados de teste
-- `.claude/docs/decisions/remocao-open-finance.md` — ADR: por que a integração Open Finance (Pluggy) foi removida
+- `.claude/docs/decisions/remocao-open-finance.md` — ADR (substituído pela spec 04): por que a primeira integração Open Finance foi removida
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
 - `.claude/docs/frontend/performance.md` — code-splitting, split de vendor, React Query, re-render
@@ -114,7 +114,7 @@ Cada uma é autocontida e pode ser desenvolvida individualmente. Ver
 - ✅ `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas — **implementada**
 - ✅ `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA — **implementada**
 - ✅ `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?" — **implementada**
-- 🚧 `.claude/docs/specs/04-open-finance.md` — Open Finance (Pluggy) como fonte primária; **saldo e investimentos sempre buscados ao vivo, nunca persistidos** — **F0 concluída**
+- ✅ `.claude/docs/specs/04-open-finance.md` — Open Finance (Pluggy) como fonte primária; **saldo e investimentos sempre buscados ao vivo, nunca persistidos** — **implementada**
 
 ---
 
