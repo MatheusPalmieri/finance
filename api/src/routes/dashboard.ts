@@ -3,7 +3,7 @@ import { and, between, eq, desc, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, categories, transactions } from "../db/schema"
 import { PAYMENT_METHOD_HEX, PAYMENT_METHOD_LABELS } from "../lib/payment-methods"
-import { REAL_TRANSACTIONS } from "../lib/scope"
+import { COUNTED_TRANSACTIONS, REAL_TRANSACTIONS } from "../lib/scope"
 
 // Valor negativo = entrada (ver routes/transactions.ts). Este painel é só de
 // despesas, então as agregações abaixo ignoram entradas.
@@ -20,11 +20,12 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
       const firstDay = `${year}-${String(month).padStart(2, "0")}-01`
       const lastDay = `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`
 
-      // Contas sandbox (dados de teste) ficam fora de todo o painel
+      // Fora do painel: contas sandbox (teste) e movimentos internos (fatura,
+      // aplicação, transferência entre contas próprias)
       const inMonth = and(
         between(transactions.date, firstDay, lastDay),
         isExpense,
-        REAL_TRANSACTIONS
+        COUNTED_TRANSACTIONS
       )
 
       // Totais do mês (despesas), com cortes por essencial e por recorrência
@@ -88,7 +89,7 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
         WHERE date >= (${firstDay}::date - INTERVAL '5 months')
           AND date <= ${lastDay}::date
           AND amount::numeric > 0
-          AND ${REAL_TRANSACTIONS}
+          AND ${COUNTED_TRANSACTIONS}
         GROUP BY TO_CHAR(date::date, 'YYYY-MM')
         ORDER BY month
       `)

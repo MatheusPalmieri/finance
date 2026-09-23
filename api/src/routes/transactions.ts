@@ -231,6 +231,8 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
             budgetId,
             date: item.date,
             notes: item.notes ?? null,
+            // O bulk é o caminho da importação de extrato (ImportModal)
+            source: body.source ?? "csv",
           })
           await adjustBalance(tx, item.accountId, amount, "subtract")
         }
@@ -242,5 +244,10 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
 
       return { created }
     },
-    { body: t.Object({ transactions: t.Array(transactionBody, { minItems: 1 }) }) }
+    {
+      body: t.Object({
+        transactions: t.Array(transactionBody, { minItems: 1 }),
+        source: t.Optional(t.Union([t.Literal("csv"), t.Literal("manual")])),
+      }),
+    }
   )

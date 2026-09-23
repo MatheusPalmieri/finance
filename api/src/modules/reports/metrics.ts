@@ -15,7 +15,7 @@ import {
 } from "../../db/schema"
 import { merchantKey } from "../classification/normalize"
 import { monthlyCost, priceChangePct } from "../classification/recurring"
-import { REAL_TRANSACTIONS } from "../../lib/scope"
+import { COUNTED_TRANSACTIONS } from "../../lib/scope"
 import { MIN_HISTORY_POINTS, robustZ } from "../../lib/stats"
 import type {
   Anomaly,
@@ -207,13 +207,13 @@ async function periodTotals(
       transactionCount: sql<number>`count(*) filter (where ${IS_EXPENSE})::int`,
     })
     .from(transactions)
-    .where(and(between(transactions.date, from, to), REAL_TRANSACTIONS))
+    .where(and(between(transactions.date, from, to), COUNTED_TRANSACTIONS))
 
   const dates = await db
     .selectDistinct({ date: transactions.date })
     .from(transactions)
     .where(
-      and(between(transactions.date, from, to), IS_EXPENSE, REAL_TRANSACTIONS)
+      and(between(transactions.date, from, to), IS_EXPENSE, COUNTED_TRANSACTIONS)
     )
 
   return {
@@ -238,7 +238,7 @@ async function expensesByCategory(
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
-      and(between(transactions.date, from, to), IS_EXPENSE, REAL_TRANSACTIONS)
+      and(between(transactions.date, from, to), IS_EXPENSE, COUNTED_TRANSACTIONS)
     )
     .groupBy(transactions.categoryId, categories.name, categories.color)
 }
@@ -259,7 +259,7 @@ async function categoryHistory(
       and(
         between(transactions.date, historyFrom, historyTo),
         IS_EXPENSE,
-        REAL_TRANSACTIONS
+        COUNTED_TRANSACTIONS
       )
     )
     .groupBy(transactions.categoryId, sql`to_char(${transactions.date}::date, 'YYYY-MM')`)
@@ -321,7 +321,7 @@ export async function computeMetrics(
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, REAL_TRANSACTIONS)
+      and(between(transactions.date, range.from, range.to), IS_EXPENSE, COUNTED_TRANSACTIONS)
     )
     .orderBy(desc(sql`${transactions.amount}::numeric`))
     .limit(1)
@@ -339,7 +339,7 @@ export async function computeMetrics(
       and(
         between(transactions.date, range.from, range.to),
         IS_EXPENSE,
-        REAL_TRANSACTIONS
+        COUNTED_TRANSACTIONS
       )
     )
     .groupBy(transactions.budgetId)
@@ -377,7 +377,7 @@ export async function computeMetrics(
     .from(transactions)
     .leftJoin(budgets, eq(transactions.budgetId, budgets.id))
     .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, REAL_TRANSACTIONS)
+      and(between(transactions.date, range.from, range.to), IS_EXPENSE, COUNTED_TRANSACTIONS)
     )
     .groupBy(transactions.recurrence, transactions.isEssential, budgets.type)
 
@@ -451,7 +451,7 @@ export async function computeMetrics(
           between(transactions.date, range.from, range.to),
           eq(transactions.categoryId, row.categoryId),
           IS_EXPENSE,
-          REAL_TRANSACTIONS
+          COUNTED_TRANSACTIONS
         )
       )
       .orderBy(desc(sql`${transactions.amount}::numeric`))
@@ -521,7 +521,7 @@ export async function computeMetrics(
     })
     .from(transactions)
     .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, REAL_TRANSACTIONS)
+      and(between(transactions.date, range.from, range.to), IS_EXPENSE, COUNTED_TRANSACTIONS)
     )
 
   const historyNames = await db
@@ -531,7 +531,7 @@ export async function computeMetrics(
       and(
         between(transactions.date, historyStart.from, prevRange.to),
         IS_EXPENSE,
-        REAL_TRANSACTIONS
+        COUNTED_TRANSACTIONS
       )
     )
   const seenKeys = new Set(historyNames.map((r) => merchantKey(r.name)))

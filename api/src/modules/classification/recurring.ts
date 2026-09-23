@@ -11,7 +11,7 @@ import {
   transactions,
   type RecurringStatus,
 } from "../../db/schema"
-import { REAL_TRANSACTIONS } from "../../lib/scope"
+import { COUNTED_TRANSACTIONS } from "../../lib/scope"
 import { addDays, daysBetween, coefficientOfVariation, median } from "../../lib/stats"
 import { merchantKey } from "./normalize"
 
@@ -194,7 +194,7 @@ export async function recalculate(): Promise<RecalculateResult> {
       categoryId: transactions.categoryId,
     })
     .from(transactions)
-    .where(and(REAL_TRANSACTIONS, sql`${transactions.amount}::numeric > 0`))
+    .where(and(COUNTED_TRANSACTIONS, sql`${transactions.amount}::numeric > 0`))
 
   const detected = detectSeries(
     rows.map((r) => ({

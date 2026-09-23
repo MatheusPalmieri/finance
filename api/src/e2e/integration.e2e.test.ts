@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { db } from "../db"
-import { recurringSeries } from "../db/schema"
+import { recurringSeries, transactions } from "../db/schema"
 import type { MonthlyReportMetrics } from "../modules/reports/types"
 import type { Insight } from "../modules/reports/types"
 import {
@@ -55,6 +55,9 @@ describe("e2e — escritas de transação alimentam o detector", () => {
       transactions: bulk,
     })
     expect(res.body.created).toBe(4)
+    // O bulk é o caminho da importação: nasce como `csv` por padrão
+    const rows = await db.select().from(transactions)
+    expect(rows.every((r) => r.source === "csv" && r.kind === "regular")).toBe(true)
 
     // O recálculo é agendado com debounce de 5s para colapsar a rajada da
     // importação — aqui só confirmamos que o agendamento aconteceu, forçando.

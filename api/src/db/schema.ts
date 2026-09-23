@@ -50,6 +50,29 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "transfer", // Transferência
 ])
 
+// Origem da transação — o Open Finance é a fonte primária (spec 04)
+export const transactionSourceEnum = pgEnum("transaction_source", [
+  "manual", // "Nova transação" na UI
+  "csv", // ImportModal ou `bun run import:csv`
+  "open_finance", // sincronizada da Pluggy
+])
+
+// Situação no banco: só o cartão tem pendentes (fatura aberta e parcelas futuras)
+export const transactionStatusEnum = pgEnum("transaction_status", [
+  "posted",
+  "pending",
+])
+
+// Natureza do movimento. Só `regular` entra nas análises: os demais são
+// dinheiro mudando de lugar entre contas do próprio usuário — contá-los faria
+// a fatura (já detalhada no cartão) ou uma aplicação parecer gasto/renda.
+export const transactionKindEnum = pgEnum("transaction_kind", [
+  "regular", // gasto ou entrada de verdade
+  "bill_payment", // pagamento da fatura (na conta) e o "pagamento recebido" (no cartão)
+  "investment", // aplicação/resgate e compra/venda de ativos
+  "own_transfer", // transferência entre contas do mesmo titular
+])
+
 export const accounts = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -93,6 +116,12 @@ export const transactions = pgTable("transactions", {
   budgetId: uuid("budget_id").references(() => budgets.id),
   date: date("date").default(sql`CURRENT_DATE`).notNull(),
   notes: text("notes"),
+  source: transactionSourceEnum("source").default("manual").notNull(),
+  // Id da transação no provedor — só em `source = open_finance`. É a chave de
+  // idempotência do sync (ver modules/open-finance/sync.ts)
+  externalId: varchar("external_id", { length: 255 }).unique(),
+  status: transactionStatusEnum("status").default("posted").notNull(),
+  kind: transactionKindEnum("kind").default("regular").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -289,6 +318,101 @@ export const llmCalls = pgTable("llm_calls", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
+// ── Open Finance (spec 04) ───────────────────────────────────────────────────
+// Só o que o sync precisa guardar. Saldos e posições de investimento NÃO são
+// persistidos: são sempre buscados na Pluggy (decisão da spec 04).
+
+export const syncRunStatusEnum = pgEnum("sync_run_status", [
+  "running",
+  "success",
+  "error",
+])
+
+export const syncTriggerEnum = pgEnum("sync_trigger", [
+  "manual", // botão "Sincronizar agora"
+  "stale", // app aberto com dados velhos
+  "cli", // `bun run sync:pluggy` (Agendador do Windows)
+])
+
+/** Conexão ("item") com um banco. Nunca guarda credencial bancária. */
+export const pluggyItems = pgTable("pluggy_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  itemId: varchar("item_id", { length: 255 }).notNull().unique(),
+  connectorName: varchar("connector_name", { length: 255 }),
+  status: varchar("status", { length: 40 }),
+  executionStatus: varchar("execution_status", { length: 60 }),
+  // Última coleta feita pela Pluggy no banco (não pelo nosso sync)
+  providerUpdatedAt: timestamp("provider_updated_at"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  // Última sync com a janela completa (12 meses) — detecta exclusões antigas
+  lastFullSyncAt: timestamp("last_full_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdateFn(() => new Date())
+    .notNull(),
+})
+
+/** Conta do provedor e seu vínculo com uma conta interna. */
+export const pluggyAccounts = pgTable("pluggy_accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  pluggyItemId: uuid("pluggy_item_id")
+    .references(() => pluggyItems.id, { onDelete: "cascade" })
+    .notNull(),
+  providerAccountId: varchar("provider_account_id", { length: 255 })
+    .notNull()
+    .unique(),
+  accountId: uuid("account_id")
+    .references(() => accounts.id)
+    .notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // BANK | CREDIT
+  subtype: varchar("subtype", { length: 40 }),
+  name: varchar("name", { length: 255 }),
+  // Número mascarado que o provedor devolve (ex.: final do cartão)
+  number: varchar("number", { length: 60 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
+/** Payload cru de cada transação do provedor — auditoria e reprocessamento. */
+export const pluggyTransactions = pgTable(
+  "pluggy_transactions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    providerTransactionId: varchar("provider_transaction_id", { length: 255 })
+      .notNull()
+      .unique(),
+    pluggyAccountId: uuid("pluggy_account_id")
+      .references(() => pluggyAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    transactionId: uuid("transaction_id").references(() => transactions.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdateFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("pluggy_transactions_tx_idx").on(table.transactionId)]
+)
+
+/** Histórico de cada sincronização. */
+export const syncRuns = pgTable("sync_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  trigger: syncTriggerEnum("trigger").notNull(),
+  status: syncRunStatusEnum("status").default("running").notNull(),
+  full: boolean("full").default(false).notNull(),
+  fetched: integer("fetched").default(0).notNull(),
+  created: integer("created").default(0).notNull(),
+  updated: integer("updated").default(0).notNull(),
+  adopted: integer("adopted").default(0).notNull(),
+  removed: integer("removed").default(0).notNull(),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+})
+
 // ── Relations ────────────────────────────────────────────────────────────────
 export const accountsRelations = relations(accounts, ({ many }) => ({
   transactions: many(transactions),
@@ -330,6 +454,17 @@ export const classificationRulesRelations = relations(
     }),
   })
 )
+
+export const pluggyAccountsRelations = relations(pluggyAccounts, ({ one }) => ({
+  account: one(accounts, {
+    fields: [pluggyAccounts.accountId],
+    references: [accounts.id],
+  }),
+  item: one(pluggyItems, {
+    fields: [pluggyAccounts.pluggyItemId],
+    references: [pluggyItems.id],
+  }),
+}))
 
 export const recurringSeriesRelations = relations(
   recurringSeries,
@@ -375,6 +510,15 @@ export type ReportStatus = (typeof reportStatusEnum.enumValues)[number]
 
 export type LlmCall = typeof llmCalls.$inferSelect
 export type NewLlmCall = typeof llmCalls.$inferInsert
+
+export type TransactionSource = (typeof transactionSourceEnum.enumValues)[number]
+export type TransactionStatus = (typeof transactionStatusEnum.enumValues)[number]
+export type TransactionKind = (typeof transactionKindEnum.enumValues)[number]
+
+export type PluggyItem = typeof pluggyItems.$inferSelect
+export type PluggyAccount = typeof pluggyAccounts.$inferSelect
+export type SyncRun = typeof syncRuns.$inferSelect
+export type SyncTrigger = (typeof syncTriggerEnum.enumValues)[number]
 
 export type AppSettings = typeof appSettings.$inferSelect
 export type NewAppSettings = typeof appSettings.$inferInsert

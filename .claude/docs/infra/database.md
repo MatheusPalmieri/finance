@@ -54,6 +54,20 @@ Valores: `NOT_STARTED`, `MESSAGE_SENT`, `NEGOTIATING`, `HAS_SYSTEM`, `NO_RESPONS
 | `created_at` | timestamp | não | `now()` |
 | `updated_at` | timestamp | não | `now()` (auto-update) |
 
+### Open Finance (spec 04)
+
+| Tabela | Papel |
+|---|---|
+| `pluggy_items` | Conexão com o banco (`item_id` único), status na Pluggy, `last_synced_at` e `last_full_sync_at` |
+| `pluggy_accounts` | Conta do provedor (`provider_account_id` único) e vínculo obrigatório com `accounts` |
+| `pluggy_transactions` | Payload cru de cada transação (`provider_transaction_id` único) e o `transaction_id` que ela alimenta |
+| `sync_runs` | Histórico de cada sync: gatilho, janela completa ou não, contadores e erro |
+
+Saldo e investimentos **não** têm tabela: são sempre buscados na Pluggy.
+Migração do banco de dev: `api/scripts/migrate-open-finance.sql`. Não usar
+`db:push --force`, porque a restrição única em `transactions.external_id` faz o
+drizzle-kit oferecer truncar a tabela.
+
 ## Comandos
 
 ```bash

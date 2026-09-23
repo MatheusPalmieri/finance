@@ -10,7 +10,7 @@ import {
   transactions,
   type AppSettings,
 } from "../../db/schema"
-import { REAL_TRANSACTIONS } from "../../lib/scope"
+import { COUNTED_TRANSACTIONS } from "../../lib/scope"
 import { HISTORY_MONTHS, loadHistory } from "./history"
 import { horizonMonths, monthKey, SIMULATION_RUNS, simulate } from "./montecarlo"
 import { deriveSeed } from "./random"
@@ -194,7 +194,7 @@ async function buildInputs(
       total: sql<string>`sum(${transactions.amount}::numeric)`,
     })
     .from(transactions)
-    .where(and(gt(transactions.date, today()), REAL_TRANSACTIONS))
+    .where(and(gt(transactions.date, today()), COUNTED_TRANSACTIONS))
     .groupBy(sql`to_char(${transactions.date}::date, 'YYYY-MM')`)
   const futureByMonth = new Map(
     futureRows.map((r) => [r.month, Number(r.total)])
@@ -213,7 +213,7 @@ async function buildInputs(
     .where(
       and(
         between(transactions.date, currentRange.from, today()),
-        REAL_TRANSACTIONS
+        COUNTED_TRANSACTIONS
       )
     )
   const realizedIncome = Number(realized?.income ?? 0)

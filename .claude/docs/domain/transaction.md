@@ -23,6 +23,10 @@ A transação é o módulo central do sistema. Não há campo `type` nem entidad
 | `budgetId` | uuid FK → budgets | condicional | Orçamento vinculado — obrigatório se `recurrence = fixed`; nulo se `variable`. Ver `.claude/docs/domain/budget.md` |
 | `date` | date | sim | Data do gasto (default: `CURRENT_DATE`) |
 | `notes` | text | não | Observação livre (nullable) |
+| `source` | enum `transaction_source` | sim | `manual` \| `csv` \| `open_finance`. Default `manual`; `POST /transactions/bulk` grava `csv` (spec 04) |
+| `externalId` | varchar, único | não | Id da transação na Pluggy — só em `open_finance`; chave de idempotência do sync |
+| `status` | enum `transaction_status` | sim | `posted` \| `pending`. Pendentes são a fatura aberta e as parcelas futuras do cartão |
+| `kind` | enum `transaction_kind` | sim | `regular` \| `bill_payment` \| `investment` \| `own_transfer` — ver "Movimentos internos" |
 
 `createdAt` / `updatedAt` são gerenciados automaticamente.
 
@@ -44,11 +48,19 @@ Adicionado em 2026-07-01. Não existe campo `type`: o formulário (`app/src/page
 - **Editar** → devolve o valor antigo à conta antiga (soma `amount` antigo) e subtrai o novo da conta nova.
 - **Excluir** → devolve o valor ao saldo (soma `amount`).
 
+### Movimentos internos (`kind`)
+Adicionado em 2026-09-23 (spec 04). Só `kind = regular` entra nas análises: dashboard, check-up, projeção e detecção de recorrências usam `COUNTED_TRANSACTIONS` (`api/src/lib/scope.ts`). Os demais aparecem na listagem, mas são dinheiro mudando de lugar entre contas do próprio usuário:
+- `bill_payment` — "Pagamento de fatura" na conta e "Pagamento recebido" no cartão. Com o cartão detalhado pelo Open Finance, contar a fatura duplicaria as compras.
+- `investment` — aplicação/resgate (RDB) e compra/venda de ativos.
+- `own_transfer` — transferência entre contas do mesmo titular.
+
+Proventos e rendimentos ("Valor recebido de Investimentos") continuam `regular`: são renda de verdade.
+
 ### Conta sandbox (`accounts.isSandbox`)
 Adicionado em 2026-09-23, no lugar das carteiras (ver `.claude/docs/decisions/remocao-carteiras.md`). Uma conta marcada como sandbox guarda **dados de teste/depuração**:
 - suas transações **aparecem** em `GET /transactions`, e o filtro por conta as isola;
 - ficam **fora de toda análise**: dashboard, check-up, projeção (inclusive o saldo de abertura), kNN da classificação e detecção de recorrências;
-- o filtro único é `REAL_TRANSACTIONS` em `api/src/lib/scope.ts`. Toda consulta analítica nova precisa usá-lo.
+- o filtro de sandbox é `REAL_TRANSACTIONS` e o das análises é `COUNTED_TRANSACTIONS` (sandbox + movimentos internos), ambos em `api/src/lib/scope.ts`. Toda consulta analítica nova precisa usar `COUNTED_TRANSACTIONS`.
 
 A conta sandbox `Claude` é a usada pelo agente em testes manuais (regra no `CLAUDE.md`).
 

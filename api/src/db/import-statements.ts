@@ -173,6 +173,7 @@ const values: NewTransaction[] = parsed.map((r, i) => {
     budgetId: null,
     date: r.date,
     notes: r.identifier ? `Importado via CSV — ID ${r.identifier}` : null,
+    source: "csv",
   }
 })
 

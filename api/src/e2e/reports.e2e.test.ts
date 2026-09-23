@@ -150,6 +150,29 @@ describe("e2e POST /reports/monthly/generate — totais", () => {
     expect(report.body.metrics.totals.totalExpenses.current).toBe(100)
     expect(Number(dashboard.body.totalExpenses)).toBe(100)
   })
+
+  test("movimentos internos (fatura, aplicação, transferência própria) não contam", async () => {
+    const account = await makeAccount()
+    const category = await makeCategory("Outros")
+
+    await makeTransactions([
+      { name: "Mercado", amount: 200, date: dayIn(1, 5), categoryId: category.id, accountId: account.id },
+      { name: "Salário", amount: -5000, date: dayIn(1, 5), categoryId: category.id, accountId: account.id },
+      { name: "Pagamento de fatura", amount: 4000, date: dayIn(1, 6), categoryId: category.id, accountId: account.id, kind: "bill_payment" },
+      { name: "Aplicação RDB", amount: 1000, date: dayIn(1, 7), categoryId: category.id, accountId: account.id, kind: "investment" },
+      { name: "Resgate RDB", amount: -300, date: dayIn(1, 8), categoryId: category.id, accountId: account.id, kind: "investment" },
+      { name: "Pix para mim", amount: 50, date: dayIn(1, 9), categoryId: category.id, accountId: account.id, kind: "own_transfer" },
+    ])
+
+    const report = await generate()
+    const dashboard = await api.get<{ totalExpenses: string; transactionCount: number }>(
+      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}`
+    )
+    expect(report.body.metrics.totals.totalExpenses.current).toBe(200)
+    expect(report.body.metrics.totals.totalIncome.current).toBe(5000)
+    expect(Number(dashboard.body.totalExpenses)).toBe(200)
+    expect(dashboard.body.transactionCount).toBe(1)
+  })
 })
 
 describe("e2e — orçamentos e 50/30/20", () => {

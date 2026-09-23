@@ -13,6 +13,9 @@ import {
   type BudgetType,
   type PaymentMethod,
   type Recurrence,
+  type TransactionKind,
+  type TransactionSource,
+  type TransactionStatus,
 } from "../db/schema"
 import { __setLlm } from "../modules/llm/provider"
 import { MockLlmProvider } from "../modules/llm/providers/mock"
@@ -65,6 +68,10 @@ export const api = {
 
 // Filhas antes das mães: a ordem substitui o CASCADE.
 const TABLES_IN_DELETE_ORDER = [
+  "pluggy_transactions",
+  "pluggy_accounts",
+  "pluggy_items",
+  "sync_runs",
   "transactions",
   "classification_rules",
   "recurring_series",
@@ -205,6 +212,11 @@ export interface TransactionSeed {
   recurrence?: Recurrence
   isEssential?: boolean
   budgetId?: string | null
+  source?: TransactionSource
+  kind?: TransactionKind
+  status?: TransactionStatus
+  externalId?: string | null
+  notes?: string | null
 }
 
 export async function makeTransaction(seed: TransactionSeed) {
@@ -220,6 +232,11 @@ export async function makeTransaction(seed: TransactionSeed) {
       recurrence: seed.recurrence ?? "variable",
       isEssential: seed.isEssential ?? false,
       budgetId: seed.budgetId ?? null,
+      source: seed.source ?? "manual",
+      kind: seed.kind ?? "regular",
+      status: seed.status ?? "posted",
+      externalId: seed.externalId ?? null,
+      notes: seed.notes ?? null,
     })
     .returning()
   return row
