@@ -61,6 +61,7 @@ Este projeto tem skills configuradas em `.claude/skills/`. Use-as sempre que o c
 Use `/docs` para criar ou atualizar o doc. Nunca termine uma tarefa sem checar se a doc está em dia.
 
 Docs existentes:
+- `.claude/docs/domain/open-finance.md` — sync com a Pluggy: normalização, janela, vínculo de contas, religar/adotar/remover, campos do usuário preservados
 - `.claude/docs/domain/forecast.md` — projeção Monte Carlo do saldo, cenários, veredito "posso comprar?" e reserva mínima
 - `.claude/docs/api/forecast.md` — endpoints /forecast e /settings
 - `.claude/docs/frontend/forecast.md` — página /forecast (gráfico de leque, painel de cenário) e card no Home
