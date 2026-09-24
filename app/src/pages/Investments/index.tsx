@@ -13,7 +13,8 @@ import { ErrorState } from "@/components/ui/error-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { StatCard } from "@/components/charts"
 import { api } from "@/lib/api"
-import { keys, useLiveInvestments } from "@/lib/queries"
+import { keys, useInvestments } from "@/lib/queries"
+import { SnapshotStatus } from "@/components/open-finance/SnapshotStatus"
 import { formatCurrency, formatDate, formatMonthLabel } from "@/lib/format"
 import { FINANCE, PALETTE, tint } from "@/lib/tokens"
 import { cn } from "@/lib/utils"
@@ -21,7 +22,7 @@ import {
   ASSET_CLASS_HEX,
   type InvestmentClass,
   type InvestmentPosition,
-  type LiveInvestments,
+  type InvestmentsSnapshot,
 } from "@/types/finance"
 
 function signed(value: number) {
@@ -30,10 +31,10 @@ function signed(value: number) {
 
 export function Investments() {
   const qc = useQueryClient()
-  const { data, isLoading, isError, refetch } = useLiveInvestments()
+  const { data, isLoading, isError, refetch } = useInvestments()
   const [refreshing, setRefreshing] = useState(false)
 
-  // Ignora o cache de 5 min do backend
+  // Ignora o retrato salvo (prazo de 1h) e busca na Pluggy agora
   async function refreshNow() {
     setRefreshing(true)
     try {
@@ -76,7 +77,7 @@ export function Investments() {
           <Landmark size={22} className="text-muted-foreground" />
           <p className="font-medium">Investimentos indisponíveis</p>
           <p className="max-w-md text-sm text-muted-foreground">
-            Eles vêm ao vivo do Open Finance e nunca são guardados no app.
+            Eles vêm só do Open Finance e ainda não há nenhum retrato salvo.
             Motivo: {data.error}
           </p>
         </div>
@@ -141,21 +142,18 @@ function Header({
   refreshing,
   onRefresh,
 }: {
-  data: LiveInvestments
+  data: InvestmentsSnapshot
   refreshing: boolean
   onRefresh: () => void
 }) {
-  const time = new Date(data.fetchedAt).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Investimentos</h1>
-        <p className="text-sm text-muted-foreground">
-          Ao vivo do Open Finance · consultado às {time}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+          Open Finance
+          <SnapshotStatus meta={data} />
+        </div>
       </div>
       <Button
         variant="outline"
@@ -172,7 +170,7 @@ function Header({
 }
 
 // ── Alocação: barra empilhada + legenda ──────────────────────────────────────
-function Allocation({ data }: { data: LiveInvestments }) {
+function Allocation({ data }: { data: InvestmentsSnapshot }) {
   return (
     <div className="flex animate-in flex-col gap-4 rounded-xl border bg-card p-5 duration-500 fade-in slide-in-from-bottom-2 lg:col-span-2">
       <div>
@@ -218,7 +216,7 @@ function Allocation({ data }: { data: LiveInvestments }) {
 }
 
 // ── Proventos ────────────────────────────────────────────────────────────────
-function Income({ data }: { data: LiveInvestments }) {
+function Income({ data }: { data: InvestmentsSnapshot }) {
   const months = data.income.byMonth.slice(-6)
   const max = Math.max(...months.map((m) => m.total), 0)
   return (

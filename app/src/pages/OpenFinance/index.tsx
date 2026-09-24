@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ErrorState } from "@/components/ui/error-state"
+import { SnapshotStatus } from "@/components/open-finance/SnapshotStatus"
 import {
   Select,
   SelectContent,
@@ -21,7 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   useAccounts,
-  useLiveBalances,
+  useBalances,
   useOpenFinanceStatus,
   useRelinkOpenFinanceAccount,
   useSyncOpenFinance,
@@ -32,7 +33,7 @@ import { FINANCE, PALETTE, tint } from "@/lib/tokens"
 import { cn } from "@/lib/utils"
 import {
   SYNC_TRIGGER_LABELS,
-  type LiveAccountBalance,
+  type AccountBalance,
   type OpenFinanceLinkedAccount,
   type SyncRun,
 } from "@/types/finance"
@@ -247,13 +248,13 @@ function Fact({ term, value }: { term: string; value: string }) {
   )
 }
 
-// ── Contas vinculadas com saldo ao vivo ──────────────────────────────────────
+// ── Contas vinculadas com saldo do retrato ─────────────────────────────────────
 function LinkedAccounts({
   accounts,
 }: {
   accounts: OpenFinanceLinkedAccount[]
 }) {
-  const { data: balances, isLoading } = useLiveBalances()
+  const { data: balances, isLoading } = useBalances()
 
   if (accounts.length === 0) {
     return (
@@ -272,12 +273,15 @@ function LinkedAccounts({
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Contas vinculadas</h2>
-        {balances && !balances.available && (
-          <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-            <AlertTriangle size={13} />
-            Saldo indisponível: {balances.error}
-          </span>
-        )}
+        {balances &&
+          (balances.available ? (
+            <SnapshotStatus meta={balances} />
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+              <AlertTriangle size={13} />
+              Saldo indisponível: {balances.error}
+            </span>
+          ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {accounts.map((account, i) => (
@@ -301,7 +305,7 @@ function LinkedAccountCard({
   delay,
 }: {
   account: OpenFinanceLinkedAccount
-  live: LiveAccountBalance | undefined
+  live: AccountBalance | undefined
   loading: boolean
   delay: number
 }) {
@@ -340,7 +344,7 @@ function LinkedAccountCard({
           </div>
         </div>
         <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-          ao vivo
+          Open Finance
         </span>
       </div>
 
@@ -407,13 +411,11 @@ function LinkedAccountCard({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(internalAccounts ?? [])
-              .filter((a) => !a.isSandbox)
-              .map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
+            {(internalAccounts ?? []).map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -472,7 +474,6 @@ function RunRow({ run }: { run: SyncRun }) {
     ).toFixed(1)
   const changes = [
     run.created && `${run.created} novas`,
-    run.adopted && `${run.adopted} adotadas`,
     run.updated && `${run.updated} atualizadas`,
     run.removed && `${run.removed} removidas`,
   ].filter(Boolean)

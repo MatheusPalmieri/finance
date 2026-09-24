@@ -23,13 +23,10 @@ export interface Account {
   id: string
   name: string
   type: AccountType
-  balance: string
   color: string
   icon: string
-  isDefault: boolean
-  /** Conta de testes: aparece na listagem, fica fora de toda análise */
-  isSandbox: boolean
-  /** Ligada ao Open Finance: o saldo mostrado vem ao vivo (só em GET /accounts) */
+  /** Ligada ao Open Finance (só em GET /accounts). Sem saldo aqui: ele vem de
+   * GET /open-finance/balances — nunca é digitado. */
   openFinance?: boolean
   createdAt: string
   updatedAt: string
@@ -55,7 +52,7 @@ export interface Transaction {
   date: string
   notes: string | null
   source: TransactionSource
-  externalId: string | null
+  externalId: string
   status: TransactionStatus
   kind: TransactionKind
   createdAt: string
@@ -412,8 +409,13 @@ export interface ProjectedMonth {
 export interface CashflowProjection {
   openingBalance: number
   openingAccounts: { id: string; name: string; balance: number }[]
-  /** "live" = saldo ao vivo do Open Finance; "stored" = saldo cadastrado. */
-  openingBalanceSource: "live" | "stored"
+  /**
+   * Sempre Open Finance: "open_finance" = retrato recente; "stale" = Pluggy
+   * fora do ar, último retrato conhecido; "unavailable" = nunca sincronizou.
+   */
+  openingBalanceSource: "open_finance" | "stale" | "unavailable"
+  /** Quando a Pluggy devolveu o saldo usado (ISO). */
+  openingBalanceFetchedAt: string | null
   months: ProjectedMonth[]
   summary: {
     endBalanceP50: number
@@ -646,7 +648,8 @@ export const MONTHS = [
 
 // ── Open Finance (spec 04) ────────────────────────────────────────────────────
 
-export type TransactionSource = "manual" | "csv" | "open_finance"
+// Toda transação vem do Open Finance — não existe lançamento manual nem CSV
+export type TransactionSource = "open_finance"
 export type TransactionStatus = "posted" | "pending"
 // Só `regular` entra nas análises — os demais são dinheiro mudando de lugar
 export type TransactionKind =
@@ -678,7 +681,6 @@ export interface SyncRun {
   fetched: number
   created: number
   updated: number
-  adopted: number
   removed: number
   errorMessage: string | null
   startedAt: string
@@ -715,7 +717,23 @@ export interface OpenFinanceStatus {
   lastRun: SyncRun | null
 }
 
-export interface LiveAccountBalance {
+/**
+ * Metadados do retrato do Open Finance. O backend guarda o último retrato no
+ * banco e só vai à Pluggy quando ele vence — ver domain/open-finance.md.
+ */
+export interface SnapshotMeta {
+  /** `false` só quando nunca houve retrato e a Pluggy não respondeu. */
+  available: boolean
+  /** "live" = buscado agora; "cache" = do banco; "none" = sem dado. */
+  source: "live" | "cache" | "none"
+  /** Pluggy fora do ar: é o último dado conhecido, não o atual. */
+  stale: boolean
+  error: string | null
+  /** Quando a Pluggy devolveu o dado (ISO). */
+  fetchedAt: string | null
+}
+
+export interface AccountBalance {
   accountId: string
   accountName: string
   providerAccountId: string
@@ -728,11 +746,8 @@ export interface LiveAccountBalance {
   minimumPayment: number | null
 }
 
-export interface LiveBalances {
-  available: boolean
-  error: string | null
-  fetchedAt: string
-  accounts: LiveAccountBalance[]
+export interface BalancesSnapshot extends SnapshotMeta {
+  accounts: AccountBalance[]
   cash: number
   cardDebt: number
 }
@@ -770,10 +785,7 @@ export interface InvestmentPosition {
   incomeLast12m: number
 }
 
-export interface LiveInvestments {
-  available: boolean
-  error: string | null
-  fetchedAt: string
+export interface InvestmentsSnapshot extends SnapshotMeta {
   total: number
   invested: number
   profit: number
@@ -806,7 +818,6 @@ export interface SyncReport {
   fetched: number
   created: number
   updated: number
-  adopted: number
   removed: number
   unchanged: number
 }

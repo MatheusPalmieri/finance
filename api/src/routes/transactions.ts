@@ -1,29 +1,15 @@
 import { Elysia, t } from "elysia"
 import { and, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
 import { db } from "../db"
-import { accounts, transactions } from "../db/schema"
+import { transactions } from "../db/schema"
 import { isPaymentMethod } from "../lib/payment-methods"
+import { REAL_TRANSACTIONS } from "../lib/scope"
 import { scheduleRecalculate } from "../modules/classification"
-import { coveredByOpenFinance } from "../modules/open-finance/dedupe"
 
-// Aceita tanto `db` quanto o `tx` de uma `db.transaction()` — só precisa de `.update()`.
-type Executor = Pick<typeof db, "update">
-
-// Valor positivo = despesa (subtrai do saldo); valor negativo = entrada (soma ao saldo).
-// Subtrair um valor negativo soma ao saldo, então a mesma função cobre os dois casos
-// tanto ao aplicar quanto ao reverter (editar/excluir).
-async function adjustBalance(
-  exec: Executor,
-  accountId: string,
-  amount: string,
-  direction: "add" | "subtract"
-) {
-  const op =
-    direction === "add"
-      ? sql`balance + ${amount}::numeric`
-      : sql`balance - ${amount}::numeric`
-  await exec.update(accounts).set({ balance: op }).where(eq(accounts.id, accountId))
-}
+// Transações são somente leitura na origem: todas vêm do Open Finance (sync).
+// Não existe criar, importar nem excluir — valor, data, conta, status e
+// natureza são do banco. O usuário só ajusta a CLASSIFICAÇÃO, que o sync nunca
+// sobrescreve (ver modules/open-finance/sync.ts).
 
 const paymentMethodUnion = t.Union([
   t.Literal("cash"),
@@ -34,30 +20,15 @@ const paymentMethodUnion = t.Union([
   t.Literal("transfer"),
 ])
 
-const transactionBody = t.Object({
+const classificationBody = t.Object({
   name: t.String({ minLength: 1 }),
-  amount: t.Number(),
   categoryId: t.String({ minLength: 1 }),
   paymentMethod: paymentMethodUnion,
-  accountId: t.String({ minLength: 1 }),
   isEssential: t.Boolean(),
   recurrence: t.Union([t.Literal("fixed"), t.Literal("variable")]),
   budgetId: t.Optional(t.Nullable(t.String())),
-  date: t.String({ minLength: 1 }),
   notes: t.Optional(t.Nullable(t.String())),
 })
-
-type TransactionBody = typeof transactionBody.static
-
-// Em gasto fixo o orçamento é obrigatório; em variável é sempre nulo.
-// Retorna o budgetId resolvido ou uma mensagem de erro.
-function resolveBudgetId(body: TransactionBody): { budgetId: string | null } | { message: string } {
-  if (body.recurrence === "fixed") {
-    if (!body.budgetId) return { message: "Selecione o orçamento vinculado ao gasto fixo" }
-    return { budgetId: body.budgetId }
-  }
-  return { budgetId: null }
-}
 
 export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .get(
@@ -67,7 +38,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       const limit = Math.min(100, Number(query.limit) || 20)
       const offset = (page - 1) * limit
 
-      const conditions = []
+      const conditions = [REAL_TRANSACTIONS]
       if (query.accountId) conditions.push(eq(transactions.accountId, query.accountId))
       if (query.categoryId) conditions.push(eq(transactions.categoryId, query.categoryId))
       if (query.paymentMethod && isPaymentMethod(query.paymentMethod))
@@ -80,7 +51,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       if (query.to) conditions.push(lte(transactions.date, query.to))
       if (query.search) conditions.push(ilike(transactions.name, `%${query.search}%`))
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined
+      const where = and(...conditions)
 
       const [data, [{ total }]] = await Promise.all([
         db.query.transactions.findMany({
@@ -112,149 +83,40 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   )
   .get("/:id", async ({ params, status }) => {
     const transaction = await db.query.transactions.findFirst({
-      where: eq(transactions.id, params.id),
+      where: and(eq(transactions.id, params.id), REAL_TRANSACTIONS),
       with: { account: true, category: true, budget: true },
     })
     if (!transaction) return status(404, { message: "Transação não encontrada" })
     return transaction
   })
-  .post(
-    "/",
-    async ({ body, status }) => {
-      if (body.amount === 0) return status(400, { message: "Informe um valor diferente de zero" })
-
-      const resolved = resolveBudgetId(body)
-      if ("message" in resolved) return status(400, { message: resolved.message })
-
-      const amount = String(body.amount)
-
-      const [transaction] = await db
-        .insert(transactions)
-        .values({
-          name: body.name,
-          amount,
-          categoryId: body.categoryId,
-          paymentMethod: body.paymentMethod,
-          accountId: body.accountId,
-          isEssential: body.isEssential,
-          recurrence: body.recurrence,
-          budgetId: resolved.budgetId,
-          date: body.date,
-          notes: body.notes ?? null,
-        })
-        .returning()
-
-      await adjustBalance(db, body.accountId, amount, "subtract")
-      scheduleRecalculate()
-
-      return transaction
-    },
-    { body: transactionBody }
-  )
-  .put(
+  // Reclassificação: só os campos do usuário. Valor, data e conta vêm do banco
+  .patch(
     "/:id",
     async ({ params, body, status }) => {
-      if (body.amount === 0) return status(400, { message: "Informe um valor diferente de zero" })
-
-      const existing = await db.query.transactions.findFirst({
-        where: eq(transactions.id, params.id),
-      })
-      if (!existing) return status(404, { message: "Transação não encontrada" })
-
-      const resolved = resolveBudgetId(body)
-      if ("message" in resolved) return status(400, { message: resolved.message })
-
-      // Reverte o efeito da transação antiga e aplica o da nova
-      await adjustBalance(db, existing.accountId, existing.amount, "add")
-
-      const newAmount = String(body.amount)
-      await adjustBalance(db, body.accountId, newAmount, "subtract")
+      // Em gasto fixo o orçamento é obrigatório; em variável é sempre nulo
+      if (body.recurrence === "fixed" && !body.budgetId) {
+        return status(400, { message: "Selecione o orçamento vinculado ao gasto fixo" })
+      }
 
       const [transaction] = await db
         .update(transactions)
         .set({
           name: body.name,
-          amount: newAmount,
           categoryId: body.categoryId,
           paymentMethod: body.paymentMethod,
-          accountId: body.accountId,
-          isEssential: body.isEssential,
+          // Entrada (valor negativo) nunca é essencial — resolvido no banco
+          // porque o valor não vem no corpo
+          isEssential: sql`(${transactions.amount} >= 0 and ${body.isEssential})`,
           recurrence: body.recurrence,
-          budgetId: resolved.budgetId,
-          date: body.date,
+          budgetId: body.recurrence === "fixed" ? body.budgetId! : null,
           notes: body.notes ?? null,
         })
-        .where(eq(transactions.id, params.id))
+        .where(and(eq(transactions.id, params.id), REAL_TRANSACTIONS))
         .returning()
+      if (!transaction) return status(404, { message: "Transação não encontrada" })
 
       scheduleRecalculate()
-
       return transaction
     },
-    { body: transactionBody }
-  )
-  .delete("/:id", async ({ params, status }) => {
-    const existing = await db.query.transactions.findFirst({
-      where: eq(transactions.id, params.id),
-    })
-    if (!existing) return status(404, { message: "Transação não encontrada" })
-
-    await adjustBalance(db, existing.accountId, existing.amount, "add")
-    await db.delete(transactions).where(eq(transactions.id, params.id))
-    scheduleRecalculate()
-    return { success: true }
-  })
-  .post(
-    "/bulk",
-    async ({ body, status }) => {
-      const resolvedItems: { item: TransactionBody; budgetId: string | null }[] = []
-      for (const item of body.transactions) {
-        if (item.amount === 0) {
-          return status(400, { message: `Informe um valor diferente de zero em "${item.name}"` })
-        }
-        const resolved = resolveBudgetId(item)
-        if ("message" in resolved) return status(400, { message: resolved.message })
-        resolvedItems.push({ item, budgetId: resolved.budgetId })
-      }
-
-      // Extrato importado depois do Open Finance: pula o que o sync já trouxe
-      const source = body.source ?? "csv"
-      const covered =
-        source === "csv" ? await coveredByOpenFinance(body.transactions) : new Set<number>()
-      const toCreate = resolvedItems.filter((_, index) => !covered.has(index))
-
-      // Transação única: se uma linha falhar no meio, nenhuma é aplicada
-      const created = await db.transaction(async (tx) => {
-        for (const { item, budgetId } of toCreate) {
-          const amount = String(item.amount)
-          await tx.insert(transactions).values({
-            name: item.name,
-            amount,
-            categoryId: item.categoryId,
-            paymentMethod: item.paymentMethod,
-            accountId: item.accountId,
-            isEssential: item.isEssential,
-            recurrence: item.recurrence,
-            budgetId,
-            date: item.date,
-            notes: item.notes ?? null,
-            // O bulk é o caminho da importação de extrato (ImportModal)
-            source,
-          })
-          await adjustBalance(tx, item.accountId, amount, "subtract")
-        }
-        return toCreate.length
-      })
-
-      // Debounce de 5s: uma importação inteira dispara um recálculo só
-      if (created > 0) scheduleRecalculate()
-
-      return { created, skipped: covered.size }
-    },
-    {
-      body: t.Object({
-        transactions: t.Array(transactionBody, { minItems: 1 }),
-        source: t.Optional(t.Union([t.Literal("csv"), t.Literal("manual")])),
-      }),
-    }
+    { body: classificationBody }
   )

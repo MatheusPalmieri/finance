@@ -17,7 +17,7 @@ implementação e critérios de aceite.
 | [`01-smart-categorization.md`](./01-smart-categorization.md) | Classificação em 3 camadas que aprende com as correções + detecção de assinaturas | Opcional (camada 3) | ✅ implementada |
 | [`02-monthly-checkup.md`](./02-monthly-checkup.md) | Relatório mensal: 50/30/20, anomalias, insights e narrativa | Opcional (só o texto) | ✅ implementada |
 | [`03-cashflow-simulator.md`](./03-cashflow-simulator.md) | Projeção Monte Carlo do saldo e veredito "posso comprar?" | Opcional (só o parser de frase) | ✅ implementada |
-| [`04-open-finance.md`](./04-open-finance.md) | Open Finance (Pluggy) como fonte primária: sync de transações, saldo e investimentos ao vivo | Não | ✅ implementada |
+| [`04-open-finance.md`](./04-open-finance.md) | Open Finance (Pluggy) como fonte única: sync de transações, retrato persistido de saldo e investimentos (revisada em 2026-09-23) | Não | ✅ implementada |
 
 **As quatro specs estão implementadas.** Docs: `.claude/docs/api/llm.md`,
 `.claude/docs/domain/classification.md`, `.claude/docs/domain/monthly-report.md`
@@ -52,7 +52,7 @@ fechar o mês no azul?".
   determinístico; o modelo classifica, narra ou preenche formulário.
 - **Nada quebra sem IA.** Toda rota que usa LLM responde `aiAvailable: boolean`
   e degrada conforme descrito em cada spec.
-- **Dados de teste vão na conta sandbox `Claude`** (regra do `CLAUDE.md`).
+- **Dados de teste só no banco `finance_test`** (regra do `CLAUDE.md`); o Open Finance é a única fonte de dados reais.
 - **Toda fase é commitável** e deixa o app funcionando.
 - **Doc junto com o código** — cada spec lista os docs de `.claude/docs/` a
   criar. Ver a regra de documentação no `CLAUDE.md`.

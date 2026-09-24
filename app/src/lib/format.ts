@@ -61,3 +61,20 @@ export function formatMonthLabel(ym: string) {
   ]
   return `${months[Number(month) - 1]} ${year}`
 }
+
+// Idade de um retrato do Open Finance: "agora", "há 3 min", "há 2 h" ou a
+// data e hora. O `relativeTime` acima conta em dias — grosso demais para um
+// dado que vence em minutos
+export function snapshotAge(iso: string) {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return "agora"
+  if (minutes < 60) return `há ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `há ${hours} h`
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}

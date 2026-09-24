@@ -1,8 +1,8 @@
 import type {
   Account,
-  AccountType,
   AffordResponse,
   AppSettings,
+  BalancesSnapshot,
   Budget,
   CashflowProjection,
   BudgetAmountType,
@@ -10,8 +10,7 @@ import type {
   Category,
   ClassificationRule,
   DashboardSummary,
-  LiveBalances,
-  LiveInvestments,
+  InvestmentsSnapshot,
   LlmHealth,
   MonthlyReport,
   MonthlyReportSummary,
@@ -60,16 +59,15 @@ export interface ListTransactionsParams {
   to?: string
 }
 
-export interface TransactionInput {
+// Reclassificação: só os campos do usuário. Valor, data e conta vêm do banco
+// via Open Finance e não são editáveis
+export interface TransactionClassificationInput {
   name: string
-  amount: number
   categoryId: string
   paymentMethod: PaymentMethod
-  accountId: string
   isEssential: boolean
   recurrence: Recurrence
   budgetId?: string | null
-  date: string
   notes?: string | null
 }
 
@@ -154,39 +152,18 @@ export interface AffordInput {
 }
 
 export const api = {
+  // Contas nascem do sync do Open Finance: só a aparência é editável
   accounts: {
     list: () => request<Account[]>("/accounts"),
     get: (id: string) => request<Account>(`/accounts/${id}`),
-    default: () => request<Account | null>("/accounts/default"),
-    create: (body: {
-      name: string
-      type: AccountType
-      balance?: number
-      color?: string
-      icon?: string
-      isDefault?: boolean
-    }) =>
-      request<Account>("/accounts", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
     update: (
       id: string,
-      body: {
-        name: string
-        type: AccountType
-        balance?: number
-        color?: string
-        icon?: string
-        isDefault?: boolean
-      }
+      body: { name?: string; color?: string; icon?: string }
     ) =>
       request<Account>(`/accounts/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(body),
       }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/accounts/${id}`, { method: "DELETE" }),
   },
 
   categories: {
@@ -221,24 +198,11 @@ export const api = {
       return request<TransactionsResponse>(`/transactions?${q}`)
     },
     get: (id: string) => request<Transaction>(`/transactions/${id}`),
-    create: (body: TransactionInput) =>
-      request<Transaction>("/transactions", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    update: (id: string, body: TransactionInput) =>
+    // Não existe criar, importar nem excluir: tudo vem do Open Finance
+    reclassify: (id: string, body: TransactionClassificationInput) =>
       request<Transaction>(`/transactions/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(body),
-      }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/transactions/${id}`, {
-        method: "DELETE",
-      }),
-    bulkCreate: (items: TransactionInput[]) =>
-      request<{ created: number; skipped: number }>("/transactions/bulk", {
-        method: "POST",
-        body: JSON.stringify({ transactions: items }),
       }),
   },
 
@@ -381,7 +345,8 @@ export const api = {
       }),
   },
 
-  // Open Finance (spec 04) — saldo e investimentos sempre ao vivo
+  // Open Finance (spec 04) — a única fonte de dados. Saldos e investimentos
+  // vêm do último retrato salvo no banco; `fresh` força ir à Pluggy
   openFinance: {
     status: (autoSync = true) =>
       request<OpenFinanceStatus>(
@@ -400,11 +365,11 @@ export const api = {
     runs: (limit = 20) =>
       request<SyncRun[]>(`/open-finance/runs?limit=${limit}`),
     balances: (fresh = false) =>
-      request<LiveBalances>(
+      request<BalancesSnapshot>(
         `/open-finance/balances${fresh ? "?fresh=true" : ""}`
       ),
     investments: (fresh = false) =>
-      request<LiveInvestments>(
+      request<InvestmentsSnapshot>(
         `/open-finance/investments${fresh ? "?fresh=true" : ""}`
       ),
     relink: (id: string, accountId: string) =>

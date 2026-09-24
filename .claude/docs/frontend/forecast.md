@@ -7,7 +7,7 @@ updated: 2026-09-23
 ## Visão geral
 
 Rota `/forecast`, item "Projeção" na sidebar (ícone `TrendingUp`). Considera todas
-as transações reais (contas sandbox ficam fora).
+as transações do Open Finance (movimentos internos ficam fora).
 
 Arquivo: `app/src/pages/Forecast/index.tsx` (lazy em `App.tsx`).
 Domínio: `.claude/docs/domain/forecast.md`.

@@ -26,13 +26,14 @@ import {
 import { Link } from "react-router-dom"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
+import { SnapshotStatus } from "@/components/open-finance/SnapshotStatus"
 import { ChartCard, ChartTooltip, StatCard } from "@/components/charts"
 import {
   useCashflow,
   useCurrentReport,
   useDashboardSummary,
-  useLiveBalances,
-  useLiveInvestments,
+  useBalances,
+  useInvestments,
 } from "@/lib/queries"
 import {
   formatCurrency,
@@ -703,15 +704,18 @@ function ForecastCard() {
   )
 }
 
-// ── Card de patrimônio ao vivo ───────────────────────────────────────────────
-// Conta + investimentos − fatura em aberto, direto do Open Finance (nunca
-// persistido). Sem Open Finance configurado, o card não aparece.
+// ── Card de patrimônio ───────────────────────────────────────────────────────
+// Conta + investimentos − fatura em aberto, do retrato do Open Finance salvo no
+// banco. Sem retrato e sem Open Finance configurado, o card não aparece.
 function BalanceCard() {
-  const { data: balances, isLoading } = useLiveBalances()
-  const { data: investments } = useLiveInvestments()
+  const { data: balances, isLoading } = useBalances()
+  const { data: investments } = useInvestments()
 
   if (isLoading) return <Skeleton className="h-24 rounded-xl" />
-  if (!balances || balances.error === "Open Finance não configurado")
+  if (
+    !balances ||
+    (!balances.available && balances.error === "Open Finance não configurado")
+  )
     return null
 
   const invested = investments?.available ? investments.total : 0
@@ -728,17 +732,7 @@ function BalanceCard() {
           <Wallet size={15} className="text-muted-foreground" />
           Patrimônio agora
         </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span
-            className="size-1.5 rounded-full"
-            style={{
-              backgroundColor: balances.available
-                ? FINANCE.income
-                : FINANCE.neutral,
-            }}
-          />
-          {balances.available ? "ao vivo" : "indisponível"}
-        </span>
+        <SnapshotStatus meta={balances} />
       </div>
 
       {balances.available ? (

@@ -1,71 +1,73 @@
 ---
-title: API — Transações, Contas (padrão) e Dashboard
+title: API — Transações, Contas e Dashboard
 area: api
 updated: 2026-09-23
 ---
 
-## Transações — `api/src/routes/transactions.ts` (prefixo `/transactions`)
+## Visão geral
 
-`amount` positivo = despesa, negativo = entrada (não há campo `type`). Ver regras de domínio e a UI do toggle em `.claude/docs/domain/transaction.md`.
+Transações e contas são **somente leitura na origem**: tudo nasce do sync do
+Open Finance (ver `api/open-finance.md`). A API expõe listagem, a
+reclassificação das transações e a aparência das contas. Não existe criar,
+importar nem excluir transação, nem criar/excluir conta ou digitar saldo.
+
+## Transações — `api/src/routes/transactions.ts` (prefixo `/transactions`)
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/transactions` | Lista paginada com filtros, traz `account`, `category`, `budget` (`paymentMethod` não é mais relation — vem embutido como enum) |
+| GET | `/transactions` | Lista paginada com filtros; traz `account`, `category`, `budget` |
 | GET | `/transactions/:id` | Busca por ID (com relations) |
-| POST | `/transactions` | Cria e subtrai o valor do saldo da conta |
-| POST | `/transactions/bulk` | Cria várias de uma vez (import CSV) — ver abaixo |
-| PUT | `/transactions/:id` | Atualiza; reverte saldo antigo e aplica o novo |
-| DELETE | `/transactions/:id` | Remove e devolve o valor ao saldo da conta |
+| PATCH | `/transactions/:id` | Reclassifica — só os campos do usuário |
 
-**Query params de GET `/transactions`:** `page`, `limit` (máx 100), `search` (ilike em `name`), `categoryId`, `paymentMethod` (um dos 6 valores do enum — validado por `isPaymentMethod()`, valor inválido é ignorado silenciosamente), `accountId`, `recurrence` (`fixed`\|`variable`), `isEssential` (`true`\|`false`), `from`, `to` (datas). Resposta: `{ data, total, page, limit }`.
+`POST /transactions`, `POST /transactions/bulk`, `PUT` e `DELETE` foram
+removidos (respondem 404).
 
-**Body (POST / PUT):**
+**Query params de GET:** `page`, `limit` (máx 100), `search` (ilike em `name`),
+`categoryId`, `paymentMethod` (valor fora do enum é ignorado), `accountId`,
+`recurrence` (`fixed`\|`variable`), `isEssential` (`true`\|`false`), `from`,
+`to`. Resposta: `{ data, total, page, limit }`. Sempre com `REAL_TRANSACTIONS`
+(`source = 'open_finance'`).
+
+**Body do PATCH:**
 ```json
 {
   "name": "Supermercado",
-  "amount": 150.50,
   "categoryId": "uuid",
   "paymentMethod": "credit_card",
-  "accountId": "uuid",
   "isEssential": true,
   "recurrence": "variable",
   "budgetId": null,
-  "date": "2026-06-23",
   "notes": null
 }
 ```
-Validações: `name` minLength 1; `amount` qualquer número diferente de zero (positivo = despesa, negativo = entrada); `categoryId`/`accountId` strings obrigatórias; `paymentMethod` ∈ {`cash`,`pix`,`credit_card`,`debit_card`,`boleto`,`transfer`} (ver `.claude/docs/domain/transaction.md`); `isEssential` boolean; `recurrence` ∈ {`fixed`,`variable`}; `date` string; `notes` opcional/nullable.
-
-**`budgetId`** (FK → budgets, nullable): obrigatório quando `recurrence = fixed` (400 se ausente); forçado a `null` quando `recurrence = variable`. As respostas trazem a relation `budget`. Ver `.claude/docs/api/budgets.md`.
-
-**Escopo:** não há mais carteira (removida em 2026-09-23, ver `.claude/docs/decisions/remocao-carteiras.md`). A listagem mostra todas as transações, inclusive as de contas sandbox; use `accountId` para filtrar.
-
-`GET /dashboard/summary` considera só transações reais: as de contas sandbox (`accounts.is_sandbox`) ficam fora de todas as agregações (`REAL_TRANSACTIONS` em `api/src/lib/scope.ts`).
-
-### `POST /transactions/bulk` — importação em lote
-
-Body: `{ "transactions": [<mesmo shape do POST /transactions>, ...] }` (mínimo 1 item). Usado pela importação de CSV de extrato bancário (ver `.claude/docs/frontend/transactions-import.md`).
-
-- Todas as linhas são validadas (amount ≠ 0, `resolveBudgetId`) **antes** de qualquer insert.
-- Os inserts + ajustes de saldo rodam dentro de uma única `db.transaction()` — se uma linha falhar no meio, nada é aplicado (rollback completo).
-- Resposta: `{ "created": number }`.
-- `adjustBalance()` foi generalizada para aceitar `db` ou o `tx` de uma transação (`Executor = Pick<typeof db, "update">`), permitindo reuso idêntico entre o create simples e o bulk.
+- `amount`, `date`, `accountId` no corpo são descartados pela validação — são
+  do banco.
+- `recurrence = fixed` sem `budgetId` → 400; `variable` força `budgetId = null`.
+- Entrada (amount < 0) nunca vira essencial, mesmo com `isEssential: true`.
+- Dispara `scheduleRecalculate()` (recorrências), pois renomear muda a chave do
+  estabelecimento.
+- 404 se a transação não existe.
 
 ## Contas — `api/src/routes/accounts.ts` (prefixo `/accounts`)
 
-Além do CRUD, ganhou suporte a conta padrão:
+Contas nascem no sync (`ensureAccountLink` em `modules/open-finance/sync.ts`).
 
 | Método | Path | Descrição |
 |--------|------|-----------|
-| GET | `/accounts/default` | Retorna a conta com `isDefault = true` (ou `null`) |
+| GET | `/accounts` | Lista, com `openFinance: boolean` (tem vínculo em `pluggy_accounts`) |
+| GET | `/accounts/:id` | Busca por ID |
+| PATCH | `/accounts/:id` | Só aparência: `name?`, `color?` (`#rrggbb`), `icon?` |
 
-- `POST` e `PUT` aceitam `isDefault?: boolean`. Ao definir `true`, as demais contas são desmarcadas (apenas uma padrão por vez).
-- `PUT` também aceita `balance?: number` — permite corrigir manualmente o saldo atual da conta (ex: reconciliação com o extrato do banco). No frontend, o campo aparece como "Saldo atual (R$)" no modal de edição (`app/src/pages/Accounts/index.tsx`).
-- A rota estática `/accounts/default` é declarada **antes** de `/accounts/:id` para não colidir.
+Não há `balance`, `isDefault` nem `isSandbox`. `POST`, `PUT`, `DELETE` e
+`GET /accounts/default` foram removidos. O saldo é
+`GET /open-finance/balances`.
 
 ## Dashboard — `api/src/routes/dashboard.ts` (`GET /dashboard/summary`)
 
-Painel só de despesas: todas as agregações filtram `amount > 0` (constante `isExpense`), então entradas (`amount < 0`) não entram nesses totais. `recentTransactions` é a exceção — não filtra, mostra despesas e entradas juntas. Query params `month`, `year` (default: mês atual). Resposta:
+Painel só de despesas: as agregações filtram `amount > 0` e usam
+`COUNTED_TRANSACTIONS` (Open Finance + `kind = regular`). `recentTransactions`
+usa `REAL_TRANSACTIONS` e mostra despesas e entradas. Query params `month`,
+`year` (default: mês atual). Resposta:
 
 ```jsonc
 {
@@ -76,12 +78,10 @@ Painel só de despesas: todas as agregações filtram `amount > 0` (constante `i
   "variableExpenses": "454.00",
   "transactionCount": 9,
   "expensesByCategory": [{ "categoryId", "categoryName", "color", "amount" }],
-  "expensesByPaymentMethod": [{ "id", "name", "color", "amount" }], // sem JOIN — name/color vêm de api/src/lib/payment-methods.ts
+  "expensesByPaymentMethod": [{ "id", "name", "color", "amount" }],
   "expensesByAccount": [{ "id", "name", "color", "amount" }],
   "monthlyTrend": [{ "month": "2026-06", "total": 1699.51 }],
   "budgetProgress": [{ "id", "categoryId", "categoryName", "color", "budgeted", "spent", "percentage" }],
   "recentTransactions": [/* últimas 10 com relations */]
 }
 ```
-
-Cortes essencial/recorrência usam `SUM(...) FILTER (WHERE ...)` do PostgreSQL. `budgetProgress` soma as transações da categoria no mês (todas são despesas — sem filtro por tipo).

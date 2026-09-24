@@ -8,15 +8,16 @@
 // - A Pluggy troca o id quando uma transação muda (pendente → lançada, valor
 //   ou data): a linha que sumiu é "religada" ao id novo em vez de apagada e
 //   recriada, preservando a edição do usuário.
-// - Linhas de CSV/manuais que já existiam são ADOTADAS (mesma conta, mesmo
-//   valor, data local até 1 dia de diferença) em vez de duplicadas.
 // - O que sumiu da janela buscada é removido — exceto se o provedor devolver
 //   a conta vazia, que é mais provável ser falha do que extrato vazio.
 // - Um sync por vez: advisory lock na transação do banco + dedupe em memória.
-// - Saldo NÃO é tocado: é sempre buscado ao vivo (balances.ts).
+// - O sync é a porta de entrada de TODO dado financeiro: não existe lançamento
+//   manual nem importação de extrato. Terminado com sucesso, ele grava também
+//   o retrato de saldos (com as contas que já buscou, sem chamada extra) e
+//   atualiza o de investimentos em segundo plano se estiver vencido.
 // - `dryRun` roda exatamente o mesmo caminho e desfaz tudo no fim.
 
-import { and, eq, gte, inArray, isNull, ne, or, sql } from "drizzle-orm"
+import { and, eq, gte, inArray, or, sql } from "drizzle-orm"
 import { db } from "../../db"
 import {
   accounts,
@@ -31,6 +32,8 @@ import {
 } from "../../db/schema"
 import { scheduleRecalculate } from "../classification"
 import { suggest } from "../classification/service"
+import { saveBalancesFromSync } from "./balances"
+import { getInvestments } from "./investments"
 import { log } from "./log"
 import { normalizeTransaction, type NormalizedTransaction } from "./normalize"
 import { getProvider, type OpenFinanceProvider } from "./provider"
@@ -44,8 +47,6 @@ export const INCREMENTAL_OVERLAP_DAYS = 7
 export const FULL_SYNC_EVERY_DAYS = 7
 /** Distância máxima para religar uma linha cujo id mudou no provedor. */
 const REBIND_MAX_DAYS = 5
-/** Distância máxima para adotar uma linha de CSV/manual. */
-const ADOPT_MAX_DAYS = 1
 /** Espera pela nova coleta do banco depois do `refreshItem` (mutável nos testes). */
 export const refreshTiming = { timeoutMs: 120_000, pollMs: 3_000 }
 const FALLBACK_CATEGORY = "Outros"
@@ -73,7 +74,6 @@ export interface AccountReport {
   fetched: number
   created: number
   updated: number
-  adopted: number
   removed: number
   unchanged: number
 }
@@ -85,7 +85,6 @@ export interface SyncReport {
   fetched: number
   created: number
   updated: number
-  adopted: number
   removed: number
   unchanged: number
   accounts: AccountReport[]
@@ -194,8 +193,7 @@ async function fetchItem(
 
 /**
  * Conta interna de cada conta do provedor. Primeira vez: conta corrente →
- * conta com o nome do banco ("Nubank", que já guarda o histórico do CSV);
- * cartão → "<banco> Cartão". Cria se não existir. O vínculo fica em
+ * conta com o nome do banco ("Nubank"); cartão → "<banco> Cartão". Cria se não existir. O vínculo fica em
  * `pluggy_accounts` e pode ser trocado depois pela API.
  */
 async function ensureAccountLink(
@@ -220,13 +218,7 @@ async function ensureAccountLink(
   let [internal] = await tx
     .select()
     .from(accounts)
-    .where(
-      and(
-        eq(accounts.name, name),
-        inArray(accounts.type, [...types]),
-        eq(accounts.isSandbox, false)
-      )
-    )
+    .where(and(eq(accounts.name, name), inArray(accounts.type, [...types])))
     .limit(1)
   if (!internal) {
     ;[internal] = await tx
@@ -273,7 +265,7 @@ async function applyAccount(
   fetched: ProviderTransaction[]
 ): Promise<Omit<AccountReport, "providerAccountId" | "accountId" | "accountName" | "type" | "from">> {
   const { tx } = ctx
-  const counts = { fetched: fetched.length, created: 0, updated: 0, adopted: 0, removed: 0, unchanged: 0 }
+  const counts = { fetched: fetched.length, created: 0, updated: 0, removed: 0, unchanged: 0 }
   const normalized = fetched.map((raw) => ({
     raw,
     n: normalizeTransaction(raw, ctx.accountType),
@@ -308,19 +300,6 @@ async function applyAccount(
   const vanished = known.filter(
     (row) => row.date >= ctx.from && row.externalId && !fetchedIds.has(row.externalId)
   )
-
-  // Linhas de CSV/manuais ainda sem vínculo — candidatas à adoção
-  const adoptable = await tx
-    .select({ id: transactions.id, amount: transactions.amount, date: transactions.date })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.accountId, ctx.accountId),
-        isNull(transactions.externalId),
-        ne(transactions.source, "open_finance"),
-        gte(transactions.date, shiftDays(ctx.from, -ADOPT_MAX_DAYS))
-      )
-    )
 
   const providerFields = (n: NormalizedTransaction) => ({
     amount: n.amount.toFixed(2),
@@ -378,19 +357,6 @@ async function applyAccount(
         .where(eq(transactions.id, rebind.id))
       counts.updated++
       rawLinks.push({ providerTransactionId: n.externalId, transactionId: rebind.id, payload: raw })
-      continue
-    }
-
-    // Já importada por CSV ou lançada à mão: adota, mantendo a classificação
-    const adopt = pickClosest(adoptable, n, ADOPT_MAX_DAYS)
-    if (adopt) {
-      adoptable.splice(adoptable.indexOf(adopt), 1)
-      await tx
-        .update(transactions)
-        .set({ externalId: n.externalId, source: "open_finance", ...providerFields(n) })
-        .where(eq(transactions.id, adopt.id))
-      counts.adopted++
-      rawLinks.push({ providerTransactionId: n.externalId, transactionId: adopt.id, payload: raw })
       continue
     }
 
@@ -511,7 +477,6 @@ async function execute(opts: SyncOptions, runId: string | null): Promise<SyncRep
     fetched: 0,
     created: 0,
     updated: 0,
-    adopted: 0,
     removed: 0,
     unchanged: 0,
     accounts: [],
@@ -577,7 +542,6 @@ async function execute(opts: SyncOptions, runId: string | null): Promise<SyncRep
         report.fetched += counts.fetched
         report.created += counts.created
         report.updated += counts.updated
-        report.adopted += counts.adopted
         report.removed += counts.removed
         report.unchanged += counts.unchanged
       }
@@ -598,6 +562,14 @@ async function execute(opts: SyncOptions, runId: string | null): Promise<SyncRep
   } catch (err) {
     if (err instanceof DryRunRollback) return err.report
     throw err
+  }
+
+  // As contas buscadas já trazem saldo e limite: grava o retrato sem outra ida
+  // à Pluggy. Falhar aqui não desfaz o sync — o retrato se refaz na próxima leitura
+  try {
+    await saveBalancesFromSync(fetchedItems.flatMap((f) => f.accounts.map((a) => a.account)))
+  } catch (err) {
+    log.error("retrato de saldos não gravado", { message: err instanceof Error ? err.message : String(err) })
   }
   return report
 }
@@ -632,19 +604,19 @@ export async function runSync(opts: SyncOptions): Promise<SyncReport> {
           fetched: report.fetched,
           created: report.created,
           updated: report.updated,
-          adopted: report.adopted,
           removed: report.removed,
           finishedAt: new Date(),
         })
         .where(eq(syncRuns.id, runRow.id))
       scheduleRecalculate()
+      // Investimentos só vão à Pluggy se o retrato estiver vencido (1h)
+      void getInvestments().catch(() => {})
       log.info("sync concluído", {
         trigger: opts.trigger,
         full: report.full,
         fetched: report.fetched,
         created: report.created,
         updated: report.updated,
-        adopted: report.adopted,
         removed: report.removed,
       })
       return report

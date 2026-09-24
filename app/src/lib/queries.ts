@@ -19,16 +19,14 @@ import {
   type ListTransactionsParams,
   type RuleInput,
   type SuggestInput,
-  type TransactionInput,
+  type TransactionClassificationInput,
 } from "./api"
-import type { AccountType } from "@/types/finance"
 
 // ── Query keys ────────────────────────────────────────────────────────────────
 export const keys = {
   accounts: {
     all: ["accounts"] as const,
     list: () => [...keys.accounts.all, "list"] as const,
-    default: () => [...keys.accounts.all, "default"] as const,
   },
   categories: {
     all: ["categories"] as const,
@@ -94,27 +92,6 @@ export function useAccounts() {
   })
 }
 
-export function useDefaultAccount() {
-  return useQuery({
-    queryKey: keys.accounts.default(),
-    queryFn: api.accounts.default,
-  })
-}
-
-export function useCreateAccount() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: api.accounts.create,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.accounts.all })
-      qc.invalidateQueries({ queryKey: keys.dashboard.all })
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Conta criada")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar conta"),
-  })
-}
-
 export function useUpdateAccount() {
   const qc = useQueryClient()
   return useMutation({
@@ -123,32 +100,16 @@ export function useUpdateAccount() {
       ...body
     }: {
       id: string
-      name: string
-      type: AccountType
-      balance?: number
+      name?: string
       color?: string
       icon?: string
-      isDefault?: boolean
     }) => api.accounts.update(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.accounts.all })
+      qc.invalidateQueries({ queryKey: keys.openFinance.all })
       toast.success("Conta atualizada")
     },
     onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar conta"),
-  })
-}
-
-export function useDeleteAccount() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.accounts.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.accounts.all })
-      qc.invalidateQueries({ queryKey: keys.dashboard.all })
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Conta excluída")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao excluir conta"),
   })
 }
 
@@ -218,77 +179,24 @@ export function useTransactions(params: ListTransactionsParams) {
   })
 }
 
-export function useCreateTransaction() {
+/** Ajusta a classificação de uma transação do Open Finance. */
+export function useReclassifyTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: api.transactions.create,
+    mutationFn: ({
+      id,
+      ...body
+    }: { id: string } & TransactionClassificationInput) =>
+      api.transactions.reclassify(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
-      qc.invalidateQueries({ queryKey: keys.accounts.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Transação criada")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar transação"),
-  })
-}
-
-export function useUpdateTransaction() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, ...body }: { id: string } & TransactionInput) =>
-      api.transactions.update(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.transactions.all })
-      qc.invalidateQueries({ queryKey: keys.accounts.all })
-      qc.invalidateQueries({ queryKey: keys.dashboard.all })
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Transação atualizada")
+      qc.invalidateQueries({ queryKey: keys.reports.all })
+      toast.success("Classificação atualizada")
     },
     onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao atualizar transação"),
-  })
-}
-
-export function useDeleteTransaction() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.transactions.delete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.transactions.all })
-      qc.invalidateQueries({ queryKey: keys.accounts.all })
-      qc.invalidateQueries({ queryKey: keys.dashboard.all })
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Transação excluída")
-    },
-    onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao excluir transação"),
-  })
-}
-
-export function useBulkCreateTransactions() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (items: TransactionInput[]) =>
-      api.transactions.bulkCreate(items),
-    onSuccess: ({ created, skipped }) => {
-      qc.invalidateQueries({ queryKey: keys.transactions.all })
-      qc.invalidateQueries({ queryKey: keys.accounts.all })
-      qc.invalidateQueries({ queryKey: keys.dashboard.all })
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      const imported =
-        created === 1
-          ? "1 transação importada"
-          : `${created} transações importadas`
-      // Linhas que o Open Finance já tinha trazido não são duplicadas
-      toast.success(
-        skipped > 0
-          ? `${imported} · ${skipped} já vieram pelo Open Finance`
-          : imported
-      )
-    },
-    onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao importar transações"),
+      toast.error(e.message ?? "Erro ao atualizar a classificação"),
   })
 }
 
@@ -634,10 +542,7 @@ export function useOpenFinanceSyncWatcher() {
       const run = data.lastRun
       if (run?.status === "error") {
         toast.error(`Falha ao sincronizar o Open Finance: ${run.errorMessage}`)
-      } else if (
-        run &&
-        run.created + run.updated + run.adopted + run.removed > 0
-      ) {
+      } else if (run && run.created + run.updated + run.removed > 0) {
         toast.success(
           `Open Finance sincronizado: ${run.created} novas, ${run.updated} atualizadas`
         )
@@ -672,8 +577,12 @@ export function useSyncRuns() {
   })
 }
 
-/** Saldo ao vivo (nunca persistido). O backend já tem cache de 60s. */
-export function useLiveBalances() {
+/**
+ * Saldos do Open Finance. O backend serve o retrato salvo no banco (até 15
+ * min) e só vai à Pluggy quando ele vence; com ela fora, devolve o último
+ * retrato com `stale: true`.
+ */
+export function useBalances() {
   return useQuery({
     queryKey: keys.openFinance.balances(),
     queryFn: () => api.openFinance.balances(),
@@ -681,8 +590,8 @@ export function useLiveBalances() {
   })
 }
 
-/** Investimentos ao vivo (nunca persistidos). O backend tem cache de 5 min. */
-export function useLiveInvestments() {
+/** Investimentos do Open Finance — mesmo fluxo dos saldos, retrato de até 1h. */
+export function useInvestments() {
   return useQuery({
     queryKey: keys.openFinance.investments(),
     queryFn: () => api.openFinance.investments(),

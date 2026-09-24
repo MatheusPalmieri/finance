@@ -18,10 +18,9 @@ Código: `api/src/modules/forecast/`.
 
 ## Saldo inicial
 
-`sum(accounts.balance)` das contas com `type != "CREDIT_CARD"`. Cartão de
-crédito tem saldo com semântica de fatura, não de dinheiro disponível — incluí-lo
-distorceria a projeção. A resposta traz `openingBalance` **e a lista de contas
-consideradas**, para a UI poder explicar de onde saiu o número.
+Sempre do Open Finance — não existe saldo digitado (ver "Saldo de abertura"
+abaixo). A resposta traz `openingBalance` **e a lista de contas consideradas**,
+para a UI poder explicar de onde saiu o número.
 
 ## Componentes do fluxo mensal
 
@@ -169,20 +168,26 @@ de formulário que o usuário confirma.
 | Código | `api/src/modules/forecast/` |
 
 
-## Saldo de abertura ao vivo (spec 04, F5)
+## Saldo de abertura (spec 04, F5)
 
 `loadOpeningBalance()` em `forecast/service.ts`:
 
 | Conta | Entra como |
 |---|---|
-| Ligada ao Open Finance, conta corrente | saldo **ao vivo** da Pluggy |
+| Ligada ao Open Finance, conta corrente | saldo do retrato `open_finance_snapshots` (ver `domain/open-finance.md`) |
 | Ligada ao Open Finance, cartão | **negativo**: "<cartão> (fatura em aberto)" = usado do limite − parcelas futuras já em `transactions`. As parcelas entram no mês em que caem (`knownTransactions`); descontá-las aqui evita contá-las duas vezes |
-| Sem vínculo (não cartão, não sandbox) | `accounts.balance` cadastrado |
-| Renda fixa com **liquidez diária** (caixinhas/RDB) | linha "Investimentos com liquidez diária" (`id: investments-liquid`), valor ao vivo |
+| Sem vínculo com a Pluggy | **não entra** — não há saldo que não venha do banco |
+| Renda fixa com **liquidez diária** (caixinhas/RDB) | linha "Investimentos com liquidez diária" (`id: investments-liquid`), do retrato de investimentos |
 
-`CashflowProjection.openingBalanceSource`: `"live"` ou `"stored"` (sem Open
-Finance, ou com a Pluggy fora do ar: aí as contas ligadas também caem no
-cadastrado). Os movimentos internos (fatura, RDB, transferência própria) ficam
+`CashflowProjection.openingBalanceSource`:
+
+| Valor | Quando |
+|---|---|
+| `open_finance` | Retrato de saldos dentro do prazo (do banco ou recém-buscado) |
+| `stale` | Pluggy fora do ar; usa o último retrato conhecido |
+| `unavailable` | Nunca houve retrato — saldo inicial 0, a UI avisa para sincronizar |
+
+`openingBalanceFetchedAt` diz quando a Pluggy devolveu o saldo usado. Os movimentos internos (fatura, RDB, transferência própria) ficam
 fora do histórico que alimenta a simulação (`COUNTED_TRANSACTIONS`).
 
 **Por que a renda fixa líquida conta como caixa:** aplicação e resgate são

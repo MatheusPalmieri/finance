@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { __setLlm } from "../llm/provider"
-import { MockLlmProvider } from "../llm/providers/mock"
+import { MockLlmProvider } from "../../test/mocks/llm"
 import { buildParsePrompt, parseScenario, sanitizeEvents } from "./parse"
 
 const CATEGORIES = [

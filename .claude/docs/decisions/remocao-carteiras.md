@@ -6,6 +6,10 @@ updated: 2026-09-23
 
 ## Visão geral
 
+> **Substituído em parte (2026-09-23):** a conta sandbox também saiu. Sem
+> lançamento manual, não há como criar dado de teste pela API, e dado de teste
+> não entra mais no banco de dev. Ver `decisions/open-finance-fonte-unica.md`.
+
 **Status:** Aceito, implementado. Falta rodar a migração no banco de dev
 (`api/scripts/migrate-remove-wallets.sql`).
 

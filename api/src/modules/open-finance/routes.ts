@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia"
-import { getLiveBalances } from "./balances"
-import { getLiveInvestments } from "./investments"
+import { getBalances } from "./balances"
+import { getInvestments } from "./investments"
 import { isConfigured } from "./provider"
 import * as service from "./service"
 import { runSync, SyncBusyError } from "./sync"
@@ -46,12 +46,13 @@ export const openFinanceRoute = new Elysia({ prefix: "/open-finance" })
       ),
     }
   )
-  // Saldo ao vivo (nunca persistido), com cache de 60s; `fresh=true` ignora o cache
-  .get("/balances", ({ query }) => getLiveBalances({ fresh: query.fresh === "true" }), {
+  // Saldos: último retrato do banco (até 15 min); vencido ou `fresh=true`, busca
+  // na Pluggy e grava. Pluggy fora do ar → último retrato com `stale: true`
+  .get("/balances", ({ query }) => getBalances({ fresh: query.fresh === "true" }), {
     query: t.Object({ fresh: t.Optional(t.String()) }),
   })
-  // Investimentos ao vivo (nunca persistidos), com cache de 5 min
-  .get("/investments", ({ query }) => getLiveInvestments({ fresh: query.fresh === "true" }), {
+  // Investimentos: mesmo fluxo dos saldos, com prazo de 1h
+  .get("/investments", ({ query }) => getInvestments({ fresh: query.fresh === "true" }), {
     query: t.Object({ fresh: t.Optional(t.String()) }),
   })
   .get("/runs", ({ query }) => service.listRuns(query.limit ? Number(query.limit) : 20), {

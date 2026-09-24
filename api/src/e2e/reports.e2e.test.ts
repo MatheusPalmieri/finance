@@ -133,24 +133,6 @@ describe("e2e POST /reports/monthly/generate — totais", () => {
     expect(metrics.totals.avgTicket.current).toBeCloseTo(2050 / 3, 2)
   })
 
-  test("transações de conta sandbox ficam fora do relatório e do dashboard", async () => {
-    const account = await makeAccount()
-    const sandbox = await makeAccount("Claude", { isSandbox: true })
-    const category = await makeCategory("Alimentação")
-
-    await makeTransactions([
-      { name: "Real", amount: 100, date: dayIn(1, 5), categoryId: category.id, accountId: account.id },
-      { name: "Teste", amount: 999, date: dayIn(1, 5), categoryId: category.id, accountId: sandbox.id },
-    ])
-
-    const report = await generate()
-    const dashboard = await api.get<{ totalExpenses: string }>(
-      `/dashboard/summary?month=${REPORT.month}&year=${REPORT.year}`
-    )
-    expect(report.body.metrics.totals.totalExpenses.current).toBe(100)
-    expect(Number(dashboard.body.totalExpenses)).toBe(100)
-  })
-
   test("movimentos internos (fatura, aplicação, transferência própria) não contam", async () => {
     const account = await makeAccount()
     const category = await makeCategory("Outros")

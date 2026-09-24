@@ -133,21 +133,16 @@ export async function getLlm(): Promise<LlmProvider> {
       cached = new AnthropicProvider()
       break
     }
-    case "mock": {
-      const { MockLlmProvider } = await import("./providers/mock")
-      cached = new MockLlmProvider()
-      break
-    }
     default:
       throw new LlmError(
-        `LLM_PROVIDER inválido: "${name}" (use "ollama", "anthropic" ou "mock")`,
+        `LLM_PROVIDER inválido: "${name}" (use "ollama" ou "anthropic")`,
         "config"
       )
   }
   return cached
 }
 
-/** Usado só em testes para injetar um provedor fake. */
+/** Usado só em testes para injetar o dublê (`src/test/mocks/llm.ts`). */
 export function __setLlm(p: LlmProvider | null) {
   cached = p
 }

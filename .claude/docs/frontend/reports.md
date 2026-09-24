@@ -7,7 +7,7 @@ updated: 2026-09-23
 ## Visão geral
 
 Rota `/reports`, item "Check-up" na sidebar (ícone `FileText`). Um relatório por
-mês, sobre todas as transações reais (contas sandbox ficam fora).
+mês, sobre as transações do Open Finance (movimentos internos ficam fora).
 
 Arquivo: `app/src/pages/Reports/index.tsx` (lazy em `App.tsx`).
 Domínio: `.claude/docs/domain/monthly-report.md`.

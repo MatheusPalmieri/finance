@@ -1,9 +1,11 @@
-import { BaseLlmProvider, type RawCompletion } from "../provider"
-import { LlmError, type LlmTextRequest } from "../types"
+import { BaseLlmProvider, type RawCompletion } from "../../modules/llm/provider"
+import { LlmError, type LlmTextRequest } from "../../modules/llm/types"
 
 /**
- * Provedor de teste: fila de respostas programáveis. Nenhum teste das specs
- * depende de rede ou de GPU.
+ * Dublê de teste: fila de respostas programáveis. Nenhum teste das specs
+ * depende de rede ou de GPU. Mora em `src/test/` de propósito: o app em
+ * execução não tem como selecionar este provedor — só testes o injetam
+ * com `__setLlm()`.
  *
  * ```ts
  * const llm = new MockLlmProvider()

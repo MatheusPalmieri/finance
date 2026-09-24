@@ -276,7 +276,9 @@ function HorizonVerdict({ projection }: { projection: CashflowProjection }) {
       <div className="text-right">
         <p className="text-xs text-muted-foreground">
           Saldo hoje
-          {projection.openingBalanceSource === "live" && " · ao vivo"}
+          {projection.openingBalanceSource === "stale" && " · desatualizado"}
+          {projection.openingBalanceSource === "unavailable" &&
+            " · sem Open Finance"}
         </p>
         <p className="text-xl font-bold tabular-nums">
           {formatCurrency(projection.openingBalance)}
@@ -999,9 +1001,11 @@ function AssumptionsCard({ projection }: { projection: CashflowProjection }) {
               .map((a) => `${a.name} ${formatCurrency(a.balance)}`)
               .join(", ")}
             <span className="text-muted-foreground">
-              {projection.openingBalanceSource === "live"
-                ? " (ao vivo do Open Finance: fatura em aberto descontada e renda fixa com liquidez diária somada ao caixa)"
-                : " (saldos cadastrados — Open Finance indisponível ou não configurado)"}
+              {projection.openingBalanceSource === "open_finance"
+                ? " (Open Finance: fatura em aberto descontada e renda fixa com liquidez diária somada ao caixa)"
+                : projection.openingBalanceSource === "stale"
+                  ? " (último saldo recebido do Open Finance — o banco não respondeu agora)"
+                  : " (sem saldo do Open Finance ainda — sincronize para a projeção partir do saldo real)"}
             </span>
           </Assumption>
 

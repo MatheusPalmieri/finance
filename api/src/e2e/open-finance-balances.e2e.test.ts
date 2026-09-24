@@ -1,17 +1,22 @@
-// E2E da spec 04 (F5) — saldo ao vivo e seu uso na projeção.
+// E2E da spec 04 (F5) — saldos do Open Finance, o cache persistente no banco
+// (`open_finance_snapshots`) e seu uso na projeção.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { __clearBalanceCache } from "../modules/open-finance/balances"
-import { __clearInvestmentsCache } from "../modules/open-finance/investments"
+import { sql } from "drizzle-orm"
+import { db } from "../db"
 import { __setProvider } from "../modules/open-finance/provider"
-import { MockOpenFinanceProvider } from "../modules/open-finance/providers/mock"
+import { __clearSnapshotInFlight } from "../modules/open-finance/snapshots"
+import { MockOpenFinanceProvider } from "../test/mocks/open-finance"
 import { runSync } from "../modules/open-finance/sync"
 import type { CashflowProjection } from "../modules/forecast/types"
 import { api, makeAccount, makeCategory, resetDatabase } from "../test/helpers"
 
 type BalancesBody = {
   available: boolean
+  source: "live" | "cache" | "none"
+  stale: boolean
   error: string | null
+  fetchedAt: string | null
   cash: number
   cardDebt: number
   accounts: { accountName: string; type: string; balance: number; creditLimit: number | null; dueDate: string | null }[]
@@ -38,23 +43,28 @@ function setup() {
   }
 }
 
+/** Envelhece o retrato gravado, simulando o prazo vencido. */
+async function expireSnapshot(kind: "balances" | "investments") {
+  await db.execute(
+    sql`update open_finance_snapshots set fetched_at = now() - interval '2 hours' where kind = ${kind}`
+  )
+}
+
 beforeEach(async () => {
   await resetDatabase()
-  __clearBalanceCache()
-  __clearInvestmentsCache()
+  __clearSnapshotInFlight()
   await makeCategory("Outros")
   provider = new MockOpenFinanceProvider()
 })
 afterEach(() => {
   __setProvider(null)
-  __clearBalanceCache()
-  __clearInvestmentsCache()
+  __clearSnapshotInFlight()
 })
 
 describe("e2e GET /open-finance/balances", () => {
-  test("sem configuração: indisponível", async () => {
+  test("sem configuração e sem retrato: indisponível, nada inventado", async () => {
     const res = await api.get<BalancesBody>("/open-finance/balances")
-    expect(res.body.available).toBe(false)
+    expect(res.body).toMatchObject({ available: false, source: "none", cash: 0, accounts: [] })
     expect(res.body.error).toContain("não configurado")
   })
 
@@ -65,69 +75,94 @@ describe("e2e GET /open-finance/balances", () => {
     expect(res.body.available).toBe(false)
   })
 
-  test("ao vivo: saldo da conta, fatura e limite do cartão", async () => {
+  test("o sync grava o retrato: saldo da conta, fatura e limite do cartão", async () => {
     __setProvider(provider)
     setup()
-    await makeAccount("Nubank")
     await runSync({ trigger: "cli" })
 
+    // O sync já trouxe as contas: a leitura não precisa ir à Pluggy
+    provider.failWith = new Error("não deveria chamar")
     const res = await api.get<BalancesBody>("/open-finance/balances")
-    expect(res.body.available).toBe(true)
-    expect(res.body.cash).toBe(1000)
-    expect(res.body.cardDebt).toBe(500)
+    expect(res.body).toMatchObject({ available: true, source: "cache", stale: false, cash: 1000, cardDebt: 500 })
     const card = res.body.accounts.find((a) => a.type === "CREDIT")!
     expect(card).toMatchObject({ accountName: "Nubank Cartão", creditLimit: 5000, dueDate: "2026-10-08" })
   })
 
-  test("cache de 60s; fresh=true busca de novo", async () => {
+  test("retrato dentro do prazo vem do banco; fresh=true busca e regrava", async () => {
     __setProvider(provider)
     setup()
     await runSync({ trigger: "cli" })
-    await api.get("/open-finance/balances")
 
     provider.accounts[0].balance = 2000
     const cached = await api.get<BalancesBody>("/open-finance/balances")
     expect(cached.body.cash).toBe(1000)
     const fresh = await api.get<BalancesBody>("/open-finance/balances?fresh=true")
-    expect(fresh.body.cash).toBe(2000)
+    expect(fresh.body).toMatchObject({ source: "live", cash: 2000 })
+    const after = await api.get<BalancesBody>("/open-finance/balances")
+    expect(after.body).toMatchObject({ source: "cache", cash: 2000 })
   })
 
-  test("Pluggy fora do ar: indisponível e sem cache da falha", async () => {
+  test("retrato vencido: busca na Pluggy", async () => {
     __setProvider(provider)
     setup()
     await runSync({ trigger: "cli" })
+    await expireSnapshot("balances")
+
+    provider.accounts[0].balance = 3000
+    const res = await api.get<BalancesBody>("/open-finance/balances")
+    expect(res.body).toMatchObject({ source: "live", cash: 3000 })
+  })
+
+  test("Pluggy fora do ar: último retrato, marcado como desatualizado", async () => {
+    __setProvider(provider)
+    setup()
+    await runSync({ trigger: "cli" })
+    await expireSnapshot("balances")
     provider.failWith = new Error("timeout")
+
     const down = await api.get<BalancesBody>("/open-finance/balances")
-    expect(down.body).toMatchObject({ available: false, error: "timeout" })
+    expect(down.body).toMatchObject({ available: true, source: "cache", stale: true, error: "timeout", cash: 1000 })
 
     provider.failWith = null
     const back = await api.get<BalancesBody>("/open-finance/balances")
-    expect(back.body.available).toBe(true)
+    expect(back.body).toMatchObject({ source: "live", stale: false })
   })
 })
 
-describe("e2e projeção com saldo ao vivo", () => {
-  test("abre com conta ao vivo menos a fatura em aberto (sem a parcela futura)", async () => {
+describe("e2e projeção com o saldo do Open Finance", () => {
+  test("abre com a conta menos a fatura em aberto (sem a parcela futura)", async () => {
     __setProvider(provider)
     setup()
-    await makeAccount("Nubank", { balance: 99999 }) // cadastrado é ignorado quando há saldo ao vivo
-    await makeAccount("Carteira física", { type: "CASH", balance: 50 })
+    await makeAccount("Carteira física", { type: "CASH" }) // sem vínculo: não entra
     await runSync({ trigger: "cli" })
 
     const res = await api.get<CashflowProjection>("/forecast/cashflow?horizonMonths=3")
-    expect(res.body.openingBalanceSource).toBe("live")
-    // 1000 (conta) + 50 (sem vínculo) − (500 usados − 100 da parcela futura)
-    expect(res.body.openingBalance).toBe(650)
+    expect(res.body.openingBalanceSource).toBe("open_finance")
+    // 1000 (conta) − (500 usados − 100 da parcela futura)
+    expect(res.body.openingBalance).toBe(600)
     const names = res.body.openingAccounts.map((a) => a.name)
     expect(names).toContain("Nubank Cartão (fatura em aberto)")
+    expect(names).not.toContain("Carteira física")
     expect(res.body.openingAccounts.find((a) => a.name === "Nubank Cartão (fatura em aberto)")!.balance).toBe(-400)
   })
 
-  test("sem Pluggy, cai no saldo cadastrado", async () => {
-    await makeAccount("Nubank", { balance: 300 })
+  test("Pluggy fora do ar: usa o último retrato e avisa", async () => {
+    __setProvider(provider)
+    setup()
+    await runSync({ trigger: "cli" })
+    await expireSnapshot("balances")
+    provider.failWith = new Error("fora")
+
     const res = await api.get<CashflowProjection>("/forecast/cashflow?horizonMonths=3")
-    expect(res.body.openingBalanceSource).toBe("stored")
-    expect(res.body.openingBalance).toBe(300)
+    expect(res.body.openingBalanceSource).toBe("stale")
+    expect(res.body.openingBalance).toBe(600)
+  })
+
+  test("sem Open Finance nem retrato: saldo zero e fonte indisponível", async () => {
+    await makeAccount("Nubank")
+    const res = await api.get<CashflowProjection>("/forecast/cashflow?horizonMonths=3")
+    expect(res.body.openingBalanceSource).toBe("unavailable")
+    expect(res.body.openingBalance).toBe(0)
   })
 })
 
@@ -178,11 +213,25 @@ describe("e2e GET /open-finance/investments", () => {
     expect(res.body.income.last12m).toBe(4.5)
   })
 
-  test("falha do provedor: indisponível", async () => {
+  test("falha do provedor sem retrato: indisponível", async () => {
     __setProvider(provider)
     provider.failWith = new Error("fora")
     const res = await api.get<InvestmentsBody>("/open-finance/investments")
     expect(res.body).toMatchObject({ available: false, error: "fora" })
+  })
+
+  test("retrato persistido: serve do banco e cai nele com a Pluggy fora", async () => {
+    __setProvider(provider)
+    setupInvestments()
+    await api.get("/open-finance/investments")
+
+    provider.failWith = new Error("não deveria chamar")
+    const cached = await api.get<InvestmentsBody & { source: string; stale: boolean }>("/open-finance/investments")
+    expect(cached.body).toMatchObject({ available: true, source: "cache", stale: false, total: 2000 })
+
+    await expireSnapshot("investments")
+    const stale = await api.get<InvestmentsBody & { source: string; stale: boolean }>("/open-finance/investments")
+    expect(stale.body).toMatchObject({ available: true, source: "cache", stale: true, total: 2000 })
   })
 
   test("a projeção soma a renda fixa com liquidez diária ao caixa", async () => {

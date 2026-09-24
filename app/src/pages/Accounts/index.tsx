@@ -10,66 +10,33 @@ import {
   Landmark,
   PiggyBank,
   Pencil,
-  Plus,
   TrendingUp,
-  Trash2,
   Wallet,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
-import {
-  useAccounts,
-  useCreateAccount,
-  useDeleteAccount,
-  useLiveBalances,
-  useUpdateAccount,
-} from "@/lib/queries"
+import { SnapshotStatus } from "@/components/open-finance/SnapshotStatus"
+import { useAccounts, useBalances, useUpdateAccount } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PICKER_COLOR, PICKER_SWATCHES, tint } from "@/lib/tokens"
 import {
   ACCOUNT_TYPE_LABELS,
   type Account,
+  type AccountBalance,
   type AccountType,
-  type LiveAccountBalance,
 } from "@/types/finance"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
+// Contas nascem do Open Finance: só a aparência é editável. Tipo e saldo são
+// do banco.
 const schema = z.object({
   name: z.string().min(1, "Informe o nome"),
-  type: z.enum([
-    "CHECKING",
-    "SAVINGS",
-    "CREDIT_CARD",
-    "INVESTMENT",
-    "CASH",
-    "OTHER",
-  ]),
-  balance: z.number().optional(),
   color: z.string().optional(),
-  isDefault: z.boolean().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -85,27 +52,18 @@ const ACCOUNT_ICONS: Record<AccountType, typeof Wallet> = {
 
 // ── Página ────────────────────────────────────────────────────────────────────
 export function Accounts() {
-  const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
-  const [deleting, setDeleting] = useState<Account | null>(null)
 
   const { data: accounts, isLoading, isError, refetch } = useAccounts()
-  const deleteMutation = useDeleteAccount()
 
-  // Contas ligadas ao Open Finance mostram o saldo ao vivo (nunca persistido);
-  // no cartão, o "saldo" é o usado do limite e entra negativo no patrimônio
-  const { data: balances } = useLiveBalances()
-  const liveById = new Map(
-    (balances?.available ? balances.accounts : []).map((b) => [b.accountId, b])
+  // Saldo só do Open Finance (retrato salvo no banco). No cartão, o "saldo" é o
+  // usado do limite e entra negativo. Conta sem retrato fica sem valor — nunca
+  // um número inventado
+  const { data: balances } = useBalances()
+  const balanceById = new Map(
+    (balances?.accounts ?? []).map((b) => [b.accountId, b])
   )
-  const netWorth =
-    accounts
-      ?.filter((a) => !a.isSandbox)
-      .reduce((sum, a) => {
-        const live = liveById.get(a.id)
-        if (!live) return sum + Number(a.balance)
-        return sum + (live.type === "CREDIT" ? -live.balance : live.balance)
-      }, 0) ?? 0
+  const total = balances?.available ? balances.cash - balances.cardDebt : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,34 +72,35 @@ export function Accounts() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contas</h1>
           <p className="text-sm text-muted-foreground">
-            {accounts?.length ?? 0} conta{accounts?.length !== 1 ? "s" : ""}{" "}
-            cadastrada{accounts?.length !== 1 ? "s" : ""}
+            {accounts?.length ?? 0} conta{accounts?.length !== 1 ? "s" : ""} do
+            Open Finance
           </p>
         </div>
-        <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
-          <Plus size={15} />
-          Nova conta
-        </Button>
       </div>
 
       {/* Saldo das contas — o patrimônio com investimentos fica no Início */}
-      {!isLoading && accounts && (
+      {!isLoading && accounts && balances && (
         <div className="rounded-xl border bg-card p-5">
-          <p className="text-sm text-muted-foreground">Saldo das contas</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">Saldo das contas</p>
+            <SnapshotStatus meta={balances} />
+          </div>
           <p
             className={cn(
               "mt-1 text-4xl font-bold tabular-nums",
-              netWorth >= 0 ? "text-foreground" : "text-destructive"
+              total !== null && total < 0
+                ? "text-destructive"
+                : "text-foreground"
             )}
           >
-            {formatCurrency(netWorth)}
+            {total === null ? "—" : formatCurrency(total)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            soma das contas
-            {liveById.size > 0 && (
+            {total === null ? (
+              "Sem saldo do Open Finance ainda — sincronize para ver."
+            ) : (
               <>
-                {" "}
-                · Open Finance ao vivo, com o usado do cartão descontado ·{" "}
+                soma das contas com o usado do cartão descontado ·{" "}
                 <Link
                   to="/investments"
                   className="underline underline-offset-2"
@@ -169,9 +128,13 @@ export function Accounts() {
       ) : accounts?.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <Landmark size={40} className="text-muted-foreground/40" />
-          <p className="text-muted-foreground">Nenhuma conta cadastrada</p>
-          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-            Adicionar primeira conta
+          <p className="text-muted-foreground">Nenhuma conta ainda</p>
+          <p className="max-w-sm text-xs text-muted-foreground">
+            As contas aparecem sozinhas na primeira sincronização do Open
+            Finance.
+          </p>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/open-finance">Ir para o Open Finance</Link>
           </Button>
         </div>
       ) : (
@@ -180,58 +143,20 @@ export function Accounts() {
             <AccountCard
               key={account.id}
               account={account}
-              live={liveById.get(account.id)}
+              balance={balanceById.get(account.id)}
               onEdit={() => setEditing(account)}
-              onDelete={() => setDeleting(account)}
             />
           ))}
         </div>
       )}
 
-      {/* Modais */}
-      <AccountModal
-        open={creating}
-        onClose={() => setCreating(false)}
-        title="Nova conta"
-      />
-
       {editing && (
         <AccountModal
           open={!!editing}
           onClose={() => setEditing(null)}
-          title="Editar conta"
-          defaultValues={editing}
+          account={editing}
         />
       )}
-
-      <AlertDialog
-        open={!!deleting}
-        onOpenChange={(o) => !o && setDeleting(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir conta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será removida permanentemente.
-              As transações associadas não serão apagadas.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
-              onClick={() => {
-                if (deleting)
-                  deleteMutation.mutate(deleting.id, {
-                    onSuccess: () => setDeleting(null),
-                  })
-              }}
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
@@ -239,22 +164,20 @@ export function Accounts() {
 // ── Card de conta ─────────────────────────────────────────────────────────────
 function AccountCard({
   account,
-  live,
+  balance: snapshot,
   onEdit,
-  onDelete,
 }: {
   account: Account
-  live?: LiveAccountBalance
+  balance?: AccountBalance
   onEdit: () => void
-  onDelete: () => void
 }) {
   const Icon = ACCOUNT_ICONS[account.type]
-  // Cartão ao vivo: mostra o usado do limite como valor a pagar (negativo)
-  const balance = live
-    ? live.type === "CREDIT"
-      ? -live.balance
-      : live.balance
-    : Number(account.balance)
+  // Cartão: mostra o usado do limite como valor a pagar (negativo)
+  const balance = snapshot
+    ? snapshot.type === "CREDIT"
+      ? -snapshot.balance
+      : snapshot.balance
+    : null
 
   return (
     <div className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-5 transition-shadow hover:shadow-md">
@@ -272,23 +195,15 @@ function AccountCard({
           <Icon size={20} style={{ color: account.color }} />
         </div>
 
-        {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
+        {/* Ação: sempre visível no toque, revelada no hover no desktop */}
         <div className="flex items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
           <button
             type="button"
             onClick={onEdit}
-            aria-label={`Editar ${account.name}`}
+            aria-label={`Editar aparência de ${account.name}`}
             className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
           >
             <Pencil size={15} className="lg:size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            aria-label={`Excluir ${account.name}`}
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
-          >
-            <Trash2 size={15} className="lg:size-3.5" />
           </button>
         </div>
       </div>
@@ -296,19 +211,16 @@ function AccountCard({
       <div>
         <div className="flex items-center gap-2">
           <p className="font-medium">{account.name}</p>
-          {account.isDefault && (
-            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-              Padrão
-            </span>
-          )}
-          {account.openFinance && (
+          {account.openFinance ? (
             <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-              {live ? "Open Finance · ao vivo" : "Open Finance"}
+              Open Finance
             </span>
-          )}
-          {account.isSandbox && (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Sandbox
+          ) : (
+            <span
+              className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              title="Nenhuma conta do banco está vinculada a esta — ver /open-finance"
+            >
+              Sem vínculo
             </span>
           )}
         </div>
@@ -320,36 +232,34 @@ function AccountCard({
       <p
         className={cn(
           "text-2xl font-bold tabular-nums",
-          balance < 0 && "text-destructive"
+          balance === null && "text-muted-foreground",
+          balance !== null && balance < 0 && "text-destructive"
         )}
       >
-        {formatCurrency(balance)}
+        {balance === null ? "—" : formatCurrency(balance)}
       </p>
-      {live?.type === "CREDIT" && live.creditLimit != null && (
+      {snapshot?.type === "CREDIT" && snapshot.creditLimit != null && (
         <p className="-mt-2 text-xs text-muted-foreground tabular-nums">
-          usado de {formatCurrency(live.creditLimit)}
-          {live.dueDate &&
-            live.dueDate >= new Date().toISOString().slice(0, 10) &&
-            ` · vence ${formatDate(live.dueDate)}`}
+          usado de {formatCurrency(snapshot.creditLimit)}
+          {snapshot.dueDate &&
+            snapshot.dueDate >= new Date().toISOString().slice(0, 10) &&
+            ` · vence ${formatDate(snapshot.dueDate)}`}
         </p>
       )}
     </div>
   )
 }
 
-// ── Modal de criar/editar ─────────────────────────────────────────────────────
+// ── Modal de aparência ────────────────────────────────────────────────────────
 function AccountModal({
   open,
   onClose,
-  title,
-  defaultValues,
+  account,
 }: {
   open: boolean
   onClose: () => void
-  title: string
-  defaultValues?: Account
+  account: Account
 }) {
-  const create = useCreateAccount()
   const update = useUpdateAccount()
 
   const {
@@ -361,32 +271,22 @@ function AccountModal({
     reset,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: defaultValues
-      ? {
-          name: defaultValues.name,
-          type: defaultValues.type,
-          balance: Number(defaultValues.balance),
-          color: defaultValues.color,
-          isDefault: defaultValues.isDefault,
-        }
-      : { type: "CHECKING", color: DEFAULT_PICKER_COLOR, isDefault: false },
+    defaultValues: { name: account.name, color: account.color },
   })
 
   const selectedColor = watch("color") ?? DEFAULT_PICKER_COLOR
 
   const onSubmit = handleSubmit((values) => {
-    const finish = () => {
-      onClose()
-      reset()
-    }
-    if (defaultValues) {
-      update.mutate({ id: defaultValues.id, ...values }, { onSuccess: finish })
-    } else {
-      create.mutate(values, { onSuccess: finish })
-    }
+    update.mutate(
+      { id: account.id, ...values },
+      {
+        onSuccess: () => {
+          onClose()
+          reset()
+        },
+      }
+    )
   })
-
-  const isPending = create.isPending || update.isPending
 
   return (
     <FormModal
@@ -395,51 +295,22 @@ function AccountModal({
         onClose()
         reset()
       }}
-      title={title}
+      title="Editar conta"
       formId="account-form"
       onSubmit={onSubmit}
-      isPending={isPending}
+      isPending={update.isPending}
     >
       <div className="flex flex-col gap-4 py-1">
+        <p className="text-xs text-muted-foreground">
+          {ACCOUNT_TYPE_LABELS[account.type]} · tipo e saldo vêm do Open Finance
+        </p>
+
         <div className="flex flex-col gap-1.5">
           <Label>Nome</Label>
-          <Input placeholder="Ex: Conta Corrente Itaú" {...register("name")} />
+          <Input placeholder="Ex: Nubank" {...register("name")} />
           {errors.name && (
             <p className="text-xs text-destructive">{errors.name.message}</p>
           )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label>Tipo</Label>
-          <Select
-            value={watch("type")}
-            onValueChange={(v) => setValue("type", v as AccountType)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(
-                Object.entries(ACCOUNT_TYPE_LABELS) as [AccountType, string][]
-              ).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label>
-            {defaultValues ? "Saldo atual (R$)" : "Saldo inicial (R$)"}
-          </Label>
-          <Input
-            type="number"
-            step="0.01"
-            placeholder="0,00"
-            {...register("balance", { valueAsNumber: true })}
-          />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -461,22 +332,6 @@ function AccountModal({
             ))}
           </div>
         </div>
-
-        {/* Conta padrão */}
-        <label className="flex cursor-pointer items-start gap-2.5">
-          <Checkbox
-            checked={watch("isDefault") ?? false}
-            onCheckedChange={(c) => setValue("isDefault", c === true)}
-            className="mt-0.5"
-          />
-          <span className="flex flex-col">
-            <span className="text-sm font-medium">Conta padrão</span>
-            <span className="text-xs text-muted-foreground">
-              Pré-selecionada ao criar uma transação. Apenas uma conta pode ser
-              padrão.
-            </span>
-          </span>
-        </label>
       </div>
     </FormModal>
   )

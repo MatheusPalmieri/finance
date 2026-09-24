@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 import { db } from "../db"
 import { pluggyItems, syncRuns, transactions } from "../db/schema"
 import { __setProvider } from "../modules/open-finance/provider"
-import { MockOpenFinanceProvider } from "../modules/open-finance/providers/mock"
+import { MockOpenFinanceProvider } from "../test/mocks/open-finance"
 import { isSyncRunning, runSync } from "../modules/open-finance/sync"
 import { api, makeAccount, makeCategory, resetDatabase } from "../test/helpers"
 
@@ -153,16 +153,13 @@ describe("e2e /open-finance — configurado", () => {
     expect(report.created).toBe(0)
   })
 
-  test("não vincula a conta sandbox nem a conta inexistente", async () => {
+  test("não vincula a uma conta inexistente", async () => {
     await runSync({ trigger: "cli" })
-    const sandbox = await makeAccount("Claude", { isSandbox: true })
     const status = await api.get<StatusBody>("/open-finance/status?autoSync=false")
     const bank = status.body.accounts[0]
-    const res = await api.patch(`/open-finance/accounts/${bank.id}`, { accountId: sandbox.id })
-    expect(res.status).toBe(400)
-    const missing = await api.patch("/open-finance/accounts/00000000-0000-0000-0000-000000000000", {
-      accountId: sandbox.id,
+    const res = await api.patch(`/open-finance/accounts/${bank.id}`, {
+      accountId: "00000000-0000-0000-0000-000000000000",
     })
-    expect(missing.status).toBe(400)
+    expect(res.status).toBe(400)
   })
 })

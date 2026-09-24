@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { db } from "../db"
 import {
   accounts,
+  openFinanceSnapshots,
   pluggyAccounts,
   pluggyItems,
   pluggyTransactions,
@@ -14,10 +15,10 @@ import {
 } from "../db/schema"
 import { seedClassificationRules } from "../db/seed-rules"
 import { __setProvider } from "../modules/open-finance/provider"
-import { MockOpenFinanceProvider } from "../modules/open-finance/providers/mock"
+import { MockOpenFinanceProvider } from "../test/mocks/open-finance"
 import { refreshTiming, runSync, SyncBusyError } from "../modules/open-finance/sync"
 import type { ProviderTransaction } from "../modules/open-finance/types"
-import { api, makeAccount, makeCategory, makeTransactions, resetDatabase } from "../test/helpers"
+import { makeAccount, makeCategory, resetDatabase } from "../test/helpers"
 
 let provider: MockOpenFinanceProvider
 
@@ -82,7 +83,7 @@ afterEach(() => __setProvider(null))
 
 describe("e2e sync — primeira sincronização", () => {
   test("vincula as contas, grava tudo normalizado e classifica", async () => {
-    const nubank = await makeAccount("Nubank", { isDefault: true })
+    const nubank = await makeAccount("Nubank")
     await seedClassificationRules()
     setupNubank()
 
@@ -137,12 +138,18 @@ describe("e2e sync — primeira sincronização", () => {
     expect(run.created).toBe(8)
   })
 
-  test("não mexe no saldo das contas (saldo é sempre ao vivo)", async () => {
-    await makeAccount("Nubank", { balance: 1234 })
+  test("grava o retrato de saldos com as contas que já buscou", async () => {
     setupNubank()
     await runSync({ trigger: "cli" })
-    const [nubank] = await db.select().from(accounts).where(eq(accounts.name, "Nubank"))
-    expect(nubank.balance).toBe("1234.00")
+    const [snapshot] = await db.select().from(openFinanceSnapshots)
+    expect(snapshot.kind).toBe("balances")
+    expect((snapshot.payload as { accounts: unknown[] }).accounts).toHaveLength(2)
+  })
+
+  test("dry-run não grava retrato", async () => {
+    setupNubank()
+    await runSync({ trigger: "cli", dryRun: true })
+    expect(await db.select().from(openFinanceSnapshots)).toHaveLength(0)
   })
 })
 
@@ -236,133 +243,6 @@ describe("e2e sync — sincronizações seguintes", () => {
     const report = await runSync({ trigger: "cli", full: true })
     expect(report.removed).toBe(0)
     expect(await db.select().from(transactions)).toHaveLength(8)
-  })
-})
-
-describe("e2e sync — conciliação com o histórico (F4)", () => {
-  test("adota a linha do CSV em vez de duplicar, mantendo a classificação", async () => {
-    const nubank = await makeAccount("Nubank")
-    const moradia = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Moradia") }))!
-    // Pix às 22h de Brasília: na Pluggy cai no dia seguinte em UTC
-    const lateNight = daysAgo(10, 1)
-    const [csv] = await makeTransactions([
-      {
-        name: "Pix para Senhorio",
-        amount: 1500,
-        date: localDay(lateNight),
-        categoryId: moradia.id,
-        accountId: nubank.id,
-        source: "csv",
-        notes: "Importado via CSV — ID abc",
-        isEssential: true,
-      },
-    ])
-    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
-    provider.transactions = {
-      "acc-bank": [bankTx({ id: "of-1", description: "Transferência enviada|Senhorio", amount: -1500, date: lateNight })],
-    }
-
-    const report = await runSync({ trigger: "cli" })
-    expect(report.adopted).toBe(1)
-    expect(report.created).toBe(0)
-
-    const rows = await db.select().from(transactions)
-    expect(rows).toHaveLength(1)
-    expect(rows[0].id).toBe(csv.id)
-    expect(rows[0].externalId).toBe("of-1")
-    expect(rows[0].source).toBe("open_finance")
-    expect(rows[0].categoryId).toBe(moradia.id)
-    expect(rows[0].notes).toBe("Importado via CSV — ID abc")
-  })
-
-  test("adota com até 1 dia de diferença, mas não além", async () => {
-    const nubank = await makeAccount("Nubank")
-    const outros = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Outros") }))!
-    await makeTransactions([
-      { name: "A", amount: 10, date: localDay(daysAgo(6)), categoryId: outros.id, accountId: nubank.id, source: "csv" },
-      { name: "B", amount: 20, date: localDay(daysAgo(9)), categoryId: outros.id, accountId: nubank.id, source: "csv" },
-    ])
-    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
-    provider.transactions = {
-      "acc-bank": [
-        bankTx({ id: "x1", amount: -10, date: daysAgo(5) }), // 1 dia → adota
-        bankTx({ id: "x2", amount: -20, date: daysAgo(6) }), // 3 dias → nova
-      ],
-    }
-    const report = await runSync({ trigger: "cli" })
-    expect(report.adopted).toBe(1)
-    expect(report.created).toBe(1)
-  })
-
-  test("nunca adota linha de conta sandbox", async () => {
-    await makeAccount("Nubank")
-    const sandbox = await makeAccount("Claude", { isSandbox: true })
-    const outros = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Outros") }))!
-    await makeTransactions([
-      { name: "Teste", amount: 50, date: localDay(daysAgo(3)), categoryId: outros.id, accountId: sandbox.id },
-    ])
-    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
-    provider.transactions = { "acc-bank": [bankTx({ id: "y1", amount: -50 })] }
-    const report = await runSync({ trigger: "cli" })
-    expect(report.adopted).toBe(0)
-    expect(report.created).toBe(1)
-  })
-})
-
-describe("e2e — extrato CSV importado depois do Open Finance (F4)", () => {
-  test("o bulk pula o que o sync já trouxe e importa o resto", async () => {
-    const nubank = await makeAccount("Nubank")
-    const outros = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Outros") }))!
-    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
-    provider.transactions = { "acc-bank": [bankTx({ id: "of-1", amount: -32.5, date: daysAgo(4) })] }
-    await runSync({ trigger: "cli" })
-
-    const line = (amount: number, date: string) => ({
-      name: "Linha do extrato",
-      amount,
-      categoryId: outros.id,
-      paymentMethod: "pix" as const,
-      accountId: nubank.id,
-      isEssential: false,
-      recurrence: "variable" as const,
-      budgetId: null,
-      date,
-      notes: null,
-    })
-    const res = await api.post<{ created: number; skipped: number }>("/transactions/bulk", {
-      transactions: [
-        line(32.5, localDay(daysAgo(5))), // 1 dia de diferença → já existe
-        line(99, localDay(daysAgo(4))), // valor diferente → nova
-      ],
-    })
-    expect(res.body).toEqual({ created: 1, skipped: 1 })
-    expect(await db.select().from(transactions)).toHaveLength(2)
-  })
-
-  test("lançamento manual em lote nunca é pulado", async () => {
-    const nubank = await makeAccount("Nubank")
-    const outros = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Outros") }))!
-    provider.accounts = [{ id: "acc-bank", type: "BANK", name: "Conta" }]
-    provider.transactions = { "acc-bank": [bankTx({ id: "of-1", amount: -10 })] }
-    await runSync({ trigger: "cli" })
-    const res = await api.post<{ created: number; skipped: number }>("/transactions/bulk", {
-      source: "manual",
-      transactions: [
-        {
-          name: "Manual",
-          amount: 10,
-          categoryId: outros.id,
-          paymentMethod: "pix",
-          accountId: nubank.id,
-          isEssential: false,
-          recurrence: "variable",
-          budgetId: null,
-          date: localDay(daysAgo(3)),
-          notes: null,
-        },
-      ],
-    })
-    expect(res.body).toEqual({ created: 1, skipped: 0 })
   })
 })
 

@@ -31,6 +31,8 @@ Código: `api/src/modules/forecast/`.
 {
   "openingBalance": 18750.93,
   "openingAccounts": [{ "id": "uuid", "name": "Nubank", "balance": 8027.73 }],
+  "openingBalanceSource": "open_finance", // | "stale" | "unavailable" — ver domain/forecast.md
+  "openingBalanceFetchedAt": "2026-09-23T21:00:00.000Z",
   "months": [
     {
       "month": 9, "year": 2026, "label": "set/26",

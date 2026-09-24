@@ -1,7 +1,7 @@
 ---
 title: Camada de LLM (LlmProvider) e endpoints /llm
 area: api
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -37,9 +37,11 @@ api/src/modules/llm/
 ├── routes.ts         # GET /llm/health e /llm/usage
 └── providers/
     ├── ollama.ts     # default — HTTP local, sem SDK
-    ├── anthropic.ts  # fallback de nuvem — fetch puro na Messages API
-    └── mock.ts       # fila de respostas programáveis, para testes
+    └── anthropic.ts  # fallback de nuvem — fetch puro na Messages API
 ```
+
+O dublê de testes fica em `api/src/test/mocks/llm.ts`, fora do módulo: o app em
+execução não tem como selecioná-lo.
 
 Os dois adapters de rede usam `fetch` nativo do Bun — nenhum SDK de provedor
 entra no workspace. A única dependência nova é o `zod`, que valida toda saída
@@ -122,16 +124,18 @@ mensal fica em centavos, não é contábil.
 > Ao mexer neste adapter, carregue a skill `claude-api` antes: ela tem os IDs de
 > modelo e os preços atuais. Não escreva preço de memória.
 
-### `mock`
+### Dublê de testes (`src/test/mocks/llm.ts`)
 
 Fila programável (`push(...)`), inspeção das requisições recebidas (`calls`) e
-`healthy` alternável. Nenhum teste das specs depende de rede ou GPU.
+`healthy` alternável. Nenhum teste das specs depende de rede ou GPU. Só entra
+por `__setLlm()` (helper `useMockLlm()`); `LLM_PROVIDER=mock` foi removido em
+2026-09-23 e hoje dá erro de configuração — o app nunca responde com IA fake.
 
 ## Variáveis de ambiente
 
 | Variável | Default | Descrição |
 |---|---|---|
-| `LLM_PROVIDER` | `ollama` | `ollama` \| `anthropic` \| `mock` |
+| `LLM_PROVIDER` | `ollama` | `ollama` \| `anthropic` |
 | `LLM_MODEL` | por provedor | Sobrescreve o modelo default |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Endpoint do Ollama |
 | `ANTHROPIC_API_KEY` | — | Obrigatória só com `LLM_PROVIDER=anthropic` |

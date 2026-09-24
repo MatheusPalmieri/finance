@@ -20,8 +20,8 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
       const firstDay = `${year}-${String(month).padStart(2, "0")}-01`
       const lastDay = `${year}-${String(month).padStart(2, "0")}-${new Date(year, month, 0).getDate()}`
 
-      // Fora do painel: contas sandbox (teste) e movimentos internos (fatura,
-      // aplicação, transferência entre contas próprias)
+      // Fora do painel: movimentos internos (fatura, aplicação, transferência
+      // entre contas próprias)
       const inMonth = and(
         between(transactions.date, firstDay, lastDay),
         isExpense,

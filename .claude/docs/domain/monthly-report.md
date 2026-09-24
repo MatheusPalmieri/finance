@@ -25,7 +25,7 @@ relatório continua correto e útil com a IA desligada.
 
 ## Escopo
 
-Mês. Entram todas as transações reais; as de contas sandbox (`accounts.is_sandbox`) ficam fora. Até 2026-09-23 havia escopo por carteira, removido (ver `.claude/docs/decisions/remocao-carteiras.md`).
+Mês. Entram as transações do Open Finance com `kind = regular` (`COUNTED_TRANSACTIONS`). Até 2026-09-23 havia escopo por carteira e depois por conta sandbox, ambos removidos (ver `decisions/remocao-carteiras.md` e `decisions/open-finance-fonte-unica.md`).
 Convenção de sinal do projeto: `amount > 0` é despesa, `amount < 0` é entrada
 (ver [`transaction.md`](./transaction.md)).
 

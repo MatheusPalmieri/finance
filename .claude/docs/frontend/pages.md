@@ -6,9 +6,13 @@ updated: 2026-09-23
 
 > ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/accounts`, `/budgets`, `/categories`, `/investments`, `/forecast`, `/reports`, `/rules`, `/open-finance`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
 >
+> **Sem dado mockado:** nenhuma página do Finance usa mock — tudo vem da API, e a API só serve dado do Open Finance (ver `decisions/open-finance-fonte-unica.md`). O `pages/Dashboard/mock.ts` citado mais abaixo é do CRM e **não existe** neste projeto.
+>
+> **2026-09-23**: Transações sem "Nova transação" nem "Importar CSV" (só reclassificação); Contas sem criar/excluir nem saldo digitado. Ver `frontend/open-finance.md`.
+>
 > **2026-09-23**: rota `/wallets` e seletor de carteira removidos — ver `.claude/docs/decisions/remocao-carteiras.md`.
 >
-> A feature de Investimentos (`/investments`, aportes, projeção de prazo) foi **removida** do sistema em 2026-07-01 — rota, página, tabelas `investments`/`investment_contributions`, tipos e hooks foram todos apagados. Não confundir com o tipo de orçamento `investment` (regra 50/30/20 em `budgets`), que continua existindo.
+> A feature antiga de Investimentos (aportes digitados, tabelas `investments`/`investment_contributions`) foi **removida** em 2026-07-01. A rota `/investments` voltou na spec 04, agora só com dados do Open Finance (ver `frontend/open-finance.md`). Não confundir com o tipo de orçamento `investment` (regra 50/30/20 em `budgets`).
 >
 > **Formas de pagamento** (`/payment-methods`) e **Bancos** (`/banks`) também foram removidos como CRUD em 2026-07-01. Formas de pagamento virou lista fixa (ver `.claude/docs/domain/transaction.md`); Bancos foi removido por completo — era um cadastro avulso sem nenhuma ligação real com o resto do sistema.
 

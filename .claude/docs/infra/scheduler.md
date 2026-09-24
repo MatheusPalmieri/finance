@@ -22,7 +22,7 @@ bun run api/scripts/monthly-report.ts 2026-08    # mês específico (YYYY-MM)
 bun run report:monthly 2026-08
 ```
 
-Gera um relatório só (todas as transações reais — contas sandbox ficam fora).
+Gera um relatório só (todas as transações do Open Finance).
 Chama o mesmo `service.generate()` da rota — a lógica nunca
 é duplicada no script — e é **idempotente**: rodar duas vezes sobrescreve, não
 duplica.

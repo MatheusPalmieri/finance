@@ -6,13 +6,17 @@ updated: 2026-09-23
 
 ## Visão geral
 
-O Open Finance (Pluggy) é a **fonte primária** das transações (spec 04). O sync
-(`api/src/modules/open-finance/sync.ts`) lê o provedor e projeta tudo em
-`transactions`, a mesma tabela que o CSV e o lançamento manual usam. Por isso
-classificação, check-up, projeção e recorrências funcionam sem nenhum caminho
-especial.
+O Open Finance (Pluggy) é a **única fonte de verdade** do app (desde
+2026-09-23, ver `decisions/open-finance-fonte-unica.md`). Não existe lançamento
+manual nem importação de extrato. O sync (`api/src/modules/open-finance/sync.ts`)
+lê o provedor e projeta tudo em `transactions`; classificação, check-up,
+projeção e recorrências leem dali.
 
-**Saldo e investimentos não passam pelo sync:** são sempre buscados ao vivo.
+**Todo dado vindo da Pluggy é gravado no banco** e servido de lá: transações
+pelo sync, saldos e investimentos como retrato em `open_finance_snapshots` (ver
+"Cache persistente"). A Pluggy só é chamada quando o dado vence. Com ela fora do
+ar, o app mostra o último dado real marcado como desatualizado. Nada é mockado
+nem digitado.
 
 ## Módulo
 
@@ -20,7 +24,9 @@ especial.
 |---|---|
 | `provider.ts` | Interface `OpenFinanceProvider`, `getProvider()`, `isConfigured()`, `__setProvider()` (testes) |
 | `providers/pluggy.ts` | Cliente real: `/auth` com cache de ~90 min, `/items`, `/accounts`, `/v2/transactions` (cursor), `/investments` |
-| `providers/mock.ts` | Provedor em memória para testes |
+| `balances.ts` / `investments.ts` | Montam os retratos de saldo e de investimentos a partir da Pluggy |
+| `snapshots.ts` | Cache persistente: leitura com prazo, gravação, último conhecido quando a Pluggy falha |
+| `src/test/mocks/open-finance.ts` | Dublê em memória — **só testes**; o app em execução sempre usa a Pluggy |
 | `normalize.ts` | Tradução pura do payload: data local, sinal, `kind`, status, nome, forma de pagamento, categoria |
 | `sync.ts` | Motor: busca → payload cru → `transactions` |
 | `http.ts` / `log.ts` | Retry com backoff (429/5xx/rede) e log que mascara segredos |
@@ -53,22 +59,21 @@ especial.
    - id novo, mas uma linha da janela sumiu com o mesmo valor e até 5 dias de
      diferença → **religa** (a Pluggy recria a transação ao mudar, por exemplo de
      pendente para lançada);
-   - linha de CSV/manual da mesma conta, sem vínculo, mesmo valor e até 1 dia de
-     diferença → **adota** (vira `open_finance`, mantém a classificação);
    - senão → insere, com a classificação em 3 camadas (IA desligada por padrão:
      `OPEN_FINANCE_SYNC_USE_AI=true` liga).
 5. **Campos do usuário nunca são sobrescritos:** nome, categoria, forma de
    pagamento, essencial, recorrência, orçamento e observação.
 6. **Removidas:** o que sumiu da janela é apagado, a menos que o provedor devolva
    a conta **vazia** (mais provável ser falha que extrato vazio).
-7. **Saldo das contas não é tocado.**
+7. **Retrato de saldos:** terminado com sucesso (não em `dryRun`), grava
+   `open_finance_snapshots.balances` com as contas já buscadas.
 8. **Um sync por vez:** `pg_try_advisory_xact_lock` entre processos (o segundo
    recebe `SyncBusyError`) e, no mesmo processo, chamadas simultâneas recebem o
    mesmo resultado.
 9. **`dryRun`:** roda o mesmo caminho dentro da transação e desfaz no fim. O
    relatório é fiel e nada é gravado, nem o `sync_run`.
-10. **Depois do sync:** grava `sync_runs` (contadores ou erro) e agenda o
-    recálculo das recorrências.
+10. **Depois do sync:** grava `sync_runs` (contadores ou erro), agenda o
+    recálculo das recorrências e atualiza o retrato de investimentos se vencido.
 
 ## Parcelas futuras
 
@@ -77,57 +82,66 @@ O cartão traz as próximas parcelas como `pending` com data futura. Elas ficam 
 mês em que caem (`knownTransactions`). O dashboard e o check-up do mês corrente
 não as veem, porque a data está no futuro.
 
-## Conciliação com o histórico (F4)
+## Cache persistente (`open_finance_snapshots`)
 
-- **Adoção no sync** (regra 4 acima): linha de CSV/manual da mesma conta, mesmo
-  valor absoluto e até 1 dia de diferença vira a transação do Open Finance,
-  mantendo nome, categoria, orçamento e observação.
-- **Caminho inverso:** `POST /transactions/bulk` (ImportModal) e
-  `bun run import:csv` pulam as linhas que o Open Finance já trouxe
-  (`modules/open-finance/dedupe.ts`, mesma regra de casamento). O bulk responde
-  `{ created, skipped }` e o toast mostra quantas foram puladas. Lote com
-  `source: "manual"` nunca é pulado.
+O banco é o cache do Open Finance. Transações ficam em `transactions` (sync);
+saldos e investimentos ficam como **retrato** em `open_finance_snapshots` — uma
+linha por tipo (`balances`, `investments`) com `payload jsonb` e `fetched_at`
+(quando a Pluggy devolveu o dado). Módulo: `modules/open-finance/snapshots.ts`.
+
+Fluxo de leitura (`getSnapshot`):
+
+1. Retrato dentro do prazo e sem `fresh` → devolve do banco (`source: "cache"`).
+2. Vencido, ausente ou `fresh` → busca na Pluggy, grava e devolve
+   (`source: "live"`). Chamadas simultâneas compartilham uma busca e uma gravação.
+3. Pluggy falhou → devolve o último retrato com `stale: true` e `error`; sem
+   retrato nenhum → `available: false`, `source: "none"`, valores zerados.
+
+| Tipo | Prazo (`TTL_MS`) | Quando é gravado |
+|---|---|---|
+| `balances` | 15 min | No fim de todo sync bem-sucedido, com as contas que ele **já buscou** (sem chamada extra), e em toda leitura que vai à Pluggy |
+| `investments` | 1 h | Leitura que vai à Pluggy; depois de cada sync, em segundo plano, **só se vencido** (são ~30 chamadas) |
+
+Por quê (decisão de 2026-09-23, ver `decisions/open-finance-fonte-unica.md`):
+- **Estabilidade** — Pluggy fora do ar ou sem rede não apaga a tela: o app
+  mostra o último dado real, sempre dizendo de quando é.
+- **Performance** — abrir o app lê uma linha do Postgres, não a Pluggy.
+- **Menos requisições** — o saldo sai de graça do sync.
+
+Dado sigiloso:
+- O retrato guarda só números agregados e nomes de exibição — nunca credencial,
+  token ou número completo de conta.
+- Logs levam só a mensagem de erro, nunca o payload (`log.ts` ainda mascara
+  chaves sensíveis).
+- A API escuta só em `127.0.0.1` (`src/index.ts`): não tem autenticação, então
+  não pode ficar exposta na rede.
+- Backups do banco vão para `backups/` (no `.gitignore`).
+
+## Histórico: conciliação com o CSV (F4, removida)
+
+Até 2026-09-23 o sync **adotava** linhas de CSV/manuais (mesma conta, mesmo
+valor, até 1 dia) e o `POST /transactions/bulk` pulava o que o sync já trouxe
+(`dedupe.ts`). Com o Open Finance como fonte única, os dois caminhos saíram, e o
+contador `adopted` também (`sync_runs.adopted` foi removida). Na primeira
+sincronização real, 323 das 327 linhas do CSV da conta foram adotadas. As 4
+restantes eram linhas "Rendimento" que o CSV agrupava por dia; elas saem na
+migração `scripts/migrate-open-finance-only.sql`.
 
 ### Primeira sincronização real (2026-09-23)
 
 | Conta | Lidas | Novas | Adotadas do CSV |
 |---|---|---|---|
-| Nubank (conta) | 511 | 188 | **323** (das 327 linhas do CSV) |
+| Nubank (conta) | 511 | 188 | 323 (das 327 linhas do CSV) |
 | Nubank Cartão | 969 | 969 | — |
 
-- 2,9 s para a janela completa. O incremental e o completo seguintes rodaram com
-  0 mudanças (idempotente).
-- Das 969 do cartão, só 41 caíram em "Outros". O resto foi resolvido por regra,
-  histórico ou mapa de categoria da Pluggy.
-- As 188 novas na conta são set a out/25, março/26 (extrato nunca importado) e
-  micro-movimentos de RDB que o CSV não trazia.
+- 2,9 s para a janela completa; incrementais seguintes com 0 mudanças.
+- Das 969 do cartão, só 41 caíram em "Outros".
 
-### Limitação conhecida: proventos agrupados no CSV
+### Check-ups salvos
 
-O extrato CSV do Nubank **agrupa** os proventos do dia numa linha "Rendimento";
-a Pluggy manda um por ativo ("Valor recebido de Investimentos"). Os valores não
-casam um a um, então nem a adoção nem o dedupe os reconhecem. Na primeira
-sincronização sobraram 4 linhas `csv` "Rendimento" (07, 14 e 19/08/2026,
-R$ 23,40 no total) cuja soma por dia bate ao centavo com as linhas da Pluggy: são
-duplicatas de renda. Remover:
-
-```sql
-delete from transactions
-where source = 'csv' and name = 'Rendimento'
-  and date in ('2026-08-07', '2026-08-14', '2026-08-19');
-```
-
-Para os extratos futuros, o caminho é não importar por CSV o que o Open Finance
-já cobre.
-
-### Check-ups salvos depois do primeiro sync
-
-Os relatórios mensais são snapshots: os de antes do Open Finance contavam a
-fatura e as aplicações como gasto. Em 2026-09-23 foram regerados
-(`bun run report:monthly 2026-01|02|08`). Agosto passou de +R$ 33,8 mil para
-−R$ 2,2 mil (inclui um pagamento real de R$ 15,4 mil à Santander
-Financiamentos). Ao mudar muito o histórico, regerar pelo botão da página
-Check-up ou pelo script.
+Os relatórios mensais são retratos: ao mudar muito o histórico, regerar pelo
+botão da página Check-up ou por `bun run report:monthly YYYY-MM`. A migração
+apaga os check-ups dos meses que contavam dado manual/CSV.
 
 "Valor recebido de Investimentos" mistura proventos e a devolução do troco de
 compras na corretora (centavos a poucos reais). Fica `regular`: a distorção é

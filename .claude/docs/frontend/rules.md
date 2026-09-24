@@ -49,7 +49,7 @@ basta salvar com a origem alterada.
 
 ## Aba Recorrentes
 
-Escopo único: todas as transações reais (contas sandbox ficam fora).
+Escopo único: todas as transações do Open Finance.
 
 **Cabeçalho em destaque**: total mensal normalizado das séries `ACTIVE`, com a
 contagem e a explicação de que valores semanais e anuais já foram convertidos

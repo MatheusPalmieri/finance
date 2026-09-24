@@ -136,7 +136,7 @@ que é o que mais reduz a deriva do modelo local.
 
 ## Detector de recorrências
 
-`recurring.ts`, sobre despesas (`amount > 0`) de contas reais (sandbox fica fora), num escopo único. `recurring_series` é única por `merchant_key`:
+`recurring.ts`, sobre despesas (`amount > 0`) do Open Finance (`COUNTED_TRANSACTIONS`), num escopo único. `recurring_series` é única por `merchant_key`:
 
 1. Agrupa por `merchantKey`.
 2. Descarta grupos com menos de `MIN_OCCURRENCES` (3).
@@ -179,6 +179,6 @@ porque são usados tanto aqui quanto pelas anomalias do check-up mensal
 |---|---|
 | Contrato HTTP | `.claude/docs/api/classification.md` |
 | Telas | `.claude/docs/frontend/rules.md` |
-| Importação de CSV | `.claude/docs/frontend/transactions-import.md` |
+| Sync do Open Finance (quem chama `suggest()` para as novas) | `.claude/docs/domain/open-finance.md` |
 | Camada de IA | `.claude/docs/api/llm.md` |
 | Código | `api/src/modules/classification/` |

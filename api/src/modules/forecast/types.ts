@@ -110,13 +110,20 @@ export interface ProjectionAssumptions {
   }
 }
 
-/** "live" = saldo da Pluggy; "stored" = `accounts.balance` (sem Open Finance ou fora do ar). */
-export type OpeningBalanceSource = "live" | "stored"
+/**
+ * Origem do saldo inicial — sempre o Open Finance:
+ * - "open_finance": retrato dentro do prazo (do banco ou recém-buscado);
+ * - "stale": Pluggy fora do ar, usando o último retrato conhecido;
+ * - "unavailable": nunca houve retrato — saldo inicial zero, a UI avisa.
+ */
+export type OpeningBalanceSource = "open_finance" | "stale" | "unavailable"
 
 export interface CashflowProjection {
   openingBalance: number
   openingAccounts: { id: string; name: string; balance: number }[]
   openingBalanceSource: OpeningBalanceSource
+  /** Quando a Pluggy devolveu o saldo usado (ISO). */
+  openingBalanceFetchedAt: string | null
   months: ProjectedMonth[]
   summary: ProjectionSummary
   assumptions: ProjectionAssumptions

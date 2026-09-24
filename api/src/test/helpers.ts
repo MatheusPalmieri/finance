@@ -14,12 +14,13 @@ import {
   type PaymentMethod,
   type Recurrence,
   type TransactionKind,
-  type TransactionSource,
   type TransactionStatus,
 } from "../db/schema"
 import { __setLlm } from "../modules/llm/provider"
-import { MockLlmProvider } from "../modules/llm/providers/mock"
+import { MockLlmProvider } from "./mocks/llm"
 import { invalidateRulesCache } from "../modules/classification/rules"
+import type { AccountBalance } from "../modules/open-finance/balances"
+import { readSnapshot, writeSnapshot } from "../modules/open-finance/snapshots"
 
 // ── Cliente HTTP ─────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ const TABLES_IN_DELETE_ORDER = [
   "pluggy_accounts",
   "pluggy_items",
   "sync_runs",
+  "open_finance_snapshots",
   "transactions",
   "classification_rules",
   "recurring_series",
@@ -159,9 +161,12 @@ export async function makeAccount(
   name = "Conta teste",
   options: {
     type?: AccountType
+    /**
+     * Saldo que o Open Finance reporta para a conta. Não existe saldo
+     * digitado: vai para o retrato de saldos (`open_finance_snapshots`),
+     * exatamente como o sync grava.
+     */
     balance?: number
-    isDefault?: boolean
-    isSandbox?: boolean
   } = {}
 ) {
   const [row] = await db
@@ -169,12 +174,31 @@ export async function makeAccount(
     .values({
       name,
       type: options.type ?? "CHECKING",
-      balance: String(options.balance ?? 0),
-      isDefault: options.isDefault ?? false,
-      isSandbox: options.isSandbox ?? false,
     })
     .returning()
+  if (options.balance !== undefined) {
+    await addToBalanceSnapshot({
+      accountId: row.id,
+      accountName: row.name,
+      providerAccountId: `test-${row.id}`,
+      type: row.type === "CREDIT_CARD" ? "CREDIT" : "BANK",
+      balance: options.balance,
+      creditLimit: null,
+      availableCredit: null,
+      dueDate: null,
+      minimumPayment: null,
+    })
+  }
   return row
+}
+
+/** Acrescenta uma conta ao retrato de saldos, recalculando os totais. */
+async function addToBalanceSnapshot(account: AccountBalance) {
+  const current = await readSnapshot<{ accounts: AccountBalance[] }>("balances")
+  const list = [...(current?.payload.accounts ?? []), account]
+  const sum = (type: AccountBalance["type"]) =>
+    Number(list.filter((a) => a.type === type).reduce((s, a) => s + a.balance, 0).toFixed(2))
+  await writeSnapshot("balances", { accounts: list, cash: sum("BANK"), cardDebt: sum("CREDIT") })
 }
 
 export async function makeBudget(
@@ -212,10 +236,9 @@ export interface TransactionSeed {
   recurrence?: Recurrence
   isEssential?: boolean
   budgetId?: string | null
-  source?: TransactionSource
   kind?: TransactionKind
   status?: TransactionStatus
-  externalId?: string | null
+  externalId?: string
   notes?: string | null
 }
 
@@ -232,10 +255,10 @@ export async function makeTransaction(seed: TransactionSeed) {
       recurrence: seed.recurrence ?? "variable",
       isEssential: seed.isEssential ?? false,
       budgetId: seed.budgetId ?? null,
-      source: seed.source ?? "manual",
       kind: seed.kind ?? "regular",
       status: seed.status ?? "posted",
-      externalId: seed.externalId ?? null,
+      // Toda transação vem do Open Finance: sem id explícito, inventa um único
+      externalId: seed.externalId ?? `test-${crypto.randomUUID()}`,
       notes: seed.notes ?? null,
     })
     .returning()

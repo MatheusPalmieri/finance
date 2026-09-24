@@ -1,18 +1,17 @@
 // Monta os insumos da projeção e orquestra o Monte Carlo.
 // É o único arquivo do módulo, junto de `history.ts`, que toca o banco.
 
-import { and, between, eq, gt, ne, sql } from "drizzle-orm"
+import { and, between, eq, gt, sql } from "drizzle-orm"
 import { db } from "../../db"
 import {
-  accounts,
   appSettings,
   budgets,
   transactions,
   type AppSettings,
 } from "../../db/schema"
 import { COUNTED_TRANSACTIONS } from "../../lib/scope"
-import { getLiveBalances } from "../open-finance/balances"
-import { getLiveInvestments } from "../open-finance/investments"
+import { getBalances } from "../open-finance/balances"
+import { getInvestments } from "../open-finance/investments"
 import { HISTORY_MONTHS, loadHistory } from "./history"
 import { horizonMonths, monthKey, SIMULATION_RUNS, simulate } from "./montecarlo"
 import { deriveSeed } from "./random"
@@ -93,6 +92,7 @@ interface ForecastInputs {
   openingBalance: number
   openingAccounts: { id: string; name: string; balance: number }[]
   openingBalanceSource: OpeningBalanceSource
+  openingBalanceFetchedAt: string | null
   months: MonthPlan[]
   horizon: { month: number; year: number; label: string; key: string }[]
   categories: Awaited<ReturnType<typeof loadHistory>>["categories"]
@@ -104,64 +104,46 @@ interface ForecastInputs {
 }
 
 /**
- * Saldo inicial.
+ * Saldo inicial — sempre do Open Finance (retrato do banco, ou da Pluggy se
+ * vencido). Não existe saldo digitado: sem retrato nenhum, o saldo inicial é
+ * zero e `openingBalanceSource` vira "unavailable" para a UI avisar.
  *
- * Contas ligadas ao Open Finance usam o saldo **ao vivo** (spec 04: saldo nunca
- * é persistido). O cartão entra negativo com a **fatura em aberto**: o usado
- * do limite menos as parcelas futuras, que já estão em `knownTransactions` do
- * mês em que caem — sem esse desconto elas seriam contadas duas vezes, e sem a
- * fatura a projeção ignoraria compras já feitas e ainda não pagas.
+ * O cartão entra negativo com a **fatura em aberto**: o usado do limite menos
+ * as parcelas futuras, que já estão em `knownTransactions` do mês em que caem —
+ * sem esse desconto elas seriam contadas duas vezes, e sem a fatura a projeção
+ * ignoraria compras já feitas e ainda não pagas.
  *
  * Renda fixa com liquidez diária entra como caixa (ver abaixo).
- *
- * Contas sem vínculo usam o `balance` cadastrado. Com a Pluggy fora do ar, as
- * ligadas também caem no cadastrado e `openingBalanceSource` vira "stored".
  */
 async function loadOpeningBalance() {
-  const live = await getLiveBalances()
-  const liveIds = new Set(live.available ? live.accounts.map((a) => a.accountId) : [])
+  const balances = await getBalances()
+  const openingAccounts: { id: string; name: string; balance: number }[] = []
 
-  const rows = await db
-    .select({
-      id: accounts.id,
-      name: accounts.name,
-      balance: accounts.balance,
-    })
-    .from(accounts)
-    // Cartão tem saldo com semântica de fatura; sandbox é dado de teste
-    .where(and(ne(accounts.type, "CREDIT_CARD"), eq(accounts.isSandbox, false)))
-
-  const openingAccounts: { id: string; name: string; balance: number }[] = rows
-    .filter((r) => !liveIds.has(r.id))
-    .map((r) => ({ id: r.id, name: r.name, balance: Number(r.balance) }))
-
-  if (live.available) {
-    for (const account of live.accounts.filter((a) => a.type === "BANK")) {
-      openingAccounts.push({ id: account.accountId, name: account.accountName, balance: account.balance })
-    }
-    for (const card of live.accounts.filter((a) => a.type === "CREDIT")) {
-      const [future] = await db
-        .select({ total: sql<string>`coalesce(sum(${transactions.amount}::numeric), 0)` })
-        .from(transactions)
-        .where(
-          and(
-            eq(transactions.accountId, card.accountId),
-            gt(transactions.date, today()),
-            COUNTED_TRANSACTIONS
-          )
+  for (const account of balances.accounts.filter((a) => a.type === "BANK")) {
+    openingAccounts.push({ id: account.accountId, name: account.accountName, balance: account.balance })
+  }
+  for (const card of balances.accounts.filter((a) => a.type === "CREDIT")) {
+    const [future] = await db
+      .select({ total: sql<string>`coalesce(sum(${transactions.amount}::numeric), 0)` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.accountId, card.accountId),
+          gt(transactions.date, today()),
+          COUNTED_TRANSACTIONS
         )
-      const openBill = Math.max(0, card.balance - Number(future?.total ?? 0))
-      openingAccounts.push({
-        id: card.accountId,
-        name: `${card.accountName} (fatura em aberto)`,
-        balance: round2(-openBill),
-      })
-    }
+      )
+    const openBill = Math.max(0, card.balance - Number(future?.total ?? 0))
+    openingAccounts.push({
+      id: card.accountId,
+      name: `${card.accountName} (fatura em aberto)`,
+      balance: round2(-openBill),
+    })
   }
 
   // Renda fixa com liquidez diária (caixinhas/RDB) é caixa: aplicação e resgate
   // são movimentos internos, então conta + RDB formam um só dinheiro disponível
-  const investments = await getLiveInvestments()
+  const investments = await getInvestments()
   if (investments.available && investments.liquid > 0) {
     openingAccounts.push({
       id: "investments-liquid",
@@ -170,12 +152,17 @@ async function loadOpeningBalance() {
     })
   }
 
+  const openingBalanceSource: OpeningBalanceSource = !balances.available
+    ? "unavailable"
+    : balances.stale
+      ? "stale"
+      : "open_finance"
+
   return {
     openingAccounts,
-    openingBalance: round2(
-      openingAccounts.reduce((sum, a) => sum + a.balance, 0)
-    ),
-    openingBalanceSource: (live.available ? "live" : "stored") as OpeningBalanceSource,
+    openingBalance: round2(openingAccounts.reduce((sum, a) => sum + a.balance, 0)),
+    openingBalanceSource,
+    openingBalanceFetchedAt: balances.fetchedAt,
   }
 }
 
@@ -210,7 +197,11 @@ async function buildInputs(
     Number(historyKeys[historyKeys.length - 1].slice(5))
   )
 
-  const [{ openingBalance, openingAccounts, openingBalanceSource }, history, budgetRows] =
+  const [
+    { openingBalance, openingAccounts, openingBalanceSource, openingBalanceFetchedAt },
+    history,
+    budgetRows,
+  ] =
     await Promise.all([
       loadOpeningBalance(),
       loadHistory(historyStart.from, historyEnd.to, historyKeys),
@@ -304,6 +295,7 @@ async function buildInputs(
     openingBalance,
     openingAccounts,
     openingBalanceSource,
+    openingBalanceFetchedAt,
     months,
     horizon,
     categories: history.categories,
@@ -331,6 +323,7 @@ function project(
     openingBalance: inputs.openingBalance,
     openingAccounts: inputs.openingAccounts,
     openingBalanceSource: inputs.openingBalanceSource,
+    openingBalanceFetchedAt: inputs.openingBalanceFetchedAt,
     months: result.months,
     summary: result.summary,
     assumptions: {

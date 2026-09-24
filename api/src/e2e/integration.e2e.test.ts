@@ -33,87 +33,82 @@ function dayIn(monthsBack: number, day: number): string {
 beforeEach(resetDatabase)
 afterEach(() => __setLlm(null))
 
-describe("e2e — escritas de transação alimentam o detector", () => {
-  test("POST /transactions/bulk dispara o recálculo das séries", async () => {
-    const account = await makeAccount("Nubank", { balance: 10000 })
-    const category = await makeCategory("Streaming")
+describe("e2e — transações vêm só do Open Finance", () => {
+  test("não existe criar, importar nem excluir transação", async () => {
+    const account = await makeAccount("Nubank")
+    const category = await makeCategory("Diversos")
+    const [tx] = await makeTransactions([
+      { name: "Mercado", amount: 100, date: dayIn(0, 1), categoryId: category.id, accountId: account.id },
+    ])
+    const body = {
+      name: "Manual", amount: 10, categoryId: category.id, paymentMethod: "pix",
+      accountId: account.id, isEssential: false, recurrence: "variable", date: dayIn(0, 1),
+    }
 
-    const bulk = Array.from({ length: 4 }, (_, i) => ({
-      name: "Netflix",
-      amount: 55.9,
-      categoryId: category.id,
-      paymentMethod: "credit_card" as const,
-      accountId: account.id,
-      isEssential: false,
-      recurrence: "variable" as const,
-      budgetId: null,
-      date: dayIn(4 - i, 5),
-      notes: null,
-    }))
-
-    const res = await api.post<{ created: number }>("/transactions/bulk", {
-      transactions: bulk,
-    })
-    expect(res.body.created).toBe(4)
-    // O bulk é o caminho da importação: nasce como `csv` por padrão
-    const rows = await db.select().from(transactions)
-    expect(rows.every((r) => r.source === "csv" && r.kind === "regular")).toBe(true)
-
-    // O recálculo é agendado com debounce de 5s para colapsar a rajada da
-    // importação — aqui só confirmamos que o agendamento aconteceu, forçando.
-    expect(await db.select().from(recurringSeries)).toHaveLength(0)
-
-    await api.post("/recurring/recalculate")
-    const series = await db.select().from(recurringSeries)
-    expect(series).toHaveLength(1)
-    expect(series[0].merchantKey).toBe("netflix")
+    expect((await api.post("/transactions", body)).status).toBe(404)
+    expect((await api.post("/transactions/bulk", { transactions: [body] })).status).toBe(404)
+    expect((await api.delete(`/transactions/${tx.id}`)).status).toBe(404)
+    expect(await db.select().from(transactions)).toHaveLength(1)
   })
 
-  test("excluir uma transação derruba a série no recálculo", async () => {
-    const account = await makeAccount("Nubank", { balance: 10000 })
-    const category = await makeCategory("Streaming")
+  test("reclassificar muda só os campos do usuário, nunca valor/data/conta", async () => {
+    const account = await makeAccount("Nubank")
+    const category = await makeCategory("Diversos")
+    const other = await makeCategory("Mercado")
+    const [tx] = await makeTransactions([
+      { name: "PIX 123", amount: 250, date: dayIn(0, 3), categoryId: category.id, accountId: account.id },
+    ])
 
+    const res = await api.patch<{ name: string; categoryId: string; amount: string; date: string }>(
+      `/transactions/${tx.id}`,
+      {
+        name: "Feira", categoryId: other.id, paymentMethod: "pix", isEssential: true,
+        recurrence: "variable", budgetId: null, notes: "sábado",
+        // Campos do banco no corpo são ignorados pela validação do Elysia
+        amount: 1, date: "2000-01-01",
+      }
+    )
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ name: "Feira", categoryId: other.id, amount: "250.00", date: dayIn(0, 3) })
+  })
+
+  test("entrada reclassificada nunca vira essencial", async () => {
+    const account = await makeAccount("Nubank")
+    const category = await makeCategory("Salário")
+    const [tx] = await makeTransactions([
+      { name: "Salário", amount: -5000, date: dayIn(0, 5), categoryId: category.id, accountId: account.id },
+    ])
+    const res = await api.patch<{ isEssential: boolean }>(`/transactions/${tx.id}`, {
+      name: "Salário", categoryId: category.id, paymentMethod: "transfer",
+      isEssential: true, recurrence: "variable",
+    })
+    expect(res.body.isEssential).toBe(false)
+  })
+
+  test("gasto fixo exige orçamento", async () => {
+    const account = await makeAccount("Nubank")
+    const category = await makeCategory("Moradia")
+    const [tx] = await makeTransactions([
+      { name: "Aluguel", amount: 2000, date: dayIn(0, 5), categoryId: category.id, accountId: account.id },
+    ])
+    const res = await api.patch(`/transactions/${tx.id}`, {
+      name: "Aluguel", categoryId: category.id, paymentMethod: "boleto",
+      isEssential: true, recurrence: "fixed", budgetId: null,
+    })
+    expect(res.status).toBe(400)
+  })
+
+  test("renomear na reclassificação mantém as séries coerentes", async () => {
+    const account = await makeAccount("Nubank")
+    const category = await makeCategory("Streaming")
     const created = await makeTransactions(
       Array.from({ length: 3 }, (_, i) => ({
         name: "Netflix",
         amount: 55.9,
-        date: dayIn(3 - i, 5),
+        date: dayIn(2 - i, 5),
         categoryId: category.id,
         accountId: account.id,
       }))
-    )
-
-    await api.post("/recurring/recalculate")
-    expect(await db.select().from(recurringSeries)).toHaveLength(1)
-
-    // Sobram 2 ocorrências — abaixo do mínimo, a série deixa de existir
-    await api.delete(`/transactions/${created[0].id}`)
-    await api.post("/recurring/recalculate")
-    expect(await db.select().from(recurringSeries)).toHaveLength(0)
-  })
-
-  test("criar e editar transação mantêm a série coerente", async () => {
-    const account = await makeAccount("Nubank", { balance: 10000 })
-    const category = await makeCategory("Streaming")
-
-    const body = (date: string) => ({
-      name: "Netflix",
-      amount: 55.9,
-      categoryId: category.id,
-      paymentMethod: "credit_card" as const,
-      accountId: account.id,
-      isEssential: false,
-      recurrence: "variable" as const,
-      budgetId: null,
-      date,
-      notes: null,
-    })
-
-    await api.post("/transactions", body(dayIn(2, 5)))
-    await api.post("/transactions", body(dayIn(1, 5)))
-    const third = await api.post<{ id: string }>(
-      "/transactions",
-      body(dayIn(0, 5))
     )
 
     await api.post("/recurring/recalculate")
@@ -121,40 +116,15 @@ describe("e2e — escritas de transação alimentam o detector", () => {
     expect(serie.occurrences).toBe(3)
 
     // Editar o nome tira a transação do grupo — a chave do estabelecimento muda
-    await api.put(`/transactions/${third.body.id}`, {
-      ...body(dayIn(0, 5)),
+    await api.patch(`/transactions/${created[2].id}`, {
       name: "Outro Servico Totalmente Diferente",
+      categoryId: category.id,
+      paymentMethod: "credit_card",
+      isEssential: false,
+      recurrence: "variable",
     })
     await api.post("/recurring/recalculate")
     expect(await db.select().from(recurringSeries)).toHaveLength(0)
-  })
-
-  test("o saldo da conta é ajustado pelo bulk", async () => {
-    const account = await makeAccount("Nubank", { balance: 1000 })
-    const category = await makeCategory("Diversos")
-
-    await api.post("/transactions/bulk", {
-      transactions: [
-        {
-          name: "Gasto", amount: 300, categoryId: category.id,
-          paymentMethod: "pix", accountId: account.id, isEssential: false,
-          recurrence: "variable", budgetId: null,
-          date: dayIn(0, 1), notes: null,
-        },
-        {
-          name: "Entrada", amount: -500, categoryId: category.id,
-          paymentMethod: "transfer", accountId: account.id, isEssential: false,
-          recurrence: "variable", budgetId: null,
-          date: dayIn(0, 1), notes: null,
-        },
-      ],
-    })
-
-    const updated = await api.get<{ balance: string }>(
-      `/accounts/${account.id}`
-    )
-    // 1000 - 300 + 500
-    expect(Number(updated.body.balance)).toBe(1200)
   })
 })
 

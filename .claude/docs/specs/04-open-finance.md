@@ -18,12 +18,23 @@ que **nunca alimentavam `transactions`**, e porque só rodou em sandbox.
 **Status:** ✅ implementada (F0–F7) em 2026-09-23. Primeira sincronização real feita em 2026-09-23. As carteiras foram removidas antes da F1
 (`decisions/remocao-carteiras.md`).
 
+> **Revisão de 2026-09-23 — Open Finance como fonte única.** Duas decisões
+> desta spec foram substituídas (ver `decisions/open-finance-fonte-unica.md`):
+> 1. Lançamento manual e CSV **não** são mais complementares: foram removidos.
+>    Toda transação vem do sync; o usuário só reclassifica.
+> 2. Saldos e posições **passaram a ser persistidos** como retrato em
+>    `open_finance_snapshots` (prazo de 15 min / 1 h). Com a Pluggy fora do ar,
+>    o app mostra o último retrato marcado como desatualizado.
+>
+> As seções abaixo sobre "saldo ao vivo, nunca persistido", adoção de CSV e
+> dedupe do bulk ficam como registro histórico.
+
 ## Decisões
 
 | Tema | Decisão | Por quê |
 |---|---|---|
 | Transações | **Persistidas** em `transactions` (mais o payload bruto) | Histórico além dos 12 meses da Pluggy, edições do usuário (categoria, essencial, orçamento), IDs que mudam, e todo o motor (classificação, check-up, projeção) é SQL. A Pluggy só atualiza 1×/dia, então chamar na hora não traria dado mais novo. |
-| **Saldos e posições** | **Sempre buscados na Pluggy**, nunca persistidos (decisão do usuário em 2026-09-23) | O saldo é o dado que mais muda e o que a Pluggy entrega sempre atual. A busca é rápida: contas + investimentos em paralelo levam ~130 ms, mais ~130 ms de `/auth`, que fica em cache. |
+| **Saldos e posições** | ~~Sempre buscados na Pluggy, nunca persistidos~~ → **retrato persistido** (revisão de 2026-09-23, ver acima) | O saldo é o dado que mais muda e o que a Pluggy entrega sempre atual. A busca é rápida: contas + investimentos em paralelo levam ~130 ms, mais ~130 ms de `/auth`, que fica em cache. |
 | Arquitetura | Módulo isolado `api/src/modules/open-finance/` mais um processo de sync via script. Sem microsserviço | É um usuário e um Postgres só. Dá o isolamento sem custo operacional. |
 | Webhook | Fica para depois | Exige URL HTTPS pública. Sync agendado + botão resolvem. |
 | Carteiras | Removidas | Ver `decisions/remocao-carteiras.md`. |

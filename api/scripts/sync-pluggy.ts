@@ -41,13 +41,13 @@ try {
   for (const account of report.accounts) {
     console.log(
       `■ ${account.accountName} (${account.type}) desde ${account.from}: ` +
-        `${account.fetched} lidas → ${account.created} novas, ${account.adopted} adotadas, ` +
+        `${account.fetched} lidas → ${account.created} novas, ` +
         `${account.updated} atualizadas, ${account.removed} removidas, ${account.unchanged} iguais`
     )
   }
   console.log(
     `\n${dryRun ? "Simulação" : "Sync"} ${report.full ? "completo" : "incremental"}: ` +
-      `${report.created} novas, ${report.adopted} adotadas do histórico, ${report.updated} atualizadas, ` +
+      `${report.created} novas, ${report.updated} atualizadas, ` +
       `${report.removed} removidas.`
   )
   process.exit(0)

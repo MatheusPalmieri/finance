@@ -1,7 +1,7 @@
 ---
 title: Performance do frontend
 area: frontend
-updated: 2026-06-08
+updated: 2026-09-23
 ---
 
 ## Visão geral
@@ -73,11 +73,15 @@ mais lento (passe do Babel). Ex.: `Clients` 150→168 KB, `Home` 5.5→7.3 KB.
 - O `Funnel` (`app/src/pages/Funnel.tsx`) já usa `useMemo` para `stages`,
   `distributionData` e `timeline`.
 
-## Dados mock determinísticos
+## Sem dados mock
 
-`app/src/pages/Dashboard/mock.ts` gera os dados com um PRNG de seed fixa
-(mulberry32) em nível de módulo — calculado uma única vez no carregamento do
-chunk, estável entre renders.
+O Finance não tem dado mockado em nenhuma tela: tudo vem da API, que só serve o
+que veio do Open Finance. As menções a `pages/Dashboard/` e ao `Funnel` neste
+doc vêm do CRM de onde o app foi derivado e não existem aqui.
+
+Performance de dados do Open Finance: saldos e investimentos são lidos do
+retrato salvo no Postgres (poucos ms) e a Pluggy só é chamada quando ele vence
+(15 min / 1 h). Ver `domain/open-finance.md`, "Cache persistente".
 
 ## Recomendações futuras (não aplicadas)
 

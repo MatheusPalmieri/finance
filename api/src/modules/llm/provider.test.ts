@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { z } from "zod"
 import { __setLlm, getLlm, llmEnabled } from "./provider"
-import { MockLlmProvider } from "./providers/mock"
+import { MockLlmProvider } from "../../test/mocks/llm"
 import { LlmError } from "./types"
 
 const schema = z.object({ items: z.array(z.object({ index: z.number() })) })
@@ -28,9 +28,16 @@ afterEach(() => __setLlm(null))
 describe("getLlm", () => {
   test("respeita LLM_PROVIDER", async () => {
     __setLlm(null)
-    process.env.LLM_PROVIDER = "mock"
+    process.env.LLM_PROVIDER = "ollama"
     const llm = await getLlm()
-    expect(llm.name).toBe("mock")
+    expect(llm.name).toBe("ollama")
+    delete process.env.LLM_PROVIDER
+  })
+
+  test("não aceita provedor fake em execução", async () => {
+    __setLlm(null)
+    process.env.LLM_PROVIDER = "mock"
+    await expect(getLlm()).rejects.toThrow(/LLM_PROVIDER inválido/)
     delete process.env.LLM_PROVIDER
   })
 
@@ -43,7 +50,7 @@ describe("getLlm", () => {
 
   test("faz cache e __setLlm(null) limpa", async () => {
     __setLlm(null)
-    process.env.LLM_PROVIDER = "mock"
+    process.env.LLM_PROVIDER = "ollama"
     const first = await getLlm()
     expect(await getLlm()).toBe(first)
     __setLlm(null)

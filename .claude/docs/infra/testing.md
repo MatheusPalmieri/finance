@@ -42,8 +42,21 @@ nunca diverge.
 de qualquer arquivo de teste, portanto antes de `src/db/index.ts` ser importado
 — que lê `DATABASE_URL` no momento do import. É o que garante o isolamento.
 
-O preload também força `LLM_PROVIDER=mock`: sem isso, um Ollama rodando na
-máquina faria os testes saírem pela rede e ficarem lentos e instáveis.
+O preload também aponta a IA para um Ollama inalcançável
+(`LLM_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://127.0.0.1:1`) e zera as
+`PLUGGY_*`: sem isso, um Ollama rodando na máquina ou as credenciais reais do
+`api/.env` fariam os testes saírem pela rede. Quem precisa de IA ou de Open
+Finance injeta o dublê.
+
+### Dublês (`src/test/mocks/`)
+
+| Arquivo | Injetado com |
+|---|---|
+| `llm.ts` — `MockLlmProvider` | `useMockLlm()` / `__setLlm()` |
+| `open-finance.ts` — `MockOpenFinanceProvider` | `__setProvider()` |
+
+Moram em `src/test/` de propósito: o código de produção não importa nada
+dali, então o app em execução nunca serve dado fake.
 
 ## Helpers (`src/test/helpers.ts`)
 
@@ -51,7 +64,7 @@ máquina faria os testes saírem pela rede e ficarem lentos e instáveis.
 |---|---|
 | `api.get/post/put/patch/delete` | Cliente HTTP sobre `app.handle()`; devolve `{ status, body }` |
 | `resetDatabase()` | Esvazia as tabelas entre os testes |
-| `makeCategory/makeAccount/makeBudget/makeTransaction(s)` (`makeAccount(name, { isSandbox: true })` cria conta sandbox) | Fábricas |
+| `makeCategory/makeAccount/makeBudget/makeTransaction(s)` | Fábricas. `makeAccount(name, { balance })` grava o saldo no retrato `open_finance_snapshots`, como o sync faria; `makeTransaction` gera `externalId` único se não vier |
 | `useMockLlm(...respostas)` | Instala o `MockLlmProvider` com uma fila |
 | `withAiDisabled(fn)` | Roda um bloco com `LLM_ENABLED=false` |
 | `expectRejection(promise)` | Espera rejeição e devolve o erro |
@@ -114,12 +127,15 @@ fora é deliberado:
 
 - `routes/{accounts,budgets,categories}` — CRUD anterior às specs, sem
   teste automatizado ainda.
-- `routes/transactions.ts` — os caminhos que as specs tocam (bulk, exclusão,
-  criação e edição com recálculo) estão cobertos; o resto do CRUD, não.
+- `routes/transactions.ts` — coberto: listagem, reclassificação (PATCH) e a
+  ausência de criar/importar/excluir (`integration.e2e.test.ts`).
 
 ## Limite conhecido
 
 **Não há testes automatizados no `app/`.** As seções "Testes" das quatro specs
-descrevem apenas testes da API, e a verificação do frontend nelas é manual (com
-a conta sandbox `Claude`). Montar uma suíte de componentes é trabalho à parte, ainda
-não feito.
+descrevem apenas testes da API, e a verificação do frontend nelas é manual.
+Montar uma suíte de componentes é trabalho à parte, ainda não feito.
+
+**Dados de teste nunca vão para o banco de desenvolvimento**: não existe mais
+lançamento manual nem conta sandbox. Teste automatizado roda em `finance_test`;
+verificação manual no navegador só lê os dados reais (e pode reclassificar).

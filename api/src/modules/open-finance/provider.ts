@@ -49,7 +49,7 @@ export async function getProvider(): Promise<OpenFinanceProvider> {
   return cached
 }
 
-/** Só para testes: injeta um provedor fake (ou limpa com `null`). */
+/** Só para testes: injeta o dublê (`src/test/mocks/open-finance.ts`) ou limpa com `null`. */
 export function __setProvider(provider: OpenFinanceProvider | null) {
   cached = provider
 }

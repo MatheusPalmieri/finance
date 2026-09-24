@@ -49,3 +49,6 @@ coverage/
 
 # MCP / IDE configs (sensíveis)
 .mcp.json
+
+# Backups do banco (dados bancários)
+backups/

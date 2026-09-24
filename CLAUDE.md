@@ -18,21 +18,37 @@ Antes de encerrar a resposta, rode `git status` e confirme que está limpo e sin
 
 ---
 
+## Regra de fonte de dados (OBRIGATÓRIA)
+
+**O Open Finance é a única fonte de verdade.** Todo dado financeiro (contas,
+transações, saldos, investimentos) vem da Pluggy pelo sync e é gravado no
+Postgres. Ver `.claude/docs/decisions/open-finance-fonte-unica.md`.
+
+- **Nunca** reintroduza lançamento manual, importação de extrato, saldo digitado
+  ou qualquer outra entrada de dado financeiro fora do sync. O usuário só
+  **reclassifica** transações e muda a **aparência** das contas.
+- **Nada mockado em execução.** Dublês (`MockLlmProvider`,
+  `MockOpenFinanceProvider`) moram em `api/src/test/mocks/` e só testes os
+  injetam. Nada de seed fake, dado de exemplo ou fallback inventado: sem dado do
+  Open Finance, a tela diz "indisponível".
+- **Sempre gravar o que veio da Pluggy** e servir do banco: saldos e
+  investimentos em `open_finance_snapshots`, transações em `transactions`. Só
+  ir à Pluggy quando o retrato vencer. Com ela fora, mostrar o último dado
+  marcado como desatualizado.
+- **Dado sigiloso:** nunca logar payload/valores, nunca expor a API fora de
+  `127.0.0.1`, backups só em `backups/` (ignorado pelo git).
+
 ## Regra de dados de teste (OBRIGATÓRIA)
 
-**Toda transação criada para teste, depuração ou verificação manual deve ficar
-na conta sandbox chamada `Claude`** (`accounts.is_sandbox = true`). Nunca misture
-dados de teste com as contas reais do usuário.
+**Dados de teste nunca entram no banco de desenvolvimento.** Não existe mais
+lançamento manual nem conta sandbox.
 
-- Se a conta `Claude` não existir, crie antes de testar:
-  `POST /accounts` com
-  `{ "name": "Claude", "type": "CHECKING", "color": "#d97757", "isSandbox": true }`.
-- Escolha a conta `Claude` no formulário da transação (ou no `ImportModal`).
-  Transações de conta sandbox aparecem na listagem, mas ficam fora de toda
-  análise (ver `.claude/docs/domain/transaction.md`, "Conta sandbox").
-- A mesma regra vale para importação de CSV de teste e para inserts feitos
-  direto no Postgres.
-- Não é preciso apagar os dados depois: eles ficam isolados nessa conta.
+- Teste automatizado: `bun run test` em `api/` — roda no banco isolado
+  `finance_test` (ver `.claude/docs/infra/testing.md`). Fábricas em
+  `api/src/test/helpers.ts`.
+- Verificação manual no navegador: só leitura dos dados reais. Reclassificar uma
+  transação é permitido se for desfeito em seguida.
+- Nunca faça insert direto no Postgres de dev para testar.
 
 ---
 
@@ -61,35 +77,34 @@ Este projeto tem skills configuradas em `.claude/skills/`. Use-as sempre que o c
 Use `/docs` para criar ou atualizar o doc. Nunca termine uma tarefa sem checar se a doc está em dia.
 
 Docs existentes:
-- `.claude/docs/domain/open-finance.md` — sync com a Pluggy: normalização, janela, vínculo de contas, religar/adotar/remover, campos do usuário preservados
+- `.claude/docs/decisions/open-finance-fonte-unica.md` — ADR: Open Finance como fonte única, fim do manual/CSV, retrato persistido, sem mocks
+- `.claude/docs/domain/open-finance.md` — sync com a Pluggy (normalização, janela, vínculo de contas, religar/remover, campos do usuário preservados) e o cache persistente `open_finance_snapshots`
 - `.claude/docs/domain/forecast.md` — projeção Monte Carlo do saldo, cenários, veredito "posso comprar?" e reserva mínima
 - `.claude/docs/api/forecast.md` — endpoints /forecast e /settings
-- `.claude/docs/frontend/open-finance.md` — páginas /open-finance e /investments, sync automático ao abrir, saldo ao vivo no Início/Contas/Projeção, selos Pendente/Interno
+- `.claude/docs/frontend/open-finance.md` — páginas /open-finance e /investments, sync automático ao abrir, selo `SnapshotStatus`, Contas só-aparência e Transações só-reclassificação
 - `.claude/docs/frontend/forecast.md` — página /forecast (gráfico de leque, painel de cenário) e card no Home
 - `.claude/docs/domain/classification.md` — motor de classificação em 3 camadas (regras/histórico/IA), regras aprendidas e detector de recorrências
 - `.claude/docs/domain/monthly-report.md` — check-up mensal: métricas, anomalias (mediana/MAD), insights e validação anti-alucinação
-- `.claude/docs/api/open-finance.md` — endpoints /open-finance (status com auto-sync, sync, runs, vínculo de contas)
+- `.claude/docs/api/open-finance.md` — endpoints /open-finance (status com auto-sync, sync, runs, vínculo de contas, retratos de saldo/investimentos)
 - `.claude/docs/api/classification.md` — endpoints /classification e /recurring
 - `.claude/docs/api/reports.md` — endpoints /reports (check-up mensal)
-- `.claude/docs/api/llm.md` — camada `LlmProvider` (Ollama/Anthropic/mock), env vars, degradação e telemetria
+- `.claude/docs/api/llm.md` — camada `LlmProvider` (Ollama/Anthropic; dublê só em testes), env vars, degradação e telemetria
 - `.claude/docs/frontend/rules.md` — página /rules (regras + cobranças recorrentes)
 - `.claude/docs/frontend/reports.md` — página /reports (check-up) e card no Home
 - `.claude/docs/infra/scheduler.md` — agendamento mensal no Windows e fallback in-app
 - `.claude/docs/infra/testing.md` — suíte da API: banco de teste isolado, helpers de e2e e o que cada suíte cobre
 - `.claude/docs/infra/pluggy-probe.md` — `bun run pluggy:probe`: sondagem somente leitura da Pluggy (F0 do Open Finance), env vars e o que ela mede
 - `.claude/docs/infra/open-finance-sync.md` — gatilhos do sync, `bun run sync:pluggy` e a tarefa do Agendador do Windows
-- `.claude/docs/infra/csv-import-cli.md` — `bun run import:csv`: importa vários extratos de uma vez, com dedupe e classificação
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
-- `.claude/docs/domain/transaction.md` — entidade Transação (despesa e entrada via sinal de amount), regras de saldo, conta padrão e conta sandbox
+- `.claude/docs/domain/transaction.md` — entidade Transação (só do Open Finance; campos do banco vs do usuário, sinal de amount, escopo das análises)
 - `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
 - `.claude/docs/api/lookups.md` — endpoints /categories (bancos, carteiras e formas de pagamento removidos como CRUD)
-- `.claude/docs/api/transactions.md` — endpoints /transactions, /accounts (padrão) e /dashboard
+- `.claude/docs/api/transactions.md` — endpoints /transactions (leitura + PATCH de reclassificação), /accounts (leitura + aparência) e /dashboard
 - `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês, período específico e filtro por conta em Transações
-- `.claude/docs/frontend/transactions-import.md` — importação de extrato CSV (Nubank) com revisão antes de salvar
-- `.claude/docs/decisions/remocao-carteiras.md` — ADR: por que as carteiras saíram e como a conta sandbox isola dados de teste
+- `.claude/docs/decisions/remocao-carteiras.md` — ADR: por que as carteiras saíram (a conta sandbox que as substituiu também saiu depois)
 - `.claude/docs/decisions/remocao-open-finance.md` — ADR (substituído pela spec 04): por que a primeira integração Open Finance foi removida
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
 - `.claude/docs/frontend/pages.md` — rotas, componentes, modais
@@ -99,7 +114,7 @@ Docs existentes:
 - `.claude/docs/frontend/states.md` — estados loading/erro/vazio/sucesso e ErrorState
 - `.claude/docs/infra/dev-runner.md` — script `bun run dev` na raiz que sobe api + app juntos (concurrently)
 - `.claude/docs/infra/error-handler.md` — handler global `onError` que desembrulha `error.cause` (Drizzle) e loga o erro real do Postgres
-- `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos, seed padrão vs seed de desenvolvimento
+- `.claude/docs/infra/database.md` — Drizzle ORM, schema, comandos, seed (só categorias) e scripts de migração
 - `.claude/docs/infra/docker.md` — Docker Compose, PostgreSQL local
 - `.claude/docs/infra/cors.md` — CORS, origem permitida
 - `.claude/docs/decisions/phone-normalization.md` — ADR do telefone sem 9 inicial
@@ -114,7 +129,7 @@ Cada uma é autocontida e pode ser desenvolvida individualmente. Ver
 - ✅ `.claude/docs/specs/01-smart-categorization.md` — categorização em 3 camadas que aprende + detecção de assinaturas — **implementada**
 - ✅ `.claude/docs/specs/02-monthly-checkup.md` — relatório mensal com anomalias e narrativa de IA — **implementada**
 - ✅ `.claude/docs/specs/03-cashflow-simulator.md` — projeção de fluxo de caixa (Monte Carlo) e simulador "posso comprar?" — **implementada**
-- ✅ `.claude/docs/specs/04-open-finance.md` — Open Finance (Pluggy) como fonte primária; **saldo e investimentos sempre buscados ao vivo, nunca persistidos** — **implementada**
+- ✅ `.claude/docs/specs/04-open-finance.md` — Open Finance (Pluggy) como fonte primária — **implementada**; revisada em 2026-09-23: **fonte única** e saldo/investimentos **persistidos como retrato** (ver ADR `open-finance-fonte-unica.md`)
 
 ---
 
@@ -190,7 +205,6 @@ bun run db:push        # Push schema directly (dev only)
 bun run db:studio      # Drizzle Studio (GUI)
 bun run db:seed:rules  # Regras de classificação (idempotente)
 bun run report:monthly # Gera o check-up mensal — aceita YYYY-MM
-bun run import:csv <conta> <arquivo.csv> [...]  # Importa extratos em lote (idempotente)
 bun run pluggy:probe   # F0 Open Finance: sonda a conta Meu Pluggy (somente leitura)
 bun run sync:pluggy    # Sincroniza o Open Finance — aceita --full --refresh --dry-run --ai
 ```
@@ -209,8 +223,9 @@ docker compose down -v  # Para e apaga volume (reseta banco)
 
 ```bash
 docker compose up -d
-cp api/.env.example api/.env
-cd api && bun run db:push
+cp api/.env.example api/.env   # preencher as PLUGGY_* — sem elas não há dado nenhum
+cd api && bun run db:push && bun run db:seed && bun run db:seed:rules
+bun run sync:pluggy           # primeira carga: contas, transações e saldos
 cd .. && bun install
 bun run dev   # sobe api + app juntos
 ```

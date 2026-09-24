@@ -1,14 +1,16 @@
-// Provedor em memória para testes. O estado é público: o teste monta contas e
-// transações, roda o sync, muda o estado e roda de novo.
+// Dublê em memória do provedor, só para testes. O estado é público: o teste
+// monta contas e transações, roda o sync, muda o estado e roda de novo. Mora
+// em `src/test/` de propósito: o app em execução sempre usa a Pluggy real —
+// só testes o injetam com `__setProvider()`.
 
-import type { OpenFinanceProvider } from "../provider"
+import type { OpenFinanceProvider } from "../../modules/open-finance/provider"
 import type {
   ProviderAccount,
   ProviderInvestment,
   ProviderInvestmentTransaction,
   ProviderItem,
   ProviderTransaction,
-} from "../types"
+} from "../../modules/open-finance/types"
 
 export class MockOpenFinanceProvider implements OpenFinanceProvider {
   readonly name = "mock"

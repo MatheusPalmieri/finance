@@ -8,16 +8,14 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
-  Minus,
+  Landmark,
   Pencil,
-  Plus,
   Repeat,
   Search,
-  Trash2,
-  Upload,
   X,
   Zap,
 } from "lucide-react"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,28 +32,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
-import { ImportModal } from "./ImportModal"
 import {
   useAccounts,
   useCategories,
-  useCreateTransaction,
-  useDefaultAccount,
-  useDeleteTransaction,
+  useReclassifyTransaction,
   useTransactions,
-  useUpdateTransaction,
 } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -79,13 +63,11 @@ function monthRange(month: number, year: number) {
 }
 
 // ── Schema ────────────────────────────────────────────────────────────────────
+// Só a classificação é do usuário. Valor, data e conta vêm do banco via Open
+// Finance e aparecem como leitura no modal.
 const schema = z
   .object({
     name: z.string().min(1, "Informe o nome"),
-    amount: z
-      .number({ error: "Informe o valor" })
-      .positive("Valor deve ser positivo"),
-    isIncome: z.boolean(),
     categoryId: z.string().min(1, "Selecione a categoria"),
     paymentMethod: z.enum(
       ["cash", "pix", "credit_card", "debit_card", "boleto", "transfer"],
@@ -93,11 +75,9 @@ const schema = z
         error: "Selecione a forma de pagamento",
       }
     ),
-    accountId: z.string().min(1, "Selecione a conta"),
     isEssential: z.boolean(),
     recurrence: z.enum(["fixed", "variable"]),
     budgetId: z.string().optional(),
-    date: z.string().min(1, "Informe a data"),
     notes: z.string().optional(),
   })
   // Em gasto fixo, o orçamento vinculado é obrigatório
@@ -129,10 +109,7 @@ export function Transactions() {
   } | null>(null)
   const [draftFrom, setDraftFrom] = useState("")
   const [draftTo, setDraftTo] = useState("")
-  const [creating, setCreating] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
-  const [deleting, setDeleting] = useState<Transaction | null>(null)
 
   const { from, to } = customRange ?? monthRange(month, year)
   const isCurrentMonth =
@@ -184,8 +161,6 @@ export function Transactions() {
   const { data: categories } = useCategories()
   const { data: accounts } = useAccounts()
 
-  const deleteMutation = useDeleteTransaction()
-
   const grouped = groupByDate(data?.data ?? [])
 
   return (
@@ -197,24 +172,9 @@ export function Transactions() {
           <p className="text-sm text-muted-foreground">
             {data?.total ?? 0}{" "}
             {data?.total === 1
-              ? "transação registrada"
-              : "transações registradas"}
+              ? "transação do Open Finance"
+              : "transações do Open Finance"}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setImporting(true)}
-            size="sm"
-            variant="outline"
-            className="gap-2"
-          >
-            <Upload size={15} />
-            Importar CSV
-          </Button>
-          <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
-            <Plus size={15} />
-            Nova transação
-          </Button>
         </div>
       </div>
 
@@ -360,7 +320,6 @@ export function Transactions() {
             {accounts?.map((a) => (
               <SelectItem key={a.id} value={a.id}>
                 {a.name}
-                {a.isSandbox ? " (sandbox)" : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -399,8 +358,15 @@ export function Transactions() {
       ) : grouped.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <p className="text-muted-foreground">Nenhuma transação encontrada</p>
-          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-            Criar primeira transação
+          <p className="max-w-sm text-xs text-muted-foreground">
+            As transações chegam só pelo Open Finance. Se faltar algo, rode uma
+            sincronização.
+          </p>
+          <Button variant="outline" size="sm" className="gap-2" asChild>
+            <Link to="/open-finance">
+              <Landmark size={14} />
+              Ir para o Open Finance
+            </Link>
           </Button>
         </div>
       ) : (
@@ -416,7 +382,6 @@ export function Transactions() {
                     key={tx.id}
                     tx={tx}
                     onEdit={() => setEditing(tx)}
-                    onDelete={() => setDeleting(tx)}
                   />
                 ))}
               </div>
@@ -450,54 +415,13 @@ export function Transactions() {
         </div>
       )}
 
-      {/* Modais */}
-      {creating && (
-        <TransactionModal
-          open
-          onClose={() => setCreating(false)}
-          title="Nova transação"
-        />
-      )}
-
-      {importing && <ImportModal open onClose={() => setImporting(false)} />}
-
       {editing && (
-        <TransactionModal
+        <ClassificationModal
           open
           onClose={() => setEditing(null)}
-          title="Editar transação"
-          defaultValues={editing}
+          transaction={editing}
         />
       )}
-
-      <AlertDialog
-        open={!!deleting}
-        onOpenChange={(o) => !o && setDeleting(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir transação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será removida permanentemente e
-              o valor será devolvido ao saldo da conta.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
-              onClick={() => {
-                if (deleting)
-                  deleteMutation.mutate(deleting.id, {
-                    onSuccess: () => setDeleting(null),
-                  })
-              }}
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
@@ -506,11 +430,9 @@ export function Transactions() {
 function TransactionRow({
   tx,
   onEdit,
-  onDelete,
 }: {
   tx: Transaction
   onEdit: () => void
-  onDelete: () => void
 }) {
   const amount = Number(tx.amount)
   const isIncome = amount < 0
@@ -569,7 +491,6 @@ function TransactionRow({
         <p className="truncate text-xs text-muted-foreground">
           {tx.category?.name ?? "Sem categoria"} ·{" "}
           {PAYMENT_METHOD_LABELS[tx.paymentMethod]} · {tx.account?.name ?? "—"}
-          {tx.source === "open_finance" && " · Open Finance"}
         </p>
       </div>
 
@@ -584,48 +505,36 @@ function TransactionRow({
         {formatCurrency(Math.abs(amount))}
       </span>
 
-      {/* Ações: sempre visíveis no toque, reveladas no hover no desktop */}
+      {/* Ação: sempre visível no toque, revelada no hover no desktop */}
       <div className="flex shrink-0 items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
         <button
           type="button"
           onClick={onEdit}
-          aria-label="Editar transação"
+          aria-label="Reclassificar transação"
           className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
         >
           <Pencil size={15} className="lg:size-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label="Excluir transação"
-          className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
-        >
-          <Trash2 size={15} className="lg:size-3.5" />
         </button>
       </div>
     </div>
   )
 }
 
-// ── Modal de criar/editar ─────────────────────────────────────────────────────
-function TransactionModal({
+// ── Modal de reclassificação ──────────────────────────────────────────────────
+function ClassificationModal({
   open,
   onClose,
-  title,
-  defaultValues,
+  transaction,
 }: {
   open: boolean
   onClose: () => void
-  title: string
-  defaultValues?: Transaction
+  transaction: Transaction
 }) {
-  const { data: accounts } = useAccounts()
   const { data: categories } = useCategories()
-  const { data: defaultAccount } = useDefaultAccount()
-  const create = useCreateTransaction()
-  const update = useUpdateTransaction()
+  const reclassify = useReclassifyTransaction()
 
-  const today = new Date().toISOString().split("T")[0]
+  const amount = Number(transaction.amount)
+  const isIncome = amount < 0
 
   const {
     register,
@@ -636,56 +545,38 @@ function TransactionModal({
     reset,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: defaultValues
-      ? {
-          name: defaultValues.name,
-          amount: Math.abs(Number(defaultValues.amount)),
-          isIncome: Number(defaultValues.amount) < 0,
-          categoryId: defaultValues.categoryId,
-          paymentMethod: defaultValues.paymentMethod,
-          accountId: defaultValues.accountId,
-          isEssential: defaultValues.isEssential,
-          recurrence: defaultValues.recurrence,
-          budgetId: defaultValues.budgetId ?? undefined,
-          date: defaultValues.date,
-          notes: defaultValues.notes ?? undefined,
-        }
-      : {
-          isEssential: true,
-          isIncome: false,
-          recurrence: "variable",
-          date: today,
-          accountId: defaultAccount?.id ?? "",
-          // "Cartão de crédito" é a forma de pagamento mais comum — pré-seleciona em transações novas
-          paymentMethod: "credit_card",
-        },
+    defaultValues: {
+      name: transaction.name,
+      categoryId: transaction.categoryId,
+      paymentMethod: transaction.paymentMethod,
+      isEssential: transaction.isEssential,
+      recurrence: transaction.recurrence,
+      budgetId: transaction.budgetId ?? undefined,
+      notes: transaction.notes ?? undefined,
+    },
   })
 
   const isEssential = watch("isEssential")
-  const isIncome = watch("isIncome")
   const recurrence = watch("recurrence")
 
-  const onSubmit = handleSubmit(({ isIncome: income, amount, ...values }) => {
-    const payload = {
-      ...values,
-      amount: income ? -amount : amount,
-      // Essencial só existe em saída — entrada é sempre gravada como não essencial
-      isEssential: income ? false : values.isEssential,
-      budgetId: values.recurrence === "fixed" ? values.budgetId : null,
-      notes: values.notes || null,
-    }
-    const finish = () => {
-      onClose()
-      reset()
-    }
-    if (defaultValues) {
-      update.mutate({ id: defaultValues.id, ...payload }, { onSuccess: finish })
-    } else {
-      create.mutate(payload, { onSuccess: finish })
-    }
+  const onSubmit = handleSubmit((values) => {
+    reclassify.mutate(
+      {
+        id: transaction.id,
+        ...values,
+        // Essencial só existe em saída — entrada é sempre gravada como não essencial
+        isEssential: isIncome ? false : values.isEssential,
+        budgetId: values.recurrence === "fixed" ? values.budgetId : null,
+        notes: values.notes || null,
+      },
+      {
+        onSuccess: () => {
+          onClose()
+          reset()
+        },
+      }
+    )
   })
-
-  const isPending = create.isPending || update.isPending
 
   return (
     <FormModal
@@ -694,12 +585,34 @@ function TransactionModal({
         onClose()
         reset()
       }}
-      title={title}
+      title="Reclassificar transação"
       formId="transaction-form"
       onSubmit={onSubmit}
-      isPending={isPending}
+      isPending={reclassify.isPending}
     >
       <div className="flex flex-col gap-4 py-1">
+        {/* O que veio do banco: só leitura */}
+        <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/30 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">
+              {formatDate(transaction.date)} ·{" "}
+              {transaction.account?.name ?? "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Valor, data e conta vêm do Open Finance
+            </p>
+          </div>
+          <span
+            className={cn(
+              "shrink-0 text-sm font-semibold tabular-nums",
+              isIncome && "text-emerald-600 dark:text-emerald-400"
+            )}
+          >
+            {isIncome ? "+" : "−"}
+            {formatCurrency(Math.abs(amount))}
+          </span>
+        </div>
+
         {/* Nome */}
         <div className="flex flex-col gap-1.5">
           <Label>Nome</Label>
@@ -711,56 +624,6 @@ function TransactionModal({
           {errors.name && (
             <p className="text-xs text-destructive">{errors.name.message}</p>
           )}
-        </div>
-
-        {/* Data e valor */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label>Data</Label>
-            <Input type="date" {...register("date")} />
-            {errors.date && (
-              <p className="text-xs text-destructive">{errors.date.message}</p>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Valor (R$)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0,00"
-                className="min-w-0 flex-1"
-                {...register("amount", { valueAsNumber: true })}
-              />
-              <button
-                type="button"
-                onClick={() => setValue("isIncome", !isIncome)}
-                aria-pressed={isIncome}
-                aria-label={
-                  isIncome
-                    ? "Entrada — clique para marcar como despesa"
-                    : "Despesa — clique para marcar como entrada"
-                }
-                title={
-                  isIncome
-                    ? "Entrada — clique para marcar como despesa"
-                    : "Despesa — clique para marcar como entrada"
-                }
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-white transition-colors"
-                style={{
-                  backgroundColor: isIncome ? FINANCE.income : FINANCE.expense,
-                }}
-              >
-                {isIncome ? <Plus size={16} /> : <Minus size={16} />}
-              </button>
-            </div>
-            {errors.amount && (
-              <p className="text-xs text-destructive">
-                {errors.amount.message}
-              </p>
-            )}
-          </div>
         </div>
 
         {/* Categoria */}
@@ -788,56 +651,31 @@ function TransactionModal({
           )}
         </div>
 
-        {/* Forma de pagamento e conta */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label>Forma de pagamento</Label>
-            <Select
-              value={watch("paymentMethod")}
-              onValueChange={(v) =>
-                setValue("paymentMethod", v as FormValues["paymentMethod"])
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_METHOD_ORDER.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PAYMENT_METHOD_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.paymentMethod && (
-              <p className="text-xs text-destructive">
-                {errors.paymentMethod.message}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Conta</Label>
-            <Select
-              value={watch("accountId") ?? ""}
-              onValueChange={(v) => setValue("accountId", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts?.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.accountId && (
-              <p className="text-xs text-destructive">
-                {errors.accountId.message}
-              </p>
-            )}
-          </div>
+        {/* Forma de pagamento */}
+        <div className="flex flex-col gap-1.5">
+          <Label>Forma de pagamento</Label>
+          <Select
+            value={watch("paymentMethod")}
+            onValueChange={(v) =>
+              setValue("paymentMethod", v as FormValues["paymentMethod"])
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYMENT_METHOD_ORDER.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {PAYMENT_METHOD_LABELS[p]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.paymentMethod && (
+            <p className="text-xs text-destructive">
+              {errors.paymentMethod.message}
+            </p>
+          )}
         </div>
 
         {/* Essencial — só para saídas */}
@@ -896,7 +734,7 @@ function TransactionModal({
               onChange={(id) =>
                 setValue("budgetId", id, { shouldValidate: true })
               }
-              selectedName={defaultValues?.budget?.name}
+              selectedName={transaction.budget?.name}
               hasError={!!errors.budgetId}
             />
             {errors.budgetId && (

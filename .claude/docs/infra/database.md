@@ -62,11 +62,18 @@ Valores: `NOT_STARTED`, `MESSAGE_SENT`, `NEGOTIATING`, `HAS_SYSTEM`, `NO_RESPONS
 | `pluggy_accounts` | Conta do provedor (`provider_account_id` único) e vínculo obrigatório com `accounts` |
 | `pluggy_transactions` | Payload cru de cada transação (`provider_transaction_id` único) e o `transaction_id` que ela alimenta |
 | `sync_runs` | Histórico de cada sync: gatilho, janela completa ou não, contadores e erro |
+| `open_finance_snapshots` | Cache persistente: último retrato de `balances` e `investments` (`payload jsonb`, `fetched_at`). Ver `domain/open-finance.md` |
 
-Saldo e investimentos **não** têm tabela: são sempre buscados na Pluggy.
-Migração do banco de dev: `api/scripts/migrate-open-finance.sql`. Não usar
-`db:push --force`, porque a restrição única em `transactions.external_id` faz o
-drizzle-kit oferecer truncar a tabela.
+`transactions.external_id` é **obrigatório** e `transaction_source` só aceita
+`open_finance`. `accounts` não tem `balance`, `is_default` nem `is_sandbox`.
+
+Migrações do banco de dev (SQL à mão, porque o `db:push --force` ofereceria
+truncar `transactions`):
+
+| Script | O que faz |
+|---|---|
+| `api/scripts/migrate-open-finance.sql` | F1 da spec 04: tabelas do sync |
+| `api/scripts/migrate-open-finance-only.sql` | Open Finance como fonte única: apaga o que não veio de lá, remove as colunas manuais, restringe `transaction_source`, cria `open_finance_snapshots`. Faça `pg_dump` antes (comando no cabeçalho do arquivo) |
 
 ## Comandos
 
@@ -76,26 +83,24 @@ bun run db:generate   # gera arquivo de migration em api/drizzle/
 bun run db:migrate    # aplica migrations pendentes
 bun run db:push       # aplica schema direto sem migration (só dev)
 bun run db:studio     # abre Drizzle Studio no browser
-bun run db:seed       # seed padrão — contas + categorias (ver "Seed" abaixo)
-bun run db:seed:dev   # seed de desenvolvimento — padrão + orçamentos + ~90 dias de transações fake
-bun run import:csv    # importa extratos CSV reais em lote (ver infra/csv-import-cli.md)
+bun run db:seed       # categorias (ver "Seed" abaixo)
+bun run sync:pluggy   # única entrada de dados: contas, transações e saldo vêm do Open Finance
 ```
 
 > Em desenvolvimento prefira `db:push`. Em produção use `db:generate` + `db:migrate`.
 
 ## Seed
 
-Dois scripts, propósitos diferentes — **não são pra rodar em sequência**, são alternativos:
+Só **um** seed, e sem dado financeiro:
 
 | Script | Arquivo | O que sobe |
 |--------|---------|-----------|
-| `bun run db:seed` | `api/src/db/seed.ts` | **Seed padrão**: só `accountsData` (Nubank/Itaú/Mercado Pago, saldo `0.00`) + `categoriesData` (13 categorias fixas). Sem transação nenhuma. |
-| `bun run db:seed:dev` | `api/src/db/seed-dev.ts` | **Seed de desenvolvimento**: chama `seedBase()` (mesmo de cima), ajusta saldos fake nas contas, cria os orçamentos do catálogo 50/30/20 e gera ~90 dias de transações aleatórias (fixas + variáveis) pra ter volume de dados pra testar a UI. |
+| `bun run db:seed` | `api/src/db/seed.ts` | `categoriesData` (13 categorias fixas). Nenhuma conta, saldo ou transação |
 
-- `seed.ts` exporta `seedBase()` — é a função reaproveitada por `seed-dev.ts`, então as contas/categorias nunca ficam dessincronizadas entre os dois scripts (fonte única).
-- `seed.ts` roda sozinho quando executado diretamente (`if (import.meta.main)`), sem afetar o import feito por `seed-dev.ts`.
-- **Rode `db:seed` sempre que subir um banco novo** (container do zero) num ambiente de uso real — é o baseline de configuração (contas e categorias do dia a dia). Edite `accountsData`/`categoriesData` em `seed.ts` conforme sua necessidade real mudar.
-- **Rode `db:seed:dev` só em ambiente de desenvolvimento/teste** — nunca num banco que você quer manter "limpo" (ele gera dezenas de transações fake).
-- ⚠️ As transações do `seed-dev` caem em contas reais, então se misturam com as reais e contaminam check-up e projeção. Em 2026-09-20 elas foram apagadas deste banco junto com os orçamentos fake (ver `decisions/remocao-open-finance.md` para o contexto da limpeza). Para popular dados de verdade, use `import:csv` — não o `seed-dev`.
-- Accounts padrão: `Nubank` (`isDefault: true`), `Itaú`, `Mercado Pago` — todas `CHECKING`, saldo `0.00` no seed padrão.
+- Contas, saldos e transações vêm **só do Open Finance**: rode `bun run
+  sync:pluggy` (ou abra o app) depois do seed. As contas nascem no primeiro sync.
+- "Outros" é obrigatória: é a categoria de fallback do sync.
+- **Não existe seed de dados fake.** O `db:seed:dev` (transações aleatórias) e o
+  `import:csv` foram removidos em 2026-09-23 — ver
+  `decisions/open-finance-fonte-unica.md`.
 - Categorias padrão: Lazer, Transporte, Estudos, Investimento, Alimentação, Office, Saúde, Compras, Música, Moradia, Assinaturas, Serviços, Outros.

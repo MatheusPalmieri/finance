@@ -28,10 +28,9 @@ Qualquer mudança de período (mês ou período específico) reseta `page` para 
 ## Filtro por Conta (2026-09-23)
 
 `Select` "Todas as contas" (`filterAccountId`) na barra de filtros, enviado como
-`accountId` em `GET /transactions`. Contas sandbox aparecem com o sufixo
-"(sandbox)". Substitui o antigo escopo por carteira, removido em 2026-09-23
-(ver `.claude/docs/decisions/remocao-carteiras.md`). Trocar a conta reseta `page`
-para 1.
+`accountId` em `GET /transactions`. Substitui o antigo escopo por carteira,
+removido em 2026-09-23 (ver `.claude/docs/decisions/remocao-carteiras.md`).
+Trocar a conta reseta `page` para 1.
 
 ## Não confundir com o Dashboard (Home)
 

@@ -1,6 +1,7 @@
-// Investimentos ao vivo — como o saldo, nunca persistidos (spec 04). Posições
-// e movimentações vêm da Pluggy a cada leitura, com cache em memória de 5 min
-// (são ~30 chamadas: a lista e as movimentações de cada ativo de renda variável).
+// Investimentos do Open Finance. A fonte é a Pluggy; o banco guarda o último
+// retrato (`open_finance_snapshots`, prazo de 1h) e as telas leem de lá — cada
+// busca são ~30 chamadas (a lista e as movimentações de cada ativo de renda
+// variável), então não dá para fazer a cada abertura de tela. Ver snapshots.ts.
 //
 // O que é calculado aqui (e não vem pronto):
 // - Renda fixa: lucro = saldo líquido (já sem IR) − valor aplicado.
@@ -10,11 +11,9 @@
 // - Liquidez diária: renda fixa sem carência (`gracePeriodDate` passada ou
 //   ausente). É o dinheiro que a projeção trata como caixa.
 
-import { log } from "./log"
 import { getProvider, isConfigured } from "./provider"
+import { getSnapshot, type SnapshotMeta } from "./snapshots"
 import type { ProviderInvestment, ProviderInvestmentTransaction } from "./types"
-
-export const INVESTMENTS_CACHE_MS = 5 * 60_000
 
 export type InvestmentClass =
   | "Renda fixa"
@@ -52,10 +51,7 @@ export interface InvestmentPosition {
   incomeLast12m: number
 }
 
-export interface LiveInvestments {
-  available: boolean
-  error: string | null
-  fetchedAt: string
+interface InvestmentsData {
   total: number
   invested: number
   profit: number
@@ -65,6 +61,8 @@ export interface LiveInvestments {
   positions: InvestmentPosition[]
   income: { last12m: number; byMonth: { month: string; total: number }[] }
 }
+
+export type Investments = SnapshotMeta & InvestmentsData
 
 function round2(value: number): number {
   return Number(value.toFixed(2))
@@ -174,117 +172,86 @@ export function buildPosition(
   }
 }
 
-let cache: { at: number; value: LiveInvestments } | null = null
-let inFlight: Promise<LiveInvestments> | null = null
+const EMPTY: InvestmentsData = {
+  total: 0,
+  invested: 0,
+  profit: 0,
+  liquid: 0,
+  byClass: [],
+  positions: [],
+  income: { last12m: 0, byMonth: [] },
+}
 
-function unavailable(error: string): LiveInvestments {
+async function fetchInvestments(): Promise<InvestmentsData> {
+  if (!isConfigured()) throw new Error("Open Finance não configurado")
+  const provider = await getProvider()
+  const all = (await Promise.all(provider.itemIds().map((id) => provider.listInvestments(id)))).flat()
+  // Posições encerradas (a maioria: cada aplicação RDB vira um CDB) ficam de fora
+  const active = all.filter((inv) => Number(inv.balance ?? 0) > 0)
+
+  // Movimentações: só renda variável precisa (custo médio e proventos)
+  const txsById = new Map<string, ProviderInvestmentTransaction[]>()
+  await Promise.all(
+    active
+      .filter((inv) => inv.type !== "FIXED_INCOME")
+      .map(async (inv) => txsById.set(inv.id, await provider.listInvestmentTransactions(inv.id)))
+  )
+
+  const since = new Date()
+  since.setMonth(since.getMonth() - 12)
+  const since12m = since.toISOString().slice(0, 10)
+
+  const positions = active
+    .map((inv) => buildPosition(inv, txsById.get(inv.id) ?? [], since12m))
+    .sort((a, b) => b.balance - a.balance)
+
+  const total = round2(positions.reduce((s, p) => s + p.balance, 0))
+  const withBasis = positions.filter((p) => p.invested != null)
+  const invested = round2(withBasis.reduce((s, p) => s + p.invested!, 0))
+  const profit = round2(withBasis.reduce((s, p) => s + p.profit!, 0))
+
+  const classes = new Map<InvestmentClass, { total: number; count: number }>()
+  for (const p of positions) {
+    const entry = classes.get(p.assetClass) ?? { total: 0, count: 0 }
+    entry.total += p.balance
+    entry.count++
+    classes.set(p.assetClass, entry)
+  }
+
+  const incomeByMonth = new Map<string, number>()
+  for (const txs of txsById.values()) {
+    for (const t of txs) {
+      const date = (t.date ?? "").slice(0, 10)
+      if (t.type !== "INTEREST" || date < since12m) continue
+      incomeByMonth.set(date.slice(0, 7), (incomeByMonth.get(date.slice(0, 7)) ?? 0) + Number(t.amount ?? 0))
+    }
+  }
+
   return {
-    available: false,
-    error,
-    fetchedAt: new Date().toISOString(),
-    total: 0,
-    invested: 0,
-    profit: 0,
-    liquid: 0,
-    byClass: [],
-    positions: [],
-    income: { last12m: 0, byMonth: [] },
+    total,
+    invested,
+    profit,
+    liquid: round2(positions.filter((p) => p.liquid).reduce((s, p) => s + p.balance, 0)),
+    byClass: [...classes]
+      .map(([assetClass, e]) => ({
+        assetClass,
+        total: round2(e.total),
+        pct: total > 0 ? round2((e.total / total) * 100) : 0,
+        count: e.count,
+      }))
+      .sort((a, b) => b.total - a.total),
+    positions,
+    income: {
+      last12m: round2([...incomeByMonth.values()].reduce((s, v) => s + v, 0)),
+      byMonth: [...incomeByMonth]
+        .map(([month, value]) => ({ month, total: round2(value) }))
+        .sort((a, b) => a.month.localeCompare(b.month)),
+    },
   }
 }
 
-async function fetchInvestments(): Promise<LiveInvestments> {
-  if (!isConfigured()) return unavailable("Open Finance não configurado")
-  try {
-    const provider = await getProvider()
-    const all = (await Promise.all(provider.itemIds().map((id) => provider.listInvestments(id)))).flat()
-    // Posições encerradas (a maioria: cada aplicação RDB vira um CDB) ficam de fora
-    const active = all.filter((inv) => Number(inv.balance ?? 0) > 0)
-
-    // Movimentações: só renda variável precisa (custo médio e proventos)
-    const txsById = new Map<string, ProviderInvestmentTransaction[]>()
-    await Promise.all(
-      active
-        .filter((inv) => inv.type !== "FIXED_INCOME")
-        .map(async (inv) => txsById.set(inv.id, await provider.listInvestmentTransactions(inv.id)))
-    )
-
-    const since = new Date()
-    since.setMonth(since.getMonth() - 12)
-    const since12m = since.toISOString().slice(0, 10)
-
-    const positions = active
-      .map((inv) => buildPosition(inv, txsById.get(inv.id) ?? [], since12m))
-      .sort((a, b) => b.balance - a.balance)
-
-    const total = round2(positions.reduce((s, p) => s + p.balance, 0))
-    const withBasis = positions.filter((p) => p.invested != null)
-    const invested = round2(withBasis.reduce((s, p) => s + p.invested!, 0))
-    const profit = round2(withBasis.reduce((s, p) => s + p.profit!, 0))
-
-    const classes = new Map<InvestmentClass, { total: number; count: number }>()
-    for (const p of positions) {
-      const entry = classes.get(p.assetClass) ?? { total: 0, count: 0 }
-      entry.total += p.balance
-      entry.count++
-      classes.set(p.assetClass, entry)
-    }
-
-    const incomeByMonth = new Map<string, number>()
-    for (const txs of txsById.values()) {
-      for (const t of txs) {
-        const date = (t.date ?? "").slice(0, 10)
-        if (t.type !== "INTEREST" || date < since12m) continue
-        incomeByMonth.set(date.slice(0, 7), (incomeByMonth.get(date.slice(0, 7)) ?? 0) + Number(t.amount ?? 0))
-      }
-    }
-
-    return {
-      available: true,
-      error: null,
-      fetchedAt: new Date().toISOString(),
-      total,
-      invested,
-      profit,
-      liquid: round2(positions.filter((p) => p.liquid).reduce((s, p) => s + p.balance, 0)),
-      byClass: [...classes]
-        .map(([assetClass, e]) => ({
-          assetClass,
-          total: round2(e.total),
-          pct: total > 0 ? round2((e.total / total) * 100) : 0,
-          count: e.count,
-        }))
-        .sort((a, b) => b.total - a.total),
-      positions,
-      income: {
-        last12m: round2([...incomeByMonth.values()].reduce((s, v) => s + v, 0)),
-        byMonth: [...incomeByMonth]
-          .map(([month, value]) => ({ month, total: round2(value) }))
-          .sort((a, b) => a.month.localeCompare(b.month)),
-      },
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    log.error("investimentos ao vivo indisponíveis", { message })
-    return unavailable(message)
-  }
-}
-
-/** Investimentos ao vivo com cache de 5 min. `fresh` ignora o cache. */
-export async function getLiveInvestments(options: { fresh?: boolean } = {}): Promise<LiveInvestments> {
-  if (!options.fresh && cache && Date.now() - cache.at < INVESTMENTS_CACHE_MS) return cache.value
-  inFlight ??= fetchInvestments()
-    .then((value) => {
-      cache = value.available ? { at: Date.now(), value } : null
-      return value
-    })
-    .finally(() => {
-      inFlight = null
-    })
-  return inFlight
-}
-
-/** Só para testes. */
-export function __clearInvestmentsCache() {
-  cache = null
-  inFlight = null
+/** Investimentos: do banco quando recentes (1h), da Pluggy quando vencidos ou `fresh`. */
+export async function getInvestments(options: { fresh?: boolean } = {}): Promise<Investments> {
+  const { data, meta } = await getSnapshot("investments", fetchInvestments, options)
+  return { ...meta, ...(data ?? EMPTY) }
 }

@@ -6,73 +6,80 @@ updated: 2026-09-23
 
 ## Visão geral
 
-A transação é o módulo central do sistema. Não há campo `type` nem entidade de transferência — a distinção entre despesa e entrada é feita pelo **sinal de `amount`** (positivo = despesa, negativo = entrada). O modelo gira em torno de classificar gastos, com entradas tratadas como caso especial (ver "Entradas" abaixo).
+A transação é o módulo central do sistema e **vem só do Open Finance**: o sync
+com a Pluggy é a única porta de entrada. Não existe lançamento manual nem
+importação de extrato (removidos em 2026-09-23 — ver
+`.claude/docs/decisions/open-finance-fonte-unica.md`). O usuário não cria nem
+exclui transação; só ajusta a **classificação** dela.
+
+Não há campo `type` nem entidade de transferência — despesa e entrada se
+distinguem pelo **sinal de `amount`** (positivo = despesa, negativo = entrada).
 
 ## Campos
 
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
+| Campo | Tipo | Dono | Descrição |
+|-------|------|------|-----------|
 | `id` | uuid | — | PK gerada |
-| `name` | varchar(255) | sim | Nome/descrição curta |
-| `amount` | numeric(10,2) | sim | Valor em reais. Positivo = despesa; negativo = entrada (ver "Entradas") |
-| `categoryId` | uuid FK → categories | sim | Categoria do gasto |
-| `paymentMethod` | enum `payment_method` | sim | Forma de pagamento — lista fixa do sistema, não é FK (ver "Forma de pagamento" abaixo) |
-| `accountId` | uuid FK → accounts | sim | Conta de onde saiu o dinheiro |
-| `isEssential` | boolean | sim | Gasto essencial (`true`) ou não (`false`). Só faz sentido em saída: entradas (amount < 0) são sempre gravadas com `false` e a UI não mostra o seletor nem o badge para elas |
-| `recurrence` | enum `fixed` \| `variable` | sim | Gasto fixo (recorrente) ou variável (pontual) |
-| `budgetId` | uuid FK → budgets | condicional | Orçamento vinculado — obrigatório se `recurrence = fixed`; nulo se `variable`. Ver `.claude/docs/domain/budget.md` |
-| `date` | date | sim | Data do gasto (default: `CURRENT_DATE`) |
-| `notes` | text | não | Observação livre (nullable) |
-| `source` | enum `transaction_source` | sim | `manual` \| `csv` \| `open_finance`. Default `manual`; `POST /transactions/bulk` grava `csv` (spec 04) |
-| `externalId` | varchar, único | não | Id da transação na Pluggy — só em `open_finance`; chave de idempotência do sync |
-| `status` | enum `transaction_status` | sim | `posted` \| `pending`. Pendentes são a fatura aberta e as parcelas futuras do cartão |
-| `kind` | enum `transaction_kind` | sim | `regular` \| `bill_payment` \| `investment` \| `own_transfer` — ver "Movimentos internos" |
+| `amount` | numeric(10,2) | banco | Positivo = despesa; negativo = entrada |
+| `date` | date | banco | Data local da transação |
+| `accountId` | uuid FK → accounts | banco | Conta vinculada à conta da Pluggy (troca só pelo religar, ver `domain/open-finance.md`) |
+| `status` | enum `posted` \| `pending` | banco | Pendentes: fatura aberta e parcelas futuras do cartão |
+| `kind` | enum `transaction_kind` | banco | `regular` \| `bill_payment` \| `investment` \| `own_transfer` — ver "Movimentos internos" |
+| `source` | enum `transaction_source` | — | Só `open_finance` (default). O enum existe para um eventual segundo agregador |
+| `externalId` | varchar, **obrigatório**, único | banco | Id da transação na Pluggy — chave de idempotência do sync |
+| `name` | varchar(255) | usuário | Nome exibido (nasce da descrição do banco, ajustado pelas regras) |
+| `categoryId` | uuid FK → categories | usuário | Categoria |
+| `paymentMethod` | enum `payment_method` | usuário | Forma de pagamento (lista fixa, ver abaixo) |
+| `isEssential` | boolean | usuário | Gasto essencial. Entrada (amount < 0) é sempre `false` |
+| `recurrence` | enum `fixed` \| `variable` | usuário | Fixo (recorrente) ou variável |
+| `budgetId` | uuid FK → budgets | usuário | Obrigatório se `recurrence = fixed`; nulo se `variable` (ver `domain/budget.md`) |
+| `notes` | text | usuário | Observação livre |
 
-`createdAt` / `updatedAt` são gerenciados automaticamente.
-
-> **Decisão técnica — "usar Contas em vez de Bancos":** o requisito original pedia `bank_id`, mas optou-se por referenciar o módulo de **Contas (accounts)**. O `is_default` ficou em `accounts`. O módulo **Bancos** (cadastro avulso, sem ligação com transações) foi **removido por completo em 2026-07-01** — nunca teve FK apontando pra ele, então a remoção não teve impacto em nenhuma outra tabela.
+"Banco" = o sync sobrescreve a cada sincronização. "Usuário" = nasce da
+classificação automática e o sync **nunca** sobrescreve depois.
 
 ## Regras de negócio
 
-### Entradas (receita pontual)
-Adicionado em 2026-07-01. Não existe campo `type`: o formulário (`app/src/pages/Transactions/index.tsx`) tem um botão redondo ao lado do campo "Valor" que alterna `isIncome` (estado só de UI, nunca enviado à API). No submit, o valor digitado (sempre positivo no input) é invertido para negativo quando `isIncome = true` — é esse `amount` com sinal que vai para a API.
-- `amount > 0` → despesa (ícone `ArrowDownRight`, vermelho `FINANCE.expense`)
-- `amount < 0` → entrada (ícone `ArrowUpRight`, verde `FINANCE.income`)
-- A listagem de transações e "Recentes" (Home) exibem o sinal e a cor conforme o valor de `amount`, usando `Math.abs()` para formatar.
-- `GET /dashboard/summary` continua sendo um **painel só de despesas**: toda agregação (`totalExpenses`, por categoria, por forma de pagamento, por conta, tendência mensal) filtra `amount > 0` (constante `isExpense` em `api/src/routes/dashboard.ts`), então entradas não distorcem essas métricas. `recentTransactions` não é filtrado — mostra despesas e entradas juntas.
-- Zero não é um valor válido (`amount === 0` retorna 400 em POST/PUT).
+### Reclassificação é a única escrita do usuário
+`PATCH /transactions/:id` aceita só os campos do usuário. Valor, data, conta,
+status e natureza não são editáveis — são o extrato real. Não existe criar nem
+excluir: uma transação some quando o banco a remove (o sync apaga o que sumiu
+da janela buscada).
 
-### Efeito no saldo da conta
-`adjustBalance()` (`api/src/routes/transactions.ts`) sempre **subtrai** `amount` do `balance`; como subtrair um valor negativo soma, a mesma função cobre despesa e entrada sem `if`:
-- **Criar** → subtrai `amount` do saldo (soma, se `amount` for negativo).
-- **Editar** → devolve o valor antigo à conta antiga (soma `amount` antigo) e subtrai o novo da conta nova.
-- **Excluir** → devolve o valor ao saldo (soma `amount`).
+### Entradas
+- `amount > 0` → despesa (ícone `ArrowDownRight`); `amount < 0` → entrada
+  (`ArrowUpRight`, verde `FINANCE.income`).
+- Entrada nunca é essencial: o PATCH grava `isEssential = amount >= 0 and <valor enviado>`.
+- `GET /dashboard/summary` é um painel só de despesas (filtra `amount > 0`);
+  `recentTransactions` mostra as duas.
+
+### Saldo
+Transação **não mexe em saldo**. `accounts` não tem mais coluna `balance`: o
+saldo é o que o Open Finance reporta, guardado no retrato
+`open_finance_snapshots` (ver `domain/open-finance.md`).
+
+### Escopo das análises
+Filtros em `api/src/lib/scope.ts`:
+- `REAL_TRANSACTIONS` — `source = 'open_finance'`. Usado pela listagem, kNN da
+  classificação e transações recentes. Hoje toda linha passa, mas o filtro
+  explícito garante que nada de fora (um insert à mão no Postgres) apareça.
+- `COUNTED_TRANSACTIONS` — `REAL_TRANSACTIONS` + `kind = 'regular'`. Toda
+  consulta analítica (dashboard, check-up, projeção, recorrências) usa este.
 
 ### Movimentos internos (`kind`)
-Adicionado em 2026-09-23 (spec 04). Só `kind = regular` entra nas análises: dashboard, check-up, projeção e detecção de recorrências usam `COUNTED_TRANSACTIONS` (`api/src/lib/scope.ts`). Os demais aparecem na listagem, mas são dinheiro mudando de lugar entre contas do próprio usuário:
-- `bill_payment` — "Pagamento de fatura" na conta e "Pagamento recebido" no cartão. Com o cartão detalhado pelo Open Finance, contar a fatura duplicaria as compras.
+Só `kind = regular` entra nas análises. Os demais aparecem na listagem (selo
+"Interno"), mas são dinheiro mudando de lugar entre contas do próprio usuário:
+- `bill_payment` — pagamento da fatura na conta e "pagamento recebido" no cartão;
+  contá-lo duplicaria as compras já detalhadas no cartão.
 - `investment` — aplicação/resgate (RDB) e compra/venda de ativos.
 - `own_transfer` — transferência entre contas do mesmo titular.
 
-Proventos e rendimentos ("Valor recebido de Investimentos") continuam `regular`: são renda de verdade.
+Proventos e rendimentos continuam `regular`: são renda de verdade.
 
-### Conta sandbox (`accounts.isSandbox`)
-Adicionado em 2026-09-23, no lugar das carteiras (ver `.claude/docs/decisions/remocao-carteiras.md`). Uma conta marcada como sandbox guarda **dados de teste/depuração**:
-- suas transações **aparecem** em `GET /transactions`, e o filtro por conta as isola;
-- ficam **fora de toda análise**: dashboard, check-up, projeção (inclusive o saldo de abertura), kNN da classificação e detecção de recorrências;
-- o filtro de sandbox é `REAL_TRANSACTIONS` e o das análises é `COUNTED_TRANSACTIONS` (sandbox + movimentos internos), ambos em `api/src/lib/scope.ts`. Toda consulta analítica nova precisa usar `COUNTED_TRANSACTIONS`.
+### Forma de pagamento — lista fixa
+`transactions.payment_method` é o enum Postgres `payment_method`, sem tabela:
 
-A conta sandbox `Claude` é a usada pelo agente em testes manuais (regra no `CLAUDE.md`).
-
-### Conta padrão (`accounts.isDefault`)
-- Apenas **uma** conta pode ser padrão por vez. Ao marcar uma como padrão (criar/editar), as demais são desmarcadas (`unsetOtherDefaults` em `api/src/routes/accounts.ts`).
-- O formulário de transação pré-preenche `accountId` com a conta padrão (`GET /accounts/default`).
-- O campo `date` do formulário é pré-preenchido com a data de hoje.
-
-### Forma de pagamento — lista fixa (não é mais CRUD)
-Migrado em 2026-07-01: **não existe mais a tabela `payment_methods`**. `transactions.payment_method` é o enum Postgres `payment_method` com 6 valores fixos, definidos no código — sem tela de cadastro, sem `isDefault`, sem cor/nome editável pelo usuário:
-
-| Valor no enum | Label (pt-BR) | Cor |
+| Valor | Label | Cor |
 |---|---|---|
 | `credit_card` | Cartão de crédito | `#ef4444` |
 | `debit_card` | Cartão de débito | `#3b82f6` |
@@ -81,14 +88,16 @@ Migrado em 2026-07-01: **não existe mais a tabela `payment_methods`**. `transac
 | `boleto` | Boleto | `#f59e0b` |
 | `transfer` | Transferência | `#8b5cf6` |
 
-- **Backend**: enum `paymentMethodEnum` em `api/src/db/schema.ts`; labels/cores/validação centralizados em `api/src/lib/payment-methods.ts` (`PAYMENT_METHODS`, `PAYMENT_METHOD_LABELS`, `PAYMENT_METHOD_HEX`, `isPaymentMethod()`), usado por `routes/transactions.ts` (validação de filtro), `routes/dashboard.ts` (labels/cores do agrupamento `expensesByPaymentMethod`, sem mais `JOIN`) e `db/seed-dev.ts` (o seed padrão, `db/seed.ts`, não cria transações — ver `.claude/docs/infra/database.md`).
-- **Frontend**: mesmos labels/cores duplicados em `app/src/types/finance.ts` (`PaymentMethod`, `PAYMENT_METHOD_LABELS`, `PAYMENT_METHOD_HEX`, `PAYMENT_METHOD_ORDER`) — os dois lados precisam ficar em sincronia se a lista mudar.
-- **Padrão em transações novas**: `TransactionModal` (`app/src/pages/Transactions/index.tsx`) pré-preenche `paymentMethod: "credit_card"` diretamente (é um literal fixo agora, não precisa mais buscar por nome). Mesma lógica em `ImportModal` (ver `.claude/docs/frontend/transactions-import.md`).
-- **Mudar a lista exige migração de banco** (adicionar/remover valor de um enum Postgres, ou trocar `transactions.payment_method` de volta pra FK) — não é mais só editar uma tabela via UI.
+- Backend: `api/src/lib/payment-methods.ts`. Frontend: mesmos labels/cores em
+  `app/src/types/finance.ts` — manter os dois em sincronia.
+- No cartão o sync grava sempre `credit_card`; na conta, a regra aprendida ou a
+  inferência da normalização decide.
+- Mudar a lista exige migração do enum.
 
-## Impacto da migração (modelo antigo → novo)
+## Histórico
 
-O modelo antigo (`type` INCOME/EXPENSE/TRANSFER, `description`, `toAccountId`) foi **substituído por completo**. Consequências:
-- **Dashboard** (`/dashboard/summary`) virou painel de despesas: total, essencial vs não-essencial, fixo vs variável, por categoria, por forma de pagamento e por conta. Não há mais receita, patrimônio nem taxa de poupança.
-- **Categorias** não têm mais `type`; a seleção no formulário lista todas.
-- **Bancos** foi removido do sistema por completo em 2026-07-01 (nunca chegou a ser referenciado por transações).
+- 2026-07-01 — modelo `type` INCOME/EXPENSE/TRANSFER substituído pelo sinal de
+  `amount`; bancos e formas de pagamento deixam de ser CRUD.
+- 2026-09-23 — carteiras removidas (ver `decisions/remocao-carteiras.md`).
+- 2026-09-23 — Open Finance vira fonte única: saem lançamento manual,
+  importação CSV, `accounts.balance`, conta padrão e conta sandbox.

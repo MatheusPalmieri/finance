@@ -29,8 +29,9 @@ bun run sync:pluggy --dry-run    # relatório do que faria, sem gravar nada
 bun run sync:pluggy --ai         # liga a camada de IA na classificação das novas
 ```
 
-Imprime o resumo por conta (lidas, novas, adotadas, atualizadas, removidas,
-iguais). Códigos de saída: `0` ok, `1` erro, `2` outro sync em andamento.
+Imprime o resumo por conta (lidas, novas, atualizadas, removidas, iguais). No
+fim grava o retrato de saldos (ver `domain/open-finance.md`, "Cache
+persistente"). Códigos de saída: `0` ok, `1` erro, `2` outro sync em andamento.
 
 Requisitos: Postgres no ar e `PLUGGY_*` no `api/.env`.
 

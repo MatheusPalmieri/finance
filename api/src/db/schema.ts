@@ -50,10 +50,11 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "transfer", // Transferência
 ])
 
-// Origem da transação — o Open Finance é a fonte primária (spec 04)
+// Origem da transação. O Open Finance é a ÚNICA fonte de verdade: não existe
+// mais lançamento manual nem importação de extrato (ver
+// decisions/open-finance-fonte-unica.md). O enum fica para um eventual segundo
+// agregador entrar sem migração de tipo.
 export const transactionSourceEnum = pgEnum("transaction_source", [
-  "manual", // "Nova transação" na UI
-  "csv", // ImportModal ou `bun run import:csv`
   "open_finance", // sincronizada da Pluggy
 ])
 
@@ -77,14 +78,10 @@ export const accounts = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   type: accountTypeEnum("type").default("CHECKING").notNull(),
-  balance: numeric("balance", { precision: 12, scale: 2 }).default("0").notNull(),
+  // Sem `balance`: o saldo vem do Open Finance (snapshot em
+  // `open_finance_snapshots`), nunca de um valor digitado.
   color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
   icon: varchar("icon", { length: 50 }).default("wallet").notNull(),
-  // Conta padrão pré-selecionada no formulário de transação (apenas uma por vez)
-  isDefault: boolean("is_default").default(false).notNull(),
-  // Conta de testes/depuração: suas transações aparecem na listagem, mas ficam
-  // fora de toda análise (dashboard, check-up, projeção, classificação)
-  isSandbox: boolean("is_sandbox").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -116,10 +113,10 @@ export const transactions = pgTable("transactions", {
   budgetId: uuid("budget_id").references(() => budgets.id),
   date: date("date").default(sql`CURRENT_DATE`).notNull(),
   notes: text("notes"),
-  source: transactionSourceEnum("source").default("manual").notNull(),
-  // Id da transação no provedor — só em `source = open_finance`. É a chave de
-  // idempotência do sync (ver modules/open-finance/sync.ts)
-  externalId: varchar("external_id", { length: 255 }).unique(),
+  source: transactionSourceEnum("source").default("open_finance").notNull(),
+  // Id da transação no provedor. É a chave de idempotência do sync (ver
+  // modules/open-finance/sync.ts) — toda transação tem, pois toda vem de lá
+  externalId: varchar("external_id", { length: 255 }).notNull().unique(),
   status: transactionStatusEnum("status").default("posted").notNull(),
   kind: transactionKindEnum("kind").default("regular").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -319,8 +316,9 @@ export const llmCalls = pgTable("llm_calls", {
 })
 
 // ── Open Finance (spec 04) ───────────────────────────────────────────────────
-// Só o que o sync precisa guardar. Saldos e posições de investimento NÃO são
-// persistidos: são sempre buscados na Pluggy (decisão da spec 04).
+// O banco é o cache do Open Finance: transações, saldos e investimentos são
+// gravados a cada leitura bem-sucedida da Pluggy e servidos daqui. A Pluggy só
+// é chamada quando o dado está velho (ver modules/open-finance/snapshots.ts).
 
 export const syncRunStatusEnum = pgEnum("sync_run_status", [
   "running",
@@ -406,11 +404,24 @@ export const syncRuns = pgTable("sync_runs", {
   fetched: integer("fetched").default(0).notNull(),
   created: integer("created").default(0).notNull(),
   updated: integer("updated").default(0).notNull(),
-  adopted: integer("adopted").default(0).notNull(),
   removed: integer("removed").default(0).notNull(),
   errorMessage: text("error_message"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   finishedAt: timestamp("finished_at"),
+})
+
+export const snapshotKindEnum = pgEnum("snapshot_kind", ["balances", "investments"])
+
+/**
+ * Último retrato de saldos e investimentos vindo da Pluggy — uma linha por
+ * tipo, sobrescrita a cada leitura bem-sucedida. Só números agregados e nomes
+ * de exibição: nunca credencial, token ou número completo de conta.
+ */
+export const openFinanceSnapshots = pgTable("open_finance_snapshots", {
+  kind: snapshotKindEnum("kind").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  // Quando a Pluggy devolveu esse dado (não quando foi lido do banco)
+  fetchedAt: timestamp("fetched_at").notNull(),
 })
 
 // ── Relations ────────────────────────────────────────────────────────────────
@@ -519,6 +530,7 @@ export type PluggyItem = typeof pluggyItems.$inferSelect
 export type PluggyAccount = typeof pluggyAccounts.$inferSelect
 export type SyncRun = typeof syncRuns.$inferSelect
 export type SyncTrigger = (typeof syncTriggerEnum.enumValues)[number]
+export type SnapshotKind = (typeof snapshotKindEnum.enumValues)[number]
 
 export type AppSettings = typeof appSettings.$inferSelect
 export type NewAppSettings = typeof appSettings.$inferInsert
