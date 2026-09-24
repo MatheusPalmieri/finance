@@ -25,6 +25,7 @@ import { usePeriod } from "@/components/period-provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 import { SnapshotStatus } from "@/components/open-finance/SnapshotStatus"
+import { AccountsSection } from "@/components/accounts/AccountsSection"
 import { ChartCard, ChartTooltip, StatCard } from "@/components/charts"
 import {
   useCashflow,
@@ -92,6 +93,8 @@ export function Home() {
         <ForecastCard />
         <CheckupCard />
       </div>
+
+      <AccountsSection />
 
       {isError ? (
         <ErrorState
@@ -540,10 +543,10 @@ function RecentTransactionRow({ tx }: { tx: Transaction }) {
         className={
           isIncome
             ? "shrink-0 text-sm font-semibold text-emerald-600 tabular-nums dark:text-emerald-400"
-            : "shrink-0 text-sm font-semibold tabular-nums"
+            : "shrink-0 text-sm font-semibold text-red-600 tabular-nums dark:text-red-400"
         }
       >
-        {isIncome ? "+" : "−"}
+        {isIncome && "+"}
         {formatCurrency(Math.abs(amount))}
       </span>
     </div>
@@ -703,7 +706,7 @@ function BalanceCard() {
             Conta {formatCurrency(balances.cash)}
             {investments?.available &&
               ` · Investido ${formatCurrencyCompact(invested)}`}
-            {card && ` · Fatura −${formatCurrencyCompact(card.balance)}`}
+            {card && ` · Cartão ${formatCurrencyCompact(card.balance)}`}
           </p>
         </>
       ) : (

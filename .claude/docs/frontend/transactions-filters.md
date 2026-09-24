@@ -37,3 +37,8 @@ Trocar a conta reseta `page` para 1.
 ## Não confundir com o Dashboard (Home)
 
 (Obsoleto — o mês é global.) `Home.tsx` tinha seu próprio `month`/`year` + navegação para `GET /dashboard/summary` — são estados independentes, cada página com o seu. Não há sincronização entre o mês do Dashboard e o mês de Transações.
+
+## Cores do valor
+
+Saída sempre em vermelho e **sem sinal de menos**; entrada em verde com "+".
+Vale na lista de Transações, no modal de reclassificação e em "Recentes" do Início.

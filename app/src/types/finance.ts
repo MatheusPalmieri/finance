@@ -744,6 +744,8 @@ export interface AccountBalance {
   availableCredit: number | null
   dueDate: string | null
   minimumPayment: number | null
+  /** Cartão: fatura do mês (aberta). `balance` é a dívida total, com parcelas futuras. */
+  monthBill?: number | null
 }
 
 export interface BalancesSnapshot extends SnapshotMeta {

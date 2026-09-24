@@ -83,7 +83,7 @@ data e hora).
 | Tela | O que mudou |
 |---|---|
 | Início | Card **"Patrimônio agora"** = conta + investimentos − usado do cartão, com `SnapshotStatus`. Some só se o Open Finance não estiver configurado **e** não houver retrato |
-| Contas | Sem "Nova conta" nem excluir. Card de "Saldo das contas" = `cash − cardDebt` do retrato, com `SnapshotStatus`; "—" se não houver retrato. Cada conta mostra o saldo do retrato (cartão negativo, com limite e vencimento) ou "—", e o selo "Open Finance" / "Sem vínculo". O lápis abre **"Editar conta"**: só nome e cor (tipo e saldo são do banco) |
+| Início (contas) | A antiga página `/accounts` foi para o Início (`components/accounts/AccountsSection.tsx`); a rota e o item da sidebar saíram. Card **"Saldo total"** = `cash` (soma dos bancos; o cartão não abate), com `SnapshotStatus`. Cada conta mostra o saldo do retrato e o selo "Open Finance" / "Sem vínculo". O **cartão** mostra a **fatura do mês** (`monthBill`, vermelha, sem sinal) e, abaixo, a dívida total, o limite e o vencimento. O lápis abre **"Editar conta"**: só nome e cor |
 | Transações | Sem "Nova transação", "Importar CSV" nem excluir. O lápis abre **"Reclassificar transação"**: um bloco de leitura com data, conta e valor ("vêm do Open Finance") e os campos do usuário (nome, categoria, forma de pagamento, essencial, recorrência, orçamento, observação). Estado vazio aponta para `/open-finance`. Selos **"Pendente"** e **"Interno"** |
 | Projeção | "Saldo hoje" com " · desatualizado" (`stale`) ou " · sem Open Finance" (`unavailable`); nas premissas, a origem do saldo inicial em texto |
 

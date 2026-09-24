@@ -50,39 +50,29 @@ const ACCOUNT_ICONS: Record<AccountType, typeof Wallet> = {
   OTHER: Wallet,
 }
 
-// ── Página ────────────────────────────────────────────────────────────────────
-export function Accounts() {
+// ── Seção de contas (Início) ──────────────────────────────────────────────────
+export function AccountsSection() {
   const [editing, setEditing] = useState<Account | null>(null)
 
   const { data: accounts, isLoading, isError, refetch } = useAccounts()
 
-  // Saldo só do Open Finance (retrato salvo no banco). No cartão, o "saldo" é o
-  // usado do limite e entra negativo. Conta sem retrato fica sem valor — nunca
-  // um número inventado
+  // Saldo só do Open Finance (retrato salvo no banco). Conta sem retrato fica
+  // sem valor — nunca um número inventado
   const { data: balances } = useBalances()
   const balanceById = new Map(
     (balances?.accounts ?? []).map((b) => [b.accountId, b])
   )
-  const total = balances?.available ? balances.cash - balances.cardDebt : null
+  // Saldo total = soma dos bancos. O cartão não abate daqui: a fatura tem card
+  // próprio, com o valor do mês separado da dívida total
+  const total = balances?.available ? balances.cash : null
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Contas</h1>
-          <p className="text-sm text-muted-foreground">
-            {accounts?.length ?? 0} conta{accounts?.length !== 1 ? "s" : ""} do
-            Open Finance
-          </p>
-        </div>
-      </div>
-
-      {/* Saldo das contas — o patrimônio com investimentos fica no Início */}
+    <section className="flex flex-col gap-4">
+      {/* Saldo total */}
       {!isLoading && accounts && balances && (
         <div className="rounded-xl border bg-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">Saldo das contas</p>
+            <p className="text-sm text-muted-foreground">Saldo total</p>
             <SnapshotStatus meta={balances} />
           </div>
           <p
@@ -100,7 +90,7 @@ export function Accounts() {
               "Sem saldo do Open Finance ainda — sincronize para ver."
             ) : (
               <>
-                soma das contas com o usado do cartão descontado ·{" "}
+                soma dos bancos ·{" "}
                 <Link
                   to="/investments"
                   className="underline underline-offset-2"
@@ -157,7 +147,7 @@ export function Accounts() {
           account={editing}
         />
       )}
-    </div>
+    </section>
   )
 }
 
@@ -172,12 +162,12 @@ function AccountCard({
   onEdit: () => void
 }) {
   const Icon = ACCOUNT_ICONS[account.type]
-  // Cartão: mostra o usado do limite como valor a pagar (negativo)
-  const balance = snapshot
-    ? snapshot.type === "CREDIT"
-      ? -snapshot.balance
-      : snapshot.balance
-    : null
+  const isCard = snapshot?.type === "CREDIT"
+  // Cartão: valor principal é a fatura do mês; a dívida total (com parcelas
+  // futuras) fica como detalhe. Sempre vermelho, sem sinal: é saída
+  const monthBill = isCard ? (snapshot.monthBill ?? null) : null
+  const balance = snapshot ? snapshot.balance : null
+  const main = isCard ? monthBill : balance
 
   return (
     <div className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-5 transition-shadow hover:shadow-md">
@@ -229,18 +219,24 @@ function AccountCard({
         </p>
       </div>
 
+      {isCard && (
+        <p className="-mb-2 text-xs text-muted-foreground">Fatura do mês</p>
+      )}
       <p
         className={cn(
           "text-2xl font-bold tabular-nums",
-          balance === null && "text-muted-foreground",
-          balance !== null && balance < 0 && "text-destructive"
+          main === null && "text-muted-foreground",
+          isCard && main !== null && "text-destructive",
+          !isCard && main !== null && main < 0 && "text-destructive"
         )}
       >
-        {balance === null ? "—" : formatCurrency(balance)}
+        {main === null ? "—" : formatCurrency(main)}
       </p>
-      {snapshot?.type === "CREDIT" && snapshot.creditLimit != null && (
+      {isCard && snapshot && (
         <p className="-mt-2 text-xs text-muted-foreground tabular-nums">
-          usado de {formatCurrency(snapshot.creditLimit)}
+          dívida total {formatCurrency(snapshot.balance)}
+          {snapshot.creditLimit != null &&
+            ` de ${formatCurrency(snapshot.creditLimit)}`}
           {snapshot.dueDate &&
             snapshot.dueDate >= new Date().toISOString().slice(0, 10) &&
             ` · vence ${formatDate(snapshot.dueDate)}`}

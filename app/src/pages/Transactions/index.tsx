@@ -467,10 +467,12 @@ function TransactionRow({
       <span
         className={cn(
           "shrink-0 text-sm font-semibold tabular-nums",
-          isIncome && "text-emerald-600 dark:text-emerald-400"
+          isIncome
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-red-600 dark:text-red-400"
         )}
       >
-        {isIncome ? "+" : "−"}
+        {isIncome && "+"}
         {formatCurrency(Math.abs(amount))}
       </span>
 
@@ -574,10 +576,12 @@ function ClassificationModal({
           <span
             className={cn(
               "shrink-0 text-sm font-semibold tabular-nums",
-              isIncome && "text-emerald-600 dark:text-emerald-400"
+              isIncome
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-red-600 dark:text-red-400"
             )}
           >
-            {isIncome ? "+" : "−"}
+            {isIncome && "+"}
             {formatCurrency(Math.abs(amount))}
           </span>
         </div>

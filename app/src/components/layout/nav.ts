@@ -4,7 +4,6 @@ import {
   ChartPie,
   FileText,
   Home,
-  Landmark,
   ListFilter,
   PiggyBank,
   Tag,
@@ -28,7 +27,6 @@ export interface NavItemDef {
 export const navItems: NavItemDef[] = [
   { to: "/", icon: Home, label: "Início" },
   { to: "/transactions", icon: ArrowLeftRight, label: "Transações" },
-  { to: "/accounts", icon: Landmark, label: "Contas" },
   { to: "/investments", icon: ChartPie, label: "Investimentos" },
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
   { to: "/forecast", icon: TrendingUp, label: "Projeção" },

@@ -9,9 +9,6 @@ const Home = lazy(() =>
 const Transactions = lazy(() =>
   import("@/pages/Transactions").then((m) => ({ default: m.Transactions }))
 )
-const Accounts = lazy(() =>
-  import("@/pages/Accounts").then((m) => ({ default: m.Accounts }))
-)
 const Budgets = lazy(() =>
   import("@/pages/Budgets").then((m) => ({ default: m.Budgets }))
 )
@@ -40,7 +37,6 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "transactions", element: <Transactions /> },
-      { path: "accounts", element: <Accounts /> },
       { path: "budgets", element: <Budgets /> },
       { path: "categories", element: <Categories /> },
       { path: "forecast", element: <Forecast /> },

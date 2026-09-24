@@ -70,6 +70,7 @@ polling do `/status` até ele virar `false`.
 ```
 
 - `balance`: na conta é o saldo disponível; no cartão é o **usado do limite**
+- `monthBill` (só cartão): **fatura do mês**, a aberta. Soma dos lançamentos `regular` e `pending` com o menor `billForecastDate` (compras menos estornos; pagamento de fatura e parcelas futuras ficam fora). `balance` é a dívida total, com as parcelas a vencer, e não é o que vence no mês (ex.: `monthBill` 8120,28 contra `balance` 11130,74). Retratos antigos não têm o campo até o próximo sync.
   (inclui parcelas futuras).
 - Metadados do retrato (valem também para `/investments`):
 

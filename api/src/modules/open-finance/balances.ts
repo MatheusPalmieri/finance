@@ -6,9 +6,9 @@
 // - no fim de cada sync, com as contas que o sync já buscou (sem chamada extra);
 // - quando alguém lê um retrato vencido (> 15 min) ou pede `fresh`.
 
-import { eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { db } from "../../db"
-import { accounts, pluggyAccounts } from "../../db/schema"
+import { accounts, pluggyAccounts, pluggyTransactions, transactions } from "../../db/schema"
 import { getProvider, isConfigured } from "./provider"
 import { getSnapshot, writeSnapshot, type SnapshotMeta } from "./snapshots"
 import type { ProviderAccount } from "./types"
@@ -26,6 +26,12 @@ export interface AccountBalance {
   /** Vencimento da fatura (yyyy-mm-dd). */
   dueDate: string | null
   minimumPayment: number | null
+  /**
+   * Só CREDIT: fatura do mês (a aberta, ainda a fechar/pagar), somando as
+   * compras e descontando estornos. `balance` é a dívida total, com as parcelas
+   * futuras — não é o que vence este mês. Null quando não dá para calcular.
+   */
+  monthBill?: number | null
 }
 
 interface BalancesData {
@@ -42,6 +48,32 @@ const EMPTY: BalancesData = { accounts: [], cash: 0, cardDebt: 0 }
 
 function round2(value: number): number {
   return Number(value.toFixed(2))
+}
+
+/**
+ * Fatura aberta do cartão. A Pluggy marca cada lançamento com `billForecastDate`
+ * ("yyyy-mm") e a fatura aberta é a mais antiga que ainda tem lançamento
+ * pendente. Pagamentos de fatura não entram (`kind` != regular). Parcelas
+ * futuras caem em faturas posteriores e ficam de fora.
+ */
+async function openBillTotal(accountId: string): Promise<number | null> {
+  const billMonth = sql<string | null>`${pluggyTransactions.payload}->'creditCardMetadata'->>'billForecastDate'`
+  const rows = await db
+    .select({ month: billMonth, total: sql<string>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .innerJoin(pluggyTransactions, eq(pluggyTransactions.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.accountId, accountId),
+        eq(transactions.kind, "regular"),
+        eq(transactions.status, "pending"),
+        sql`${billMonth} is not null`
+      )
+    )
+    .groupBy(billMonth)
+    .orderBy(billMonth)
+    .limit(1)
+  return rows[0] ? round2(Number(rows[0].total)) : null
 }
 
 /** Monta o retrato a partir das contas da Pluggy, só as vinculadas. */
@@ -61,6 +93,7 @@ async function buildBalances(providerAccounts: ProviderAccount[]): Promise<Balan
     const link = linkByProviderId.get(account.id)
     if (!link) continue
     result.push({
+      monthBill: account.type === "CREDIT" ? await openBillTotal(link.accountId) : null,
       accountId: link.accountId,
       accountName: link.accountName,
       providerAccountId: account.id,
