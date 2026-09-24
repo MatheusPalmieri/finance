@@ -35,7 +35,6 @@ import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
 import {
-  useAccounts,
   useCategories,
   useReclassifyTransaction,
   useTransactions,
@@ -49,6 +48,7 @@ import {
   PAYMENT_METHOD_ORDER,
   RECURRENCE_LABELS,
   TRANSACTION_KIND_LABELS,
+  type PaymentMethod,
   type Recurrence,
   type Transaction,
 } from "@/types/finance"
@@ -98,7 +98,9 @@ export function Transactions() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [filterCategoryId, setFilterCategoryId] = useState("")
-  const [filterAccountId, setFilterAccountId] = useState("")
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<
+    PaymentMethod | ""
+  >("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
   const [customRange, setCustomRange] = useState<{
     from: string
@@ -139,7 +141,7 @@ export function Transactions() {
     limit: 30,
     search: search || undefined,
     categoryId: filterCategoryId || undefined,
-    accountId: filterAccountId || undefined,
+    paymentMethod: filterPaymentMethod || undefined,
     recurrence: filterRecurrence || undefined,
     from,
     to,
@@ -147,7 +149,6 @@ export function Transactions() {
 
   const { data, isLoading, isError, refetch } = useTransactions(params)
   const { data: categories } = useCategories()
-  const { data: accounts } = useAccounts()
 
   const grouped = groupByDate(data?.data ?? [])
 
@@ -275,20 +276,20 @@ export function Transactions() {
         </Select>
 
         <Select
-          value={filterAccountId || "all"}
+          value={filterPaymentMethod || "all"}
           onValueChange={(v) => {
-            setFilterAccountId(v === "all" ? "" : v)
+            setFilterPaymentMethod(v === "all" ? "" : (v as PaymentMethod))
             setPage(1)
           }}
         >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Conta" />
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Forma de pagamento" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as contas</SelectItem>
-            {accounts?.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.name}
+            <SelectItem value="all">Todos os pagamentos</SelectItem>
+            {PAYMENT_METHOD_ORDER.map((p) => (
+              <SelectItem key={p} value={p}>
+                {PAYMENT_METHOD_LABELS[p]}
               </SelectItem>
             ))}
           </SelectContent>

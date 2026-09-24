@@ -27,12 +27,13 @@ Botão "Período específico" abre um `Popover` (`@/components/ui/popover`, Radi
 
 Qualquer mudança de período (mês ou período específico) reseta `page` para 1.
 
-## Filtro por Conta (2026-09-23)
+## Filtro por Forma de pagamento (2026-09-24)
 
-`Select` "Todas as contas" (`filterAccountId`) na barra de filtros, enviado como
-`accountId` em `GET /transactions`. Substitui o antigo escopo por carteira,
-removido em 2026-09-23 (ver `.claude/docs/decisions/remocao-carteiras.md`).
-Trocar a conta reseta `page` para 1.
+`Select` "Todos os pagamentos" (`filterPaymentMethod`) na barra de filtros,
+enviado como `paymentMethod` em `GET /transactions`. Opções vêm de
+`PAYMENT_METHOD_ORDER`. Substituiu o filtro por conta (`accountId`), que
+continua aceito pela API mas não tem mais controle na tela. Trocar a forma
+reseta `page` para 1.
 
 ## Não confundir com o Dashboard (Home)
 
