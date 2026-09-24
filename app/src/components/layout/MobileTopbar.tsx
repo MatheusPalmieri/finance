@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { Logo } from "./Logo"
+import { MonthPicker } from "./MonthPicker"
 import { isRouteActive, navItems } from "./nav"
 
 // Cabeçalho fixo exibido apenas em telas pequenas (< lg). Abre um drawer
@@ -71,6 +72,11 @@ export function MobileTopbar() {
               )
             })}
           </nav>
+
+          {/* Filtro global de mês */}
+          <div className="border-t border-sidebar-border p-3">
+            <MonthPicker />
+          </div>
         </SheetContent>
       </Sheet>
 

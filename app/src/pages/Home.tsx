@@ -1,4 +1,3 @@
-import { useState } from "react"
 import {
   Area,
   AreaChart,
@@ -13,8 +12,6 @@ import {
 import {
   ArrowDownRight,
   ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
   FileText,
   Receipt,
   Repeat,
@@ -24,6 +21,7 @@ import {
   Wallet,
 } from "lucide-react"
 import { Link } from "react-router-dom"
+import { usePeriod } from "@/components/period-provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 import { SnapshotStatus } from "@/components/open-finance/SnapshotStatus"
@@ -61,29 +59,13 @@ function pct(part: number, total: number) {
 }
 
 export function Home() {
-  const now = new Date()
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
+  // Mês vem do filtro global (sidebar)
+  const { month, year } = usePeriod()
 
   const { data, isLoading, isError, refetch } = useDashboardSummary({
     month,
     year,
   })
-
-  function prevMonth() {
-    if (month === 1) {
-      setMonth(12)
-      setYear((y) => y - 1)
-    } else setMonth((m) => m - 1)
-  }
-  function nextMonth() {
-    if (month === 12) {
-      setMonth(1)
-      setYear((y) => y + 1)
-    } else setMonth((m) => m + 1)
-  }
-  const isCurrentMonth =
-    month === now.getMonth() + 1 && year === now.getFullYear()
 
   const total = Number(data?.totalExpenses ?? 0)
   const essential = Number(data?.essentialExpenses ?? 0)
@@ -102,29 +84,6 @@ export function Home() {
           <p className="text-sm text-muted-foreground">
             Resumo das suas despesas
           </p>
-        </div>
-
-        <div className="flex items-center gap-1 rounded-lg border bg-card px-1 py-1">
-          <button
-            type="button"
-            onClick={prevMonth}
-            aria-label="Mês anterior"
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-7"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span className="min-w-27.5 text-center text-sm font-medium">
-            {MONTHS[month - 1]} {year}
-          </span>
-          <button
-            type="button"
-            onClick={nextMonth}
-            disabled={isCurrentMonth}
-            aria-label="Próximo mês"
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:size-7"
-          >
-            <ChevronRight size={14} />
-          </button>
         </div>
       </div>
 

@@ -17,7 +17,7 @@ Domínio: `.claude/docs/domain/monthly-report.md`.
 
 ## Cabeçalho
 
-Navegação por mês (mesmo padrão de Transações) e botão "Regerar".
+O mês vem do seletor global (`global-month.md`); a página tem só o botão "Regerar". Ao abrir ou trocar o mês, o check-up é gerado sob demanda se não existir.
 
 Sem navegação, a página abre em `GET /reports/monthly/current` — o relatório do
 mês anterior ao atual, gerado na hora se não existir. Esse fallback é o que

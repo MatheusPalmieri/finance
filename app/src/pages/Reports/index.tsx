@@ -1,11 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Area, AreaChart, ResponsiveContainer, ReferenceLine } from "recharts"
 import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
   FileText,
   Info,
   RefreshCw,
@@ -15,15 +13,11 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { usePeriod } from "@/components/period-provider"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
-import {
-  useCurrentReport,
-  useGenerateReport,
-  useNarrateReport,
-  useReport,
-} from "@/lib/queries"
+import { useGenerateReport, useNarrateReport, useReport } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE, tint } from "@/lib/tokens"
@@ -46,58 +40,42 @@ const TYPE_ORDER: BudgetType[] = ["essential", "desire", "investment"]
 export function Reports() {
   const navigate = useNavigate()
 
-  // `null` = mês anterior ao atual (o atalho /current). Navegar troca para um
-  // período explícito, que é gerado sob demanda se ainda não existir.
-  const [period, setPeriod] = useState<{ month: number; year: number } | null>(
-    null
-  )
+  // Mês vem do filtro global (sidebar); o check-up é gerado sob demanda se
+  // ainda não existir e buscado por id em seguida
+  const { month, year } = usePeriod()
+  const shown = { month, year }
+  const periodKey = `${year}-${month}`
 
-  const currentQuery = useCurrentReport()
   const generate = useGenerateReport()
   const narrate = useNarrateReport()
 
-  // Ao navegar para outro mês, o relatório é buscado por id depois de gerado
-  const [explicitId, setExplicitId] = useState<string | null>(null)
+  // O id só vale para o período em que foi gerado
+  const [generated, setGenerated] = useState<{
+    key: string
+    id: string
+  } | null>(null)
+  const explicitId = generated?.key === periodKey ? generated.id : null
   const explicitQuery = useReport(explicitId)
 
-  const report = period ? explicitQuery.data : currentQuery.data
-  const isLoading = period
-    ? explicitQuery.isLoading || generate.isPending
-    : currentQuery.isLoading
-  const isError = period ? explicitQuery.isError : currentQuery.isError
-
-  const shown = useMemo(() => {
-    if (period) return period
-    if (report) return { month: report.month, year: report.year }
-    return null
-  }, [period, report])
-
-  function goToMonth(delta: number) {
-    const base = shown ?? {
-      month: new Date().getMonth(),
-      year: new Date().getFullYear(),
-    }
-    const zeroBased = base.year * 12 + (base.month - 1) + delta
-    const next = {
-      year: Math.floor(zeroBased / 12),
-      month: (zeroBased % 12) + 1,
-    }
-    setPeriod(next)
-    setExplicitId(null)
-    generate.mutate(
-      next,
-      { onSuccess: (r) => setExplicitId(r.id) }
+  const { mutate: generateReport } = generate
+  useEffect(() => {
+    generateReport(
+      { month, year },
+      { onSuccess: (r) => setGenerated({ key: periodKey, id: r.id }) }
     )
-  }
+  }, [generateReport, month, year, periodKey])
+
+  const report = explicitQuery.data
+  const isLoading =
+    explicitQuery.isLoading ||
+    generate.isPending ||
+    (!explicitId && !generate.isError)
+  const isError = explicitQuery.isError || generate.isError
 
   function regenerate() {
-    if (!shown) return
-    setExplicitId(null)
-    setPeriod(shown)
-    generate.mutate(
-      shown,
-      { onSuccess: (r) => setExplicitId(r.id) }
-    )
+    generate.mutate(shown, {
+      onSuccess: (r) => setGenerated({ key: periodKey, id: r.id }),
+    })
   }
 
   return (
@@ -111,35 +89,12 @@ export function Reports() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg border bg-card p-0.5">
-            <button
-              type="button"
-              onClick={() => goToMonth(-1)}
-              aria-label="Mês anterior"
-              className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="min-w-36 px-2 text-center text-sm font-medium">
-              {shown
-                ? `${MONTHS[shown.month - 1]} ${shown.year}`
-                : "Carregando..."}
-            </span>
-            <button
-              type="button"
-              onClick={() => goToMonth(1)}
-              aria-label="Próximo mês"
-              className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
           <Button
             variant="outline"
             size="sm"
             className="gap-2"
             onClick={regenerate}
-            disabled={generate.isPending || !shown}
+            disabled={generate.isPending}
           >
             <RefreshCw
               size={14}
@@ -155,9 +110,7 @@ export function Reports() {
       ) : isError || !report ? (
         <ErrorState
           message="Não foi possível carregar o check-up."
-          onRetry={() =>
-            period ? explicitQuery.refetch() : currentQuery.refetch()
-          }
+          onRetry={regenerate}
         />
       ) : (
         <ReportBody

@@ -6,8 +6,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarRange,
-  ChevronLeft,
-  ChevronRight,
   Landmark,
   Pencil,
   Repeat,
@@ -16,6 +14,7 @@ import {
   Zap,
 } from "lucide-react"
 import { Link } from "react-router-dom"
+import { usePeriod } from "@/components/period-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -95,14 +94,12 @@ type FormValues = z.infer<typeof schema>
 
 // ── Página ────────────────────────────────────────────────────────────────────
 export function Transactions() {
-  const now = new Date()
+  const { month, year } = usePeriod()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [filterCategoryId, setFilterCategoryId] = useState("")
   const [filterAccountId, setFilterAccountId] = useState("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear] = useState(now.getFullYear())
   const [customRange, setCustomRange] = useState<{
     from: string
     to: string
@@ -112,27 +109,18 @@ export function Transactions() {
   const [editing, setEditing] = useState<Transaction | null>(null)
 
   const { from, to } = customRange ?? monthRange(month, year)
-  const isCurrentMonth =
-    !customRange && month === now.getMonth() + 1 && year === now.getFullYear()
   const isSingleDay =
     customRange !== null && customRange.from === customRange.to
 
-  function prevMonth() {
+  // Trocar o mês global volta à primeira página e descarta o período específico
+  const periodKey = `${year}-${month}`
+  const [lastPeriodKey, setLastPeriodKey] = useState(periodKey)
+  if (lastPeriodKey !== periodKey) {
+    setLastPeriodKey(periodKey)
     setCustomRange(null)
-    if (month === 1) {
-      setMonth(12)
-      setYear((y) => y - 1)
-    } else setMonth((m) => m - 1)
     setPage(1)
   }
-  function nextMonth() {
-    setCustomRange(null)
-    if (month === 12) {
-      setMonth(1)
-      setYear((y) => y + 1)
-    } else setMonth((m) => m + 1)
-    setPage(1)
-  }
+
   function applyCustomRange() {
     if (!draftFrom || !draftTo) return
     // Se o usuário inverter as datas, normaliza para não quebrar o filtro
@@ -180,32 +168,13 @@ export function Transactions() {
 
       {/* Navegação por mês + período personalizado */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-lg border bg-card px-1 py-1">
-          <button
-            type="button"
-            onClick={prevMonth}
-            aria-label="Mês anterior"
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-7"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span className="min-w-27.5 text-center text-sm font-medium">
-            {customRange
-              ? isSingleDay
-                ? formatDate(customRange.from)
-                : `${formatDate(customRange.from)} – ${formatDate(customRange.to)}`
-              : `${MONTHS[month - 1]} ${year}`}
-          </span>
-          <button
-            type="button"
-            onClick={nextMonth}
-            disabled={isCurrentMonth}
-            aria-label="Próximo mês"
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:size-7"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <span className="text-sm font-medium">
+          {customRange
+            ? isSingleDay
+              ? formatDate(customRange.from)
+              : `${formatDate(customRange.from)} – ${formatDate(customRange.to)}`
+            : `${MONTHS[month - 1]} ${year}`}
+        </span>
 
         <Popover
           onOpenChange={(open) => {
@@ -262,7 +231,7 @@ export function Transactions() {
             className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <X size={12} />
-            Voltar para navegação por mês
+            Voltar para o mês selecionado
           </button>
         )}
       </div>

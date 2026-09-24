@@ -10,6 +10,8 @@ A página de Transações (`app/src/pages/Transactions/index.tsx`) filtra por pe
 
 ## Navegação por mês (padrão)
 
+**Atualizado:** o mês agora vem do seletor global (`usePeriod()`, ver `global-month.md`); a página não tem mais setas próprias, só exibe o rótulo. O texto abaixo descreve o comportamento anterior das setas.
+
 Mesmo padrão visual do `Home.tsx`: setas `ChevronLeft`/`ChevronRight` ao redor do rótulo `"{Mês} {Ano}"` (array `MONTHS` de `types/finance.ts`). Estado `month`/`year`, iniciado no mês atual. `nextMonth` fica desabilitado quando já está no mês atual (`isCurrentMonth`) — não é possível navegar para o futuro.
 
 `monthRange(month, year)` (função local no arquivo) calcula o primeiro e o último dia ISO do mês.
@@ -34,4 +36,4 @@ Trocar a conta reseta `page` para 1.
 
 ## Não confundir com o Dashboard (Home)
 
-`Home.tsx` já tinha seu próprio `month`/`year` + navegação para `GET /dashboard/summary` — são estados independentes, cada página com o seu. Não há sincronização entre o mês do Dashboard e o mês de Transações.
+(Obsoleto — o mês é global.) `Home.tsx` tinha seu próprio `month`/`year` + navegação para `GET /dashboard/summary` — são estados independentes, cada página com o seu. Não há sincronização entre o mês do Dashboard e o mês de Transações.

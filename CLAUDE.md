@@ -103,6 +103,7 @@ Docs existentes:
 - `.claude/docs/api/transactions.md` — endpoints /transactions (leitura + PATCH de reclassificação), /accounts (leitura + aparência) e /dashboard
 - `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
+- `.claude/docs/frontend/global-month.md` — seletor de mês global na sidebar (`PeriodProvider`/`usePeriod`) e quem o consome
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês, período específico e filtro por conta em Transações
 - `.claude/docs/decisions/remocao-carteiras.md` — ADR: por que as carteiras saíram (a conta sandbox que as substituiu também saiu depois)
 - `.claude/docs/decisions/remocao-open-finance.md` — ADR (substituído pela spec 04): por que a primeira integração Open Finance foi removida

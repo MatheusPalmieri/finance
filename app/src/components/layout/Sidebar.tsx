@@ -10,6 +10,7 @@ import { Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react"
 import { useEffect, useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { Logo } from "./Logo"
+import { MonthPicker } from "./MonthPicker"
 import { isRouteActive, navItems, type IconType } from "./nav"
 
 const STORAGE_KEY = "sidebar-collapsed"
@@ -77,8 +78,13 @@ export function Sidebar() {
           ))}
         </nav>
 
+        {/* Filtro global de mês */}
+        <div className="mt-auto border-t border-sidebar-border p-3">
+          <MonthPicker compact={collapsed} />
+        </div>
+
         {/* Rodapé: tema + colapsar */}
-        <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border p-3">
+        <div className="flex flex-col gap-1 border-t border-sidebar-border p-3">
           <SidebarButton
             collapsed={collapsed}
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
