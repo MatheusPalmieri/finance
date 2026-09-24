@@ -299,6 +299,8 @@ export const api = {
     list: () => request<MonthlyReportSummary[]>("/reports/monthly"),
     get: (id: string) => request<MonthlyReport>(`/reports/monthly/${id}`),
     current: () => request<MonthlyReport>("/reports/monthly/current"),
+    forPeriod: (month: number, year: number) =>
+      request<MonthlyReport>(`/reports/monthly/period/${year}/${month}`),
     narrate: (id: string) =>
       request<MonthlyReport>(`/reports/monthly/${id}/narrate`, {
         method: "POST",

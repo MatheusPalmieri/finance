@@ -2,7 +2,9 @@
 // Cobre o motor de métricas contra o banco, os insights e a narrativa.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import type { MonthlyReport } from "../db/schema"
+import { eq } from "drizzle-orm"
+import { db } from "../db"
+import { monthlyReports, type MonthlyReport } from "../db/schema"
 import type { Insight, MonthlyReportMetrics } from "../modules/reports/types"
 import {
   __setLlm,
@@ -561,6 +563,94 @@ describe("e2e — ciclo de vida do relatório", () => {
       month: 13,
       year: 2026,
     })
+    expect(res.status).toBe(422)
+  })
+})
+
+describe("e2e — cache de 24h e uma geração por vez", () => {
+  const NARRATIVE = JSON.stringify({
+    narrative:
+      "Seu mês fechou com R$ 500,00 de despesas, um resultado dentro do esperado para o período.",
+    suggestions: [
+      { title: "Seguir assim", rationale: "Mês equilibrado.", estimatedSavingBrl: null, insightKind: null },
+    ],
+  })
+  const periodPath = `/reports/monthly/period/${REPORT.year}/${REPORT.month}`
+
+  async function seed() {
+    const account = await makeAccount()
+    const category = await makeCategory("Alimentação")
+    await makeTransaction({
+      name: "Mercado", amount: 500, date: dayIn(1, 5),
+      categoryId: category.id, accountId: account.id,
+    })
+  }
+
+  test("GET /period gera na primeira vez e depois serve do banco", async () => {
+    await seed()
+    const llm = useMockLlm(NARRATIVE, NARRATIVE)
+
+    const first = await api.get<ReportBody>(periodPath)
+    expect(first.status).toBe(200)
+    expect(first.body.status).toBe("NARRATED")
+
+    const second = await api.get<ReportBody>(periodPath)
+    expect(second.body.id).toBe(first.body.id)
+    expect(second.body.generatedAt).toBe(first.body.generatedAt)
+    // A IA foi chamada uma vez só — o reload não custa nada
+    expect(llm.calls).toHaveLength(1)
+  })
+
+  test("chamadas simultâneas do mesmo mês compartilham uma geração", async () => {
+    await seed()
+    const llm = useMockLlm(NARRATIVE, NARRATIVE, NARRATIVE)
+
+    const results = await Promise.all([
+      api.get<ReportBody>(periodPath),
+      api.get<ReportBody>(periodPath),
+      api.post<ReportBody>("/reports/monthly/generate", {
+        month: REPORT.month,
+        year: REPORT.year,
+      }),
+    ])
+
+    expect(new Set(results.map((r) => r.body.id)).size).toBe(1)
+    expect(llm.calls).toHaveLength(1)
+    expect((await api.get<unknown[]>("/reports/monthly")).body).toHaveLength(1)
+  })
+
+  test("relatório com mais de 24h é regerado", async () => {
+    await seed()
+    const llm = useMockLlm(NARRATIVE, NARRATIVE)
+
+    const first = await api.get<ReportBody>(periodPath)
+    await db
+      .update(monthlyReports)
+      .set({ generatedAt: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+      .where(eq(monthlyReports.id, first.body.id))
+
+    const second = await api.get<ReportBody>(periodPath)
+    expect(second.body.id).toBe(first.body.id)
+    expect(new Date(second.body.generatedAt).getTime()).toBeGreaterThan(
+      Date.now() - 60_000
+    )
+    expect(llm.calls).toHaveLength(2)
+  })
+
+  test("/current também respeita o cache", async () => {
+    await seed()
+    const llm = useMockLlm(NARRATIVE, NARRATIVE)
+
+    await Promise.all([
+      api.get("/reports/monthly/current"),
+      api.get("/reports/monthly/current"),
+    ])
+    await api.get("/reports/monthly/current")
+    expect(llm.calls).toHaveLength(1)
+  })
+
+  test("período inválido é recusado", async () => {
+    const res = await api.get(`/reports/monthly/period/${REPORT.year}/13`)
     expect(res.status).toBe(422)
   })
 })

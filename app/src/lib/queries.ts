@@ -57,6 +57,8 @@ export const keys = {
     list: () => [...keys.reports.all, "list"] as const,
     detail: (id: string) => [...keys.reports.all, "detail", id] as const,
     current: () => [...keys.reports.all, "current"] as const,
+    period: (month: number, year: number) =>
+      [...keys.reports.all, "period", year, month] as const,
   },
   forecast: {
     all: ["forecast"] as const,
@@ -374,13 +376,27 @@ export function useDismissRecurring() {
 }
 
 // ── Check-up mensal ───────────────────────────────────────────────────────────
+// A API guarda o relatório no banco por 24h e só chama a IA quando ele vence;
+// aqui o cache em memória segue o mesmo prazo para nem repetir a leitura.
+const REPORT_STALE_MS = 24 * 60 * 60 * 1000
+
 export function useCurrentReport() {
   return useQuery({
     queryKey: keys.reports.current(),
     queryFn: () => api.reports.current(),
-    // A geração sob demanda pode levar alguns segundos; não refazer à toa
-    staleTime: 5 * 60 * 1000,
+    staleTime: REPORT_STALE_MS,
     retry: false,
+  })
+}
+
+/** Relatório do mês, gerado pela API só se não houver um com menos de 24h. */
+export function useReportForPeriod(month: number, year: number) {
+  return useQuery({
+    queryKey: keys.reports.period(month, year),
+    queryFn: () => api.reports.forPeriod(month, year),
+    staleTime: REPORT_STALE_MS,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -410,7 +426,14 @@ export function useGenerateReport() {
           error: (e: Error) => e.message ?? "Erro ao gerar relatório",
         })
         .unwrap(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.reports.all }),
+    onSuccess: (report) => {
+      // Já é o relatório novo: grava direto em vez de refazer a leitura
+      qc.setQueryData(keys.reports.period(report.month, report.year), report)
+      qc.invalidateQueries({
+        queryKey: keys.reports.all,
+        predicate: (q) => q.queryKey[1] !== "period",
+      })
+    },
   })
 }
 

@@ -21,6 +21,18 @@ export const reportsRoute = new Elysia({ prefix: "/reports" })
   .get("/monthly", () => service.list())
   // Antes de "/monthly/:id" para não ser capturado como id
   .get("/monthly/current", () => service.current())
+  // Leitura com cache de 24h: só gera (e chama a IA) se não houver relatório
+  // recente do período. O POST /generate é o "Regerar" explícito.
+  .get(
+    "/monthly/period/:year/:month",
+    ({ params }) => service.forPeriod(params.month, params.year),
+    {
+      params: t.Object({
+        year: t.Numeric({ minimum: 2000, maximum: 2100 }),
+        month: t.Numeric({ minimum: 1, maximum: 12 }),
+      }),
+    }
+  )
   .get("/monthly/:id", async ({ params, status }) => {
     const report = await service.getById(params.id)
     return report ?? status(404, { message: "Relatório não encontrado" })

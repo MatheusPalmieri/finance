@@ -1,7 +1,7 @@
 ---
 title: Check-up mensal (relatório e anomalias)
 area: domain
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -131,6 +131,11 @@ estado vazio.
 
 Unique em `(month, year)`. Regerar **sobrescreve** a linha: o
 relatório é derivado, não há histórico de versões.
+
+A tabela também é o **cache**: uma linha com `generatedAt` de menos de 24h é
+servida como está, sem chamar a IA. Só o "Regerar" explícito ignora esse prazo.
+Chamadas simultâneas do mesmo mês compartilham uma geração só. Detalhes em
+`api/reports.md`.
 
 `metrics` e `insights` são `jsonb` porque o relatório é um snapshot imutável do
 mês — não se consulta por dentro dele.

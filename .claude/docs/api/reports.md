@@ -1,7 +1,7 @@
 ---
 title: Endpoints /reports
 area: api
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -18,13 +18,28 @@ Código: `api/src/modules/reports/`.
 |---|---|---|
 | POST | `/reports/monthly/generate` | Gera (ou regenera) e devolve o relatório |
 | GET | `/reports/monthly` | Lista resumida, mais recente primeiro |
-| GET | `/reports/monthly/current` | Atalho: o relatório do mês anterior ao atual, gerando na hora se não existir |
+| GET | `/reports/monthly/current` | Atalho: o relatório do mês anterior ao atual (mesmo cache de 24h do `/period`) |
+| GET | `/reports/monthly/period/:year/:month` | Relatório do mês servido do banco; só gera se não existir ou tiver mais de 24h |
 | GET | `/reports/monthly/:id` | Relatório completo |
 | POST | `/reports/monthly/:id/narrate` | Só (re)gera a narrativa de um relatório existente |
 | DELETE | `/reports/monthly/:id` | Apaga |
 
 > `/monthly/current` é declarada **antes** de `/monthly/:id` para não ser
 > capturada como um id.
+
+## Cache de 24h e uma geração por vez
+
+Gerar chama a IA, então nada deve gerar à toa:
+
+- **Cache no banco:** `GET /period/:year/:month` e `GET /current` devolvem a
+  linha de `monthly_reports` enquanto `generatedAt` tiver menos de 24h
+  (`REPORT_TTL_MS` em `service.ts`). Depois disso regeram na primeira leitura.
+  Por ser no banco, sobrevive a reload, a outra aba e a reiniciar a API.
+- **Uma geração por período:** `generate()` guarda a promessa em curso num
+  `Map` por `ano-mês`. Chamadas simultâneas, como o StrictMode do dev, duas
+  abas ou o Home junto com a página, esperam a mesma geração. `narrate()` faz o
+  mesmo por id. Isso vale dentro de um processo só, que é como a API roda.
+- `POST /generate` é o "Regerar" explícito: sempre gera, ignorando o prazo.
 
 ## `POST /reports/monthly/generate`
 

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react"
 import { Area, AreaChart, ResponsiveContainer, ReferenceLine } from "recharts"
 import {
   AlertTriangle,
@@ -17,7 +16,11 @@ import { usePeriod } from "@/components/period-provider"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
-import { useGenerateReport, useNarrateReport, useReport } from "@/lib/queries"
+import {
+  useGenerateReport,
+  useNarrateReport,
+  useReportForPeriod,
+} from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FINANCE, tint } from "@/lib/tokens"
@@ -40,42 +43,20 @@ const TYPE_ORDER: BudgetType[] = ["essential", "desire", "investment"]
 export function Reports() {
   const navigate = useNavigate()
 
-  // Mês vem do filtro global (sidebar); o check-up é gerado sob demanda se
-  // ainda não existir e buscado por id em seguida
+  // Mês vem do filtro global (sidebar). A API serve o check-up do banco e só
+  // gera (chamando a IA) se não houver um com menos de 24h
   const { month, year } = usePeriod()
-  const shown = { month, year }
-  const periodKey = `${year}-${month}`
 
+  const query = useReportForPeriod(month, year)
   const generate = useGenerateReport()
   const narrate = useNarrateReport()
 
-  // O id só vale para o período em que foi gerado
-  const [generated, setGenerated] = useState<{
-    key: string
-    id: string
-  } | null>(null)
-  const explicitId = generated?.key === periodKey ? generated.id : null
-  const explicitQuery = useReport(explicitId)
-
-  const { mutate: generateReport } = generate
-  useEffect(() => {
-    generateReport(
-      { month, year },
-      { onSuccess: (r) => setGenerated({ key: periodKey, id: r.id }) }
-    )
-  }, [generateReport, month, year, periodKey])
-
-  const report = explicitQuery.data
-  const isLoading =
-    explicitQuery.isLoading ||
-    generate.isPending ||
-    (!explicitId && !generate.isError)
-  const isError = explicitQuery.isError || generate.isError
+  const report = query.data
+  const isLoading = query.isLoading || generate.isPending
+  const isError = query.isError && !report
 
   function regenerate() {
-    generate.mutate(shown, {
-      onSuccess: (r) => setGenerated({ key: periodKey, id: r.id }),
-    })
+    generate.mutate({ month, year })
   }
 
   return (

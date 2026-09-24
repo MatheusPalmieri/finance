@@ -44,11 +44,33 @@ function periodScope(month: number, year: number) {
   return and(eq(monthlyReports.month, month), eq(monthlyReports.year, year))
 }
 
+/** Por quanto tempo um relatório gravado vale antes de ser regerado. */
+export const REPORT_TTL_MS = 24 * 60 * 60 * 1000
+
+// Gerações em andamento por período. Chamadas simultâneas do mesmo mês
+// (StrictMode, duas abas, Home + página) esperam a mesma promessa em vez de
+// chamar a IA de novo.
+const inFlight = new Map<string, Promise<ReportPayload>>()
+
+function periodKey(month: number, year: number) {
+  return `${year}-${month}`
+}
+
 /**
  * Gera (ou regenera) o relatório do mês. Regerar **sobrescreve** a linha —
  * o relatório é derivado, não há histórico de versões.
  */
-export async function generate(input: GenerateInput): Promise<ReportPayload> {
+export function generate(input: GenerateInput): Promise<ReportPayload> {
+  const key = periodKey(input.month, input.year)
+  const pending = inFlight.get(key)
+  if (pending) return pending
+
+  const promise = doGenerate(input).finally(() => inFlight.delete(key))
+  inFlight.set(key, promise)
+  return promise
+}
+
+async function doGenerate(input: GenerateInput): Promise<ReportPayload> {
   const metrics = await computeMetrics(input.month, input.year)
   const insights = buildInsights(metrics)
 
@@ -111,10 +133,21 @@ export async function generate(input: GenerateInput): Promise<ReportPayload> {
   return hydrate(row, ai)
 }
 
+type NarrateResult = ReportPayload | null | { message: string }
+
+const narrating = new Map<string, Promise<NarrateResult>>()
+
 /** Só (re)gera a narrativa de um relatório já existente. */
-export async function narrate(
-  id: string
-): Promise<ReportPayload | null | { message: string }> {
+export function narrate(id: string): Promise<NarrateResult> {
+  const pending = narrating.get(id)
+  if (pending) return pending
+
+  const promise = doNarrate(id).finally(() => narrating.delete(id))
+  narrating.set(id, promise)
+  return promise
+}
+
+async function doNarrate(id: string): Promise<NarrateResult> {
   const [row] = await db
     .select()
     .from(monthlyReports)
@@ -196,24 +229,39 @@ export async function getById(id: string): Promise<ReportPayload | null> {
 }
 
 /**
- * Atalho da página: o relatório do mês anterior ao atual, gerado na hora se
- * não existir. É o fallback obrigatório que torna o agendador uma conveniência.
+ * O relatório do período vindo do banco enquanto tiver menos de
+ * `REPORT_TTL_MS`; depois disso (ou se não existir) gera de novo. É o cache
+ * que evita chamar a IA a cada visita ou reload.
  */
-export async function current(): Promise<ReportPayload> {
-  const now = new Date()
-  const prev = previousMonth(now.getFullYear(), now.getMonth() + 1)
+export async function forPeriod(
+  month: number,
+  year: number
+): Promise<ReportPayload> {
+  // Uma geração em curso vence o banco: a linha ainda pode estar velha
+  const pending = inFlight.get(periodKey(month, year))
+  if (pending) return pending
 
   const [row] = await db
     .select()
     .from(monthlyReports)
-    .where(periodScope(prev.month, prev.year))
+    .where(periodScope(month, year))
     .limit(1)
 
-  if (row) {
+  if (row && Date.now() - row.generatedAt.getTime() < REPORT_TTL_MS) {
     const health = await aiAvailable()
     return hydrate(row, health.available)
   }
-  return generate({ month: prev.month, year: prev.year })
+  return generate({ month, year })
+}
+
+/**
+ * Atalho do Home: o relatório do mês anterior ao atual, gerado na hora se
+ * não existir. É o fallback obrigatório que torna o agendador uma conveniência.
+ */
+export function current(): Promise<ReportPayload> {
+  const now = new Date()
+  const prev = previousMonth(now.getFullYear(), now.getMonth() + 1)
+  return forPeriod(prev.month, prev.year)
 }
 
 export async function remove(id: string) {

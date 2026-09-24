@@ -1,7 +1,7 @@
 ---
 title: Página /reports — Check-up mensal
 area: frontend
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -17,12 +17,16 @@ Domínio: `.claude/docs/domain/monthly-report.md`.
 
 ## Cabeçalho
 
-O mês vem do seletor global (`global-month.md`); a página tem só o botão "Regerar". Ao abrir ou trocar o mês, o check-up é gerado sob demanda se não existir.
+O mês vem do seletor global (`global-month.md`); a página tem só o botão "Regerar".
 
-Sem navegação, a página abre em `GET /reports/monthly/current` — o relatório do
-mês anterior ao atual, gerado na hora se não existir. Esse fallback é o que
-torna o agendador uma conveniência, não um requisito. Navegar para outro mês
-dispara `POST /monthly/generate` e passa a ler aquele relatório por id.
+A página lê `GET /reports/monthly/period/:year/:month` via `useReportForPeriod`,
+uma **query**, não uma mutation num `useEffect`. Antes era uma mutation, e o
+StrictMode do dev disparava dois `POST /generate`, ou seja, duas chamadas à IA a
+cada visita. A API serve o relatório do banco por 24h e só gera quando ele não
+existe ou venceu (ver `api/reports.md`). No front, `staleTime` também é de 24h.
+
+"Regerar" é o único caminho que força `POST /generate`. O resultado é gravado
+direto no cache da query do período (`setQueryData`), sem ler de novo.
 
 ## Layout, na ordem em que se lê
 
@@ -91,7 +95,10 @@ teve movimento.
 reports: { all, list(), detail(id), current() }
 ```
 
-Hooks: `useCurrentReport` (`staleTime` de 5 min e `retry: false` — a geração sob
-demanda pode levar segundos e não deve ser repetida à toa), `useReport`,
+Chave nova: `reports.period(month, year)`.
+
+Hooks: `useCurrentReport` e `useReportForPeriod` (`staleTime` de 24h e
+`retry: false` — a geração pode levar mais de um minuto e custa uma chamada de
+IA, não deve ser repetida à toa), `useReport`,
 `useReportList`, `useGenerateReport` (usa `toast.promise` do `sonner`) e
 `useNarrateReport`.
