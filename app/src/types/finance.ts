@@ -546,6 +546,11 @@ export interface DashboardSummary {
   totalExpenses: string
   essentialExpenses: string
   nonEssentialExpenses: string
+  /** Despesas ainda sem categoria (não entram em essencial/não essencial). */
+  unclassifiedExpenses: string
+  unclassifiedCount: number
+  /** Mês anterior até o mesmo dia, para o ritmo do gasto. */
+  pace: { previousTotal: string; cutoffDay: number; partial: boolean }
   fixedExpenses: string
   variableExpenses: string
   transactionCount: number

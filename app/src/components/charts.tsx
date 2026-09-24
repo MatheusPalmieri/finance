@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { tint } from "@/lib/tokens"
 
 // Tipo estrutural para ícones (lucide-react)
 type IconType = ComponentType<{ size?: number | string; className?: string }>
@@ -40,7 +41,7 @@ export function StatCard({
         <span className="text-sm text-muted-foreground">{label}</span>
         <span
           className="flex size-7 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `${accent}1a`, color: accent }}
+          style={{ backgroundColor: tint(accent), color: accent }}
         >
           <Icon size={15} />
         </span>

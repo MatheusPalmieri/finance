@@ -81,6 +81,7 @@ Docs existentes:
 - `.claude/docs/domain/open-finance.md` — sync com a Pluggy (normalização, janela, vínculo de contas, religar/remover, campos do usuário preservados) e o cache persistente `open_finance_snapshots`
 - `.claude/docs/domain/forecast.md` — projeção Monte Carlo do saldo, cenários, veredito "posso comprar?" e reserva mínima
 - `.claude/docs/api/forecast.md` — endpoints /forecast e /settings
+- `.claude/docs/frontend/home.md` — página Início: posição agora, gastos do mês, para onde foi, o que vem
 - `.claude/docs/frontend/open-finance.md` — páginas /open-finance e /investments, sync automático ao abrir, selo `SnapshotStatus`, Contas só-aparência e Transações só-reclassificação
 - `.claude/docs/frontend/forecast.md` — página /forecast (gráfico de leque, painel de cenário) e card no Home
 - `.claude/docs/domain/classification.md` — motor de classificação em 3 camadas (regras/histórico/IA), regras aprendidas e detector de recorrências

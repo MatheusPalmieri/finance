@@ -38,6 +38,7 @@ import { log } from "./log"
 import { normalizeTransaction, type NormalizedTransaction } from "./normalize"
 import { getProvider, type OpenFinanceProvider } from "./provider"
 import type { ProviderAccount, ProviderItem, ProviderTransaction } from "./types"
+import { FALLBACK_CATEGORY } from "../../lib/fallback-category"
 
 /** Janela completa: o máximo que a Pluggy guarda. */
 export const FULL_WINDOW_DAYS = 365
@@ -49,7 +50,6 @@ export const FULL_SYNC_EVERY_DAYS = 7
 const REBIND_MAX_DAYS = 5
 /** Espera pela nova coleta do banco depois do `refreshItem` (mutável nos testes). */
 export const refreshTiming = { timeoutMs: 120_000, pollMs: 3_000 }
-const FALLBACK_CATEGORY = "Outros"
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 

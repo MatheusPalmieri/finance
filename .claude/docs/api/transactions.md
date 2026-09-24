@@ -66,14 +66,29 @@ Não há `balance`, `isDefault` nem `isSandbox`. `POST`, `PUT`, `DELETE` e
 
 Painel só de despesas: as agregações filtram `amount > 0` e usam
 `COUNTED_TRANSACTIONS` (Open Finance + `kind = regular`). `recentTransactions`
-usa `REAL_TRANSACTIONS` e mostra despesas e entradas. Query params `month`,
-`year` (default: mês atual). Resposta:
+usa `REAL_TRANSACTIONS`, só com data até hoje (parcela futura do cartão não é
+"recente"), e mostra despesas e entradas. Query params `month`,
+`year` (default: mês atual).
+
+- **Sem classificação**: transação na categoria de reserva do sync (`Outros`,
+  `lib/fallback-category.ts`) — `category_id` é obrigatório, então não há `null`.
+  `essentialExpenses`/`nonEssentialExpenses` **não** a incluem: o sync grava
+  `is_essential = false` por padrão, e contar isso como "não essencial" seria
+  inventar dado. Limitação: quem reclassifica de propósito para "Outros" cai no
+  mesmo balde.
+- **`pace`**: total de despesas do mês anterior até o mesmo dia (`cutoffDay`).
+  `partial` = o mês pedido é o corrente; mês fechado compara com o anterior inteiro.
+
+Resposta:
 
 ```jsonc
 {
   "totalExpenses": "1699.51",
   "essentialExpenses": "1444.20",
   "nonEssentialExpenses": "255.31",
+  "unclassifiedExpenses": "0.00",
+  "unclassifiedCount": 0,
+  "pace": { "previousTotal": "1570.00", "cutoffDay": 23, "partial": true },
   "fixedExpenses": "1245.51",
   "variableExpenses": "454.00",
   "transactionCount": 9,
@@ -82,6 +97,6 @@ usa `REAL_TRANSACTIONS` e mostra despesas e entradas. Query params `month`,
   "expensesByAccount": [{ "id", "name", "color", "amount" }],
   "monthlyTrend": [{ "month": "2026-06", "total": 1699.51 }],
   "budgetProgress": [{ "id", "categoryId", "categoryName", "color", "budgeted", "spent", "percentage" }],
-  "recentTransactions": [/* últimas 10 com relations */]
+  "recentTransactions": [/* últimas 6 até hoje, com relations */]
 }
 ```

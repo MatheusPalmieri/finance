@@ -6,12 +6,19 @@ export function formatCurrency(value: number | string) {
   })
 }
 
-// Formata valor compacto: "R$ 1,2k", "R$ 34,5k", "R$ 2,1M"
+// Formata valor compacto em pt-BR: "R$ 1,2 mil", "R$ 34,5 mil", "R$ 2,1 mi"
+const compactFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
+
 export function formatCurrencyCompact(value: number | string) {
   const n = Number(value)
-  if (Math.abs(n) >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)}M`
-  if (Math.abs(n) >= 1_000) return `R$ ${(n / 1_000).toFixed(1)}k`
-  return formatCurrency(n)
+  // Abaixo de mil o valor cheio é mais claro que "R$ 80"
+  if (Math.abs(n) < 1_000) return formatCurrency(n)
+  return compactFormatter.format(n)
 }
 
 // Data no formato "dd/MM/yyyy"

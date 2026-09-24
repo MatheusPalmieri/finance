@@ -1,13 +1,24 @@
 import { Elysia, t } from "elysia"
-import { and, between, eq, desc, sql } from "drizzle-orm"
+import { and, between, eq, desc, lte, sql } from "drizzle-orm"
 import { db } from "../db"
 import { accounts, categories, transactions } from "../db/schema"
 import { PAYMENT_METHOD_HEX, PAYMENT_METHOD_LABELS } from "../lib/payment-methods"
+import { FALLBACK_CATEGORY } from "../lib/fallback-category"
 import { COUNTED_TRANSACTIONS, REAL_TRANSACTIONS } from "../lib/scope"
 
 // Valor negativo = entrada (ver routes/transactions.ts). Este painel é só de
 // despesas, então as agregações abaixo ignoram entradas.
 const isExpense = sql`amount::numeric > 0`
+
+// Transação que caiu na categoria de reserva do sync
+const unclassified = sql`lower(${categories.name}) = ${FALLBACK_CATEGORY.toLowerCase()}`
+
+// Data de hoje no fuso do usuário (YYYY-MM-DD); `sv-SE` formata como ISO
+function todayInSaoPaulo() {
+  return new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  })
+}
 
 export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
   .get(
@@ -32,13 +43,19 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
       const [totals] = await db
         .select({
           total: sql<string>`coalesce(sum(amount::numeric), 0)`,
-          essential: sql<string>`coalesce(sum(amount::numeric) filter (where is_essential), 0)`,
-          nonEssential: sql<string>`coalesce(sum(amount::numeric) filter (where not is_essential), 0)`,
+          // Na categoria de reserva do sync = ainda sem classificação: ele grava
+          // `is_essential = false` por padrão, então contar isso como "não
+          // essencial" seria inventar dado. Fica num balde próprio.
+          essential: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where ${transactions.isEssential} and not ${unclassified}), 0)`,
+          nonEssential: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where not ${transactions.isEssential} and not ${unclassified}), 0)`,
+          unclassified: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where ${unclassified}), 0)`,
+          unclassifiedCount: sql<number>`(count(*) filter (where ${unclassified}))::int`,
           fixed: sql<string>`coalesce(sum(amount::numeric) filter (where recurrence = 'fixed'), 0)`,
           variable: sql<string>`coalesce(sum(amount::numeric) filter (where recurrence = 'variable'), 0)`,
           transactionCount: sql<number>`count(*)::int`,
         })
         .from(transactions)
+        .innerJoin(categories, eq(transactions.categoryId, categories.id))
         .where(inMonth)
 
       // Despesas por categoria
@@ -94,18 +111,55 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
         ORDER BY month
       `)
 
-      // Transações recentes
+      // Ritmo: total do mês anterior até o mesmo dia, para comparar com o mês
+      // em curso sem que o mês parcial pareça "menos gasto". Mês já fechado
+      // compara com o mês anterior inteiro
+      const today = todayInSaoPaulo()
+      const isCurrentMonth = today.startsWith(
+        `${year}-${String(month).padStart(2, "0")}`
+      )
+      const cutoffDay = isCurrentMonth
+        ? Number(today.slice(8, 10))
+        : new Date(year, month, 0).getDate()
+      const prevYear = month === 1 ? year - 1 : year
+      const prevMonth = month === 1 ? 12 : month - 1
+      const prevPrefix = `${prevYear}-${String(prevMonth).padStart(2, "0")}`
+      const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+      const [previous] = await db
+        .select({ total: sql<string>`coalesce(sum(amount::numeric), 0)` })
+        .from(transactions)
+        .where(
+          and(
+            between(
+              transactions.date,
+              `${prevPrefix}-01`,
+              `${prevPrefix}-${String(Math.min(cutoffDay, prevLastDay)).padStart(2, "0")}`
+            ),
+            isExpense,
+            COUNTED_TRANSACTIONS
+          )
+        )
+
+      // Transações recentes. Só até hoje: parcelas futuras do cartão já vêm
+      // lançadas com data adiante e não são "recentes"
       const recentTransactions = await db.query.transactions.findMany({
-        where: REAL_TRANSACTIONS,
+        where: and(REAL_TRANSACTIONS, lte(transactions.date, today)),
         with: { account: true, category: true, budget: true },
         orderBy: [desc(transactions.date), desc(transactions.createdAt)],
-        limit: 10,
+        limit: 6,
       })
 
       return {
         totalExpenses: String(totals?.total ?? 0),
         essentialExpenses: String(totals?.essential ?? 0),
         nonEssentialExpenses: String(totals?.nonEssential ?? 0),
+        unclassifiedExpenses: String(totals?.unclassified ?? 0),
+        unclassifiedCount: Number(totals?.unclassifiedCount ?? 0),
+        pace: {
+          previousTotal: String(previous?.total ?? 0),
+          cutoffDay,
+          partial: isCurrentMonth,
+        },
         fixedExpenses: String(totals?.fixed ?? 0),
         variableExpenses: String(totals?.variable ?? 0),
         transactionCount: Number(totals?.transactionCount ?? 0),
