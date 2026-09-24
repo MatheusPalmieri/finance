@@ -11,6 +11,7 @@ export const categoriesData = [
   { name: "Transporte", color: "#8b5cf6" },
   { name: "Estudos", color: "#6366f1" },
   { name: "Investimento", color: "#10b981" },
+  { name: "Salário", color: "#84cc16" },
   { name: "Alimentação", color: "#f59e0b" },
   { name: "Office", color: "#64748b" },
   { name: "Saúde", color: "#ec4899" },

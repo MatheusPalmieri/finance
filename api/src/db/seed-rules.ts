@@ -1,12 +1,14 @@
-// Seed das regras de classificação migradas do antigo
-// `app/src/pages/Transactions/depara.ts`.
+// Seed base das regras de classificação, montada a partir dos 6 meses de
+// transações reais do Open Finance.
 //
-// A ordem do array original virava a precedência do match; aqui ela vira
-// `priority`, começando em 900 e caindo de 100 em 100 — preserva o comentário
-// "ordem importa" do arquivo original.
+// Os patterns são comparados com o nome que o sync monta (`displayName` em
+// open-finance/normalize.ts: "Tipo - Contraparte", "Pix para X"), já sem acento
+// e em minúsculas. A forma de pagamento não entra aqui: quem resolve é o
+// próprio Open Finance. Pix para pessoas também fica sem regra — o destinatário
+// muda demais, quem cuida é o histórico (kNN) e a IA.
 //
-// `categoryName` é resolvido por nome exato; se a categoria não existir, a
-// regra entra com `categoryId: null` (mesmo comportamento tolerante de antes).
+// Ordem importa: específicas antes das genéricas (vira `priority`).
+// `categoryName` é resolvido por nome exato; categoria inexistente vira `null`.
 //
 // Idempotente: roda quantas vezes quiser, nunca duplica nem sobrescreve o que
 // o usuário editou (só insere o que falta).
@@ -17,107 +19,191 @@ import {
   categories,
   classificationRules,
   type NewClassificationRule,
-  type PaymentMethod,
   type Recurrence,
 } from "./schema"
 
 interface SeedRule {
-  pattern: string
+  /** Um ou mais textos; qualquer um que apareça na descrição casa a regra. */
+  patterns: string[]
+  /** Sem `renameTo` o nome original do extrato é mantido. */
   renameTo?: string
-  paymentMethod?: PaymentMethod
   categoryName?: string
   /** Força o sinal, ignorando o do extrato. */
   forceIncome?: boolean
   recurrence?: Recurrence
 }
 
-// Mesma ordem do DEPARA_RULES original: específicas antes das genéricas.
 export const SEED_RULES: SeedRule[] = [
+  // ── Renda e investimento ──────────────────────────────────────────────────
   {
-    pattern: "aplicacao rdb",
-    paymentMethod: "transfer",
+    patterns: ["transferencia recebida - matheus andre palmieri ltda"],
+    renameTo: "Salário",
+    categoryName: "Salário",
+  },
+  {
+    patterns: ["aplicacao rdb"],
     categoryName: "Investimento",
     forceIncome: true,
     recurrence: "variable",
   },
   {
-    pattern: "transferencia recebida - matheus andre palmieri ltda",
-    renameTo: "Salário",
-    paymentMethod: "transfer",
-    categoryName: "Salário",
-  },
-  {
-    pattern: "conceito imobiliaria",
-    renameTo: "Aluguel",
-    paymentMethod: "boleto",
-    categoryName: "Moradia",
-  },
-  {
-    pattern: "celesc distribuicao",
-    renameTo: "Conta de luz",
-    paymentMethod: "boleto",
-    categoryName: "Moradia",
-  },
-  {
-    pattern: "aymore credito",
-    renameTo: "Financiamento do carro",
-    paymentMethod: "boleto",
-    categoryName: "Transporte",
-  },
-  {
-    pattern: "alles imoveis",
-    renameTo: "Aluguel",
-    paymentMethod: "boleto",
-    categoryName: "Moradia",
-  },
-  {
-    pattern: "edificio ilha de cozumel",
-    renameTo: "Condomínio",
-    paymentMethod: "boleto",
-    categoryName: "Moradia",
-  },
-  {
-    pattern: "resgate rdb",
-    paymentMethod: "transfer",
+    patterns: ["resgate rdb"],
     categoryName: "Investimento",
     recurrence: "variable",
   },
   {
     // Rendimento em centavos, vem várias vezes por mês
-    pattern: "credito em conta",
+    patterns: ["valor recebido de investimentos"],
     renameTo: "Rendimento",
-    paymentMethod: "transfer",
     categoryName: "Investimento",
   },
-  // Compra/venda de ativos na corretora do Nubank — nome mantém o ticker
-  ...[
-    "compra de fii",
-    "compra de acoes",
-    "compra de bdr",
-    "compra de etf",
-    "compra de criptomoedas",
-    "venda de criptomoedas",
-  ].map(
-    (pattern): SeedRule => ({
-      pattern,
-      paymentMethod: "transfer",
-      categoryName: "Investimento",
-    })
-  ),
-  { pattern: "compra no debito", paymentMethod: "debit_card" },
-  { pattern: "pagamento de fatura", paymentMethod: "credit_card" },
-  { pattern: "matheus andre palmieri ltda", paymentMethod: "transfer" },
-  { pattern: "matheus andre palmieri", paymentMethod: "transfer" },
   {
-    // O nome ("Pix para FULANO") é derivado da própria descrição em
-    // normalize.ts — não cabe num renameTo fixo.
-    pattern: "transferencia enviada pelo pix",
-    paymentMethod: "pix",
+    patterns: [
+      "compra de renda variavel",
+      "compra de criptomoedas",
+      "venda de criptomoedas",
+    ],
+    categoryName: "Investimento",
+  },
+  {
+    patterns: ["resgate de cashback"],
+    renameTo: "Cashback",
+    categoryName: "Investimento",
+  },
+
+  // ── Moradia e contas fixas ────────────────────────────────────────────────
+  {
+    patterns: ["conceito imobiliaria", "alles imoveis"],
+    renameTo: "Aluguel",
+    categoryName: "Moradia",
+  },
+  {
+    patterns: ["edificio ilha de cozumel"],
+    renameTo: "Condomínio",
+    categoryName: "Moradia",
+  },
+  {
+    patterns: ["celesc distribuicao"],
+    renameTo: "Conta de luz",
+    categoryName: "Moradia",
+  },
+  {
+    patterns: ["fianca loft"],
+    renameTo: "Fiança Loft",
+    categoryName: "Moradia",
+  },
+  {
+    patterns: ["unifique"],
+    renameTo: "Internet Unifique",
+    categoryName: "Serviços",
+  },
+  { patterns: ["fatura claro"], renameTo: "Claro", categoryName: "Serviços" },
+  { patterns: ["conta vivo"], renameTo: "Vivo", categoryName: "Serviços" },
+  { patterns: ["plano nucel"], renameTo: "Nucel", categoryName: "Serviços" },
+
+  // ── Transporte ────────────────────────────────────────────────────────────
+  {
+    patterns: ["aymore credito"],
+    renameTo: "Financiamento do carro",
+    categoryName: "Transporte",
+  },
+  {
+    patterns: ["shellbox", "shell box", "auto posto", "posto fl"],
+    renameTo: "Combustível",
+    categoryName: "Transporte",
+  },
+  {
+    patterns: ["shopping park", "estacionamento", "cloudpark", "bc. park"],
+    renameTo: "Estacionamento",
+    categoryName: "Transporte",
+  },
+  {
+    patterns: ["transacao de nutag"],
+    renameTo: "Pedágio Nutag",
+    categoryName: "Transporte",
+  },
+  {
+    patterns: ["taxa de emissao de nutag"],
+    renameTo: "Taxa Nutag",
+    categoryName: "Transporte",
+  },
+
+  // ── Alimentação (mantém o nome do estabelecimento) ────────────────────────
+  {
+    patterns: [
+      "giassi",
+      "bistek",
+      "angeloni",
+      "supermercado meschke",
+      "fort atacadista",
+      "cooper filial blumenau",
+    ],
+    categoryName: "Alimentação",
+  },
+  { patterns: ["marmita"], categoryName: "Alimentação" },
+  { patterns: ["ifd*", "ifd *", "ifood"], categoryName: "Alimentação" },
+  {
+    patterns: ["mc donalds", "mcdonalds", "arcos dourados", "burger king"],
+    categoryName: "Alimentação",
+  },
+
+  // ── Assinaturas ───────────────────────────────────────────────────────────
+  { patterns: ["spotify"], renameTo: "Spotify", categoryName: "Música" },
+  {
+    patterns: ["youtubepremium"],
+    renameTo: "YouTube Premium",
+    categoryName: "Assinaturas",
+  },
+  { patterns: ["hbo max"], renameTo: "HBO Max", categoryName: "Assinaturas" },
+  {
+    patterns: ["amazon prime"],
+    renameTo: "Amazon Prime",
+    categoryName: "Assinaturas",
+  },
+  { patterns: ["github"], renameTo: "GitHub", categoryName: "Assinaturas" },
+  {
+    patterns: ["apple.com/bill"],
+    renameTo: "Apple",
+    categoryName: "Assinaturas",
+  },
+  {
+    patterns: ["google one"],
+    renameTo: "Google One",
+    categoryName: "Assinaturas",
+  },
+  { patterns: ["openai"], renameTo: "OpenAI", categoryName: "Assinaturas" },
+  { patterns: ["anthropic"], renameTo: "Claude", categoryName: "Assinaturas" },
+
+  // ── Saúde, estudos e lazer ────────────────────────────────────────────────
+  { patterns: ["academia"], renameTo: "Academia", categoryName: "Saúde" },
+  { patterns: ["panvel", "drogablu", "farmacia"], categoryName: "Saúde" },
+  {
+    patterns: ["yduqs", "universidades estacio"],
+    renameTo: "Faculdade",
+    categoryName: "Estudos",
+  },
+  {
+    patterns: ["beto carrero"],
+    renameTo: "Beto Carrero",
+    categoryName: "Lazer",
+  },
+  {
+    patterns: ["sympla", "ingresso.com", "oiingressos"],
+    renameTo: "Ingressos",
+    categoryName: "Lazer",
+  },
+  { patterns: ["steam"], renameTo: "Steam", categoryName: "Lazer" },
+
+  // ── Taxas ─────────────────────────────────────────────────────────────────
+  {
+    patterns: ["iof de compra", "iof gerado"],
+    renameTo: "IOF",
+    categoryName: "Outros",
   },
 ]
 
 const PRIORITY_START = 900
-// Passo de 10 (e não de 100): são ~21 regras, e um passo de 100 levaria as
+// Passo de 10 (e não de 100): são ~60 patterns, e um passo de 100 levaria as
 // últimas a prioridade negativa, achatando a ordem justamente onde estão as
 // regras genéricas que precisam ser avaliadas por último.
 const PRIORITY_STEP = 10
@@ -136,19 +222,23 @@ export async function seedClassificationRules() {
     .where(eq(classificationRules.matchType, "contains"))
   const existingPatterns = new Set(existing.map((r) => r.pattern))
 
+  // Cada regra pode ter vários patterns; a prioridade cai por pattern
+  const flat = SEED_RULES.flatMap((rule) =>
+    rule.patterns.map((pattern) => ({ rule, pattern }))
+  )
+
   const values: NewClassificationRule[] = []
-  SEED_RULES.forEach((rule, i) => {
-    if (existingPatterns.has(rule.pattern)) return
+  flat.forEach(({ rule, pattern }, i) => {
+    if (existingPatterns.has(pattern)) return
     values.push({
-      pattern: rule.pattern,
+      pattern,
       matchType: "contains",
       source: "seed",
-      priority: PRIORITY_START - i * PRIORITY_STEP,
+      priority: Math.max(PRIORITY_START - i * PRIORITY_STEP, 1),
       renameTo: rule.renameTo ?? null,
       categoryId: rule.categoryName
         ? (categoryByName.get(rule.categoryName.toLowerCase()) ?? null)
         : null,
-      paymentMethod: rule.paymentMethod ?? null,
       recurrence: rule.recurrence ?? null,
       forceIncome: rule.forceIncome ?? null,
     })

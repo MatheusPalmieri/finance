@@ -6,7 +6,7 @@ updated: 2026-09-23
 
 ## Visão geral
 
-Motor server-side que decide categoria, nome, forma de pagamento e recorrência
+Motor server-side que decide categoria, nome e recorrência
 de uma descrição de extrato. Substituiu o de-para hardcoded que vivia em
 `app/src/pages/Transactions/depara.ts` (arquivo removido) — hoje nada no
 frontend classifica sozinho.
@@ -26,7 +26,7 @@ Cascata com *early-exit*: a primeira camada que resolve encerra a linha.
 | 2 | kNN (histórico) | `knn.ts` | similaridade | Similaridade ≥ `KNN_THRESHOLD` (0,75) |
 | 3 | LLM | `llm.ts` | ≤ `0,9` | Só o que sobrou, e só com IA disponível |
 
-Numa importação típica do Nubank a maioria das linhas para na camada 1 ou 2,
+No sync do Open Finance, cerca de metade das linhas para na camada 1 ou 2,
 então o LLM vê poucas linhas. O que nenhuma camada resolve volta com
 `source: "none"` e fica em branco para o usuário preencher — exatamente o
 comportamento anterior ao motor existir.
@@ -74,19 +74,34 @@ logada — nunca derruba a importação.
 
 ### Seed
 
-`api/src/db/seed-rules.ts` (`bun run db:seed:rules`) insere as regras do
-`depara.ts` original como `source: "seed"`, resolvendo `categoryName` →
-`categoryId` por nome exato (categoria inexistente → `categoryId: null`, mesmo
-comportamento tolerante de antes). É **idempotente**: só insere o que falta,
-nunca sobrescreve o que o usuário editou.
+`api/src/db/seed-rules.ts` (`bun run db:seed:rules`) é a **seed base**, montada
+em 2026-09-23 a partir dos 6 meses de transações reais do Open Finance (o
+de-para herdado do CSV foi descartado). Cada entrada tem um ou mais `patterns`,
+`renameTo` opcional e categoria — **sem forma de pagamento**: quem resolve isso
+é o próprio Open Finance.
 
-A ordem do array original vira `priority`, começando em 900 e caindo de 10 em
-10 — passo de 100 levaria as últimas regras a prioridade negativa e achataria a
-ordem justamente entre as genéricas.
+- Os patterns são comparados com o nome que o sync monta (`displayName`:
+  "Tipo - Contraparte", "Pix para X"), sem acento e em minúsculas — por isso o
+  salário é `transferencia recebida - matheus andre palmieri ltda`.
+- **Pix para pessoas não tem regra** (o destinatário muda demais): fica com o
+  kNN/IA, e o nome vem de `pixRecipientName`.
+- Fatura do cartão e "pagamento recebido" não têm regra: já são `kind:
+  bill_payment` no sync.
+- Grupos como mercado, delivery e fast food só categorizam e **mantêm o nome**
+  do estabelecimento; renomear só onde há uma identidade única (Aluguel, Conta
+  de luz, Combustível, Spotify…).
+- Categoria inexistente → `categoryId: null`. "Salário" e "Outros" precisam
+  existir (`db:seed`).
+- **Idempotente**: só insere o que falta, nunca sobrescreve o que o usuário
+  editou. A ordem do array vira `priority`, de 900 caindo de 10 em 10 por
+  pattern (passo de 100 levaria as últimas a prioridade negativa).
+
+Cobertura na criação: 346 de 727 transações dos 6 meses casam com alguma regra;
+o resto (Pix, restaurantes avulsos) é do kNN e da IA.
 
 ## Aprendizado (feedback)
 
-Corrigir uma categoria na revisão da importação chama
+Corrigir uma categoria (reclassificar uma transação) chama
 `POST /classification/feedback`:
 
 1. Deriva o pattern com `merchantKey(description)`.
@@ -95,7 +110,7 @@ Corrigir uma categoria na revisão da importação chama
    `conflictRuleId`.
 4. Caso contrário, cria com `source: "learned"`, `priority: 500`.
 
-Efeito prático: reimportar o mesmo extrato acerta aquela linha sozinho, e
+Efeito prático: a próxima transação daquele estabelecimento já vem certa, e
 variações da mesma loja também, porque o pattern vive em espaço de
 `merchantKey`.
 

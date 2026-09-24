@@ -59,17 +59,15 @@ describe("e2e POST /classification/suggest — camada 1 (regras)", () => {
         { index: 1, description: "CELESC DISTRIBUICAO S.A." },
         { index: 2, description: "AYMORE CREDITO FINANCIAMENTO" },
         { index: 3, description: "Aplicação RDB" },
-        { index: 4, description: "Compra no debito - Padaria" },
       ],
     })
 
     expect(res.status).toBe(200)
-    const [aluguel, luz, carro, rdb, debito] = res.body.items
+    const [aluguel, luz, carro, rdb] = res.body.items
 
     expect(aluguel.source).toBe("rule")
     expect(aluguel.suggestedName).toBe("Aluguel")
     expect(aluguel.categoryId).toBe(moradia.id)
-    expect(aluguel.paymentMethod).toBe("boleto")
     expect(aluguel.confidence).toBe(1)
 
     expect(luz.suggestedName).toBe("Conta de luz")
@@ -82,7 +80,6 @@ describe("e2e POST /classification/suggest — camada 1 (regras)", () => {
     expect(rdb.forceIncome).toBe(true)
     expect(rdb.categoryId).toBe(investimento.id)
 
-    expect(debito.paymentMethod).toBe("debit_card")
   })
 
   test("o destinatário do Pix é extraído da própria descrição", async () => {
@@ -92,9 +89,8 @@ describe("e2e POST /classification/suggest — camada 1 (regras)", () => {
       useAi: false,
       items: [{ index: 0, description: PIX_RAW }],
     })
-
-    expect(res.body.items[0].source).toBe("rule")
-    expect(res.body.items[0].paymentMethod).toBe("pix")
+    // Pix não tem regra: o nome vem do destinatário, o resto fica com o histórico/IA
+    expect(res.body.items[0].source).toBe("none")
     expect(res.body.items[0].suggestedName).toBe("Pix para FULANO DE TAL")
   })
 

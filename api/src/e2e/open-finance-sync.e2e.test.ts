@@ -122,7 +122,7 @@ describe("e2e sync — primeira sincronização", () => {
     const ifood = byExternal.get("c1")!
     expect(ifood.paymentMethod).toBe("credit_card")
     expect(ifood.accountId).toBe(card.id)
-    // Nenhuma regra/histórico: cai no mapeamento da categoria da Pluggy
+    // Regra "ifood" do seed
     expect(ifood.category?.name).toBe("Alimentação")
 
     const installment = byExternal.get("c3")!
