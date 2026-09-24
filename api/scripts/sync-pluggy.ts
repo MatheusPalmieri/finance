@@ -10,6 +10,7 @@
 // Mesmo `runSync()` das rotas — a lógica nunca é duplicada aqui.
 
 import { isConfigured } from "../src/modules/open-finance"
+import { getInvestments } from "../src/modules/open-finance/investments"
 import { runSync, SyncBusyError } from "../src/modules/open-finance/sync"
 
 const args = new Set(process.argv.slice(2))
@@ -50,6 +51,15 @@ try {
       `${report.created} novas, ${report.updated} atualizadas, ` +
       `${report.removed} removidas.`
   )
+  // O sync já gravou o retrato de saldos. O de investimentos roda em segundo
+  // plano no app; aqui é preciso esperar, senão o `exit` o interrompe. Só vai
+  // à Pluggy se o retrato estiver vencido (1h)
+  if (!dryRun) {
+    const investments = await getInvestments()
+    console.log(
+      `Retrato de investimentos: ${investments.available ? `${investments.source}, ${investments.positions.length} posições` : `indisponível (${investments.error})`}`
+    )
+  }
   process.exit(0)
 } catch (err) {
   if (err instanceof SyncBusyError) {

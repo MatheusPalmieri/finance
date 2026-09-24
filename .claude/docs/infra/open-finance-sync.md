@@ -30,8 +30,10 @@ bun run sync:pluggy --ai         # liga a camada de IA na classificação das no
 ```
 
 Imprime o resumo por conta (lidas, novas, atualizadas, removidas, iguais). No
-fim grava o retrato de saldos (ver `domain/open-finance.md`, "Cache
-persistente"). Códigos de saída: `0` ok, `1` erro, `2` outro sync em andamento.
+fim grava o retrato de saldos e **espera** o de investimentos (ao contrário do
+app, onde ele roda em segundo plano, aqui o `process.exit` o interromperia). A
+Pluggy só é chamada se o retrato passou de 1 h (ver `domain/open-finance.md`,
+"Cache persistente"). Códigos de saída: `0` ok, `1` erro, `2` outro sync em andamento.
 
 Requisitos: Postgres no ar e `PLUGGY_*` no `api/.env`.
 

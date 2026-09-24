@@ -6,8 +6,9 @@ updated: 2026-09-23
 
 ## Visão geral
 
-**Status:** Aceito, implementado no código. **Falta rodar a migração no banco de
-dev** (`api/scripts/migrate-open-finance-only.sql`, com `pg_dump` antes).
+**Status:** Aceito e implementado. Migração aplicada no banco de dev em
+2026-09-23 (backup em `backups/finance-antes-of-only-2026-09-23.dump`). Depois
+dela, `db:push` não aponta diferença, e o primeiro sync gravou os dois retratos.
 
 A partir de 2026-09-23 o Open Finance (Pluggy) é a **única** fonte de dados
 financeiros do app. Não existe lançamento manual, importação de extrato, saldo
