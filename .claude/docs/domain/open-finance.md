@@ -48,7 +48,7 @@ nem digitado.
 1. **Rede primeiro, banco depois.** Busca item, contas e transações; só então abre
    a transação do banco. Com `refresh`, pede nova coleta ao banco
    (`PATCH /items/{id}`) e espera até 2 min o item sair de `UPDATING`.
-2. **Janela.** Completa (365 dias) na primeira vez, a cada 7 dias ou com `full`;
+2. **Janela.** Completa (365 dias, ou desde `OPEN_FINANCE_HISTORY_FROM=YYYY-MM-DD` quando definida e mais recente) na primeira vez, a cada 7 dias ou com `full`;
    senão incremental a partir de `last_synced_at − 7 dias`.
 3. **Vínculo de contas.** Conta corrente → conta interna com o nome do conector
    ("Nubank"); cartão → "Nubank Cartão" (`CREDIT_CARD`). Cria se não existir.

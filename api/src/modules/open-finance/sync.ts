@@ -173,8 +173,13 @@ async function fetchItem(
     !stored?.lastFullSyncAt ||
     Date.now() - stored.lastFullSyncAt.getTime() > FULL_SYNC_EVERY_DAYS * 86_400_000
   const full = Boolean(opts.full) || !stored?.lastSyncedAt || fullDue
+  const windowStart = shiftDays(today, -FULL_WINDOW_DAYS)
+  // Piso opcional do histórico (YYYY-MM-DD): o sync completo não vai além dele
+  const floor = process.env.OPEN_FINANCE_HISTORY_FROM?.trim()
+  const fullFrom =
+    floor && /^\d{4}-\d{2}-\d{2}$/.test(floor) && floor > windowStart ? floor : windowStart
   const from = full
-    ? shiftDays(today, -FULL_WINDOW_DAYS)
+    ? fullFrom
     : shiftDays(isoDate(stored!.lastSyncedAt!), -INCREMENTAL_OVERLAP_DAYS)
 
   const item = await provider.getItem(itemId)

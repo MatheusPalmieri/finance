@@ -23,7 +23,7 @@ gatilho `stale` já mantém tudo em dia.
 ```bash
 cd api
 bun run sync:pluggy              # incremental (completo se o último completo tiver > 7 dias)
-bun run sync:pluggy --full       # janela completa de 12 meses
+bun run sync:pluggy --full       # janela completa (12 meses, ou desde OPEN_FINANCE_HISTORY_FROM)
 bun run sync:pluggy --refresh    # pede ao banco uma coleta nova antes (espera até 2 min)
 bun run sync:pluggy --dry-run    # relatório do que faria, sem gravar nada
 bun run sync:pluggy --ai         # liga a camada de IA na classificação das novas
