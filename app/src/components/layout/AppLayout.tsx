@@ -22,7 +22,7 @@ export function AppLayout() {
         {/* Cabeçalho com drawer no mobile (escondido no desktop) */}
         <MobileTopbar />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="app-scroll flex-1 overflow-y-auto">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             {/* Fallback enquanto o chunk da rota carrega */}
             <Suspense

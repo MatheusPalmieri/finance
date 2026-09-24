@@ -54,3 +54,10 @@ cor de marca e de crescimento (investimentos).
 3. Precisa de fundo translúcido → use `tint(cor)`, nunca concatene `${cor}1a`.
 4. Cor reativa ao tema (muda no dark) → token no `index.css`, consumida por classe Tailwind.
 5. **Nunca** escreva hex inline em página/componente.
+
+## Scroll principal
+
+A classe `.app-scroll` (`index.css`) estiliza a barra de rolagem do `<main>` em
+`AppLayout`: trilho cinza (`--scroll-track`, com valor próprio no dark) e barra
+verde da marca (`--primary`, escurece no hover). Usa `scrollbar-color` no Firefox
+e `::-webkit-scrollbar` nos demais.
