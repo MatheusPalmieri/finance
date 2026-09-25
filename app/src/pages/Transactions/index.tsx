@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Tooltip,
   TooltipContent,
@@ -751,7 +751,7 @@ function ClassificationModal({
   )
 }
 
-// Escolha binária do formulário: switch + rótulo do estado atual + tooltip de ajuda
+// Escolha binária do formulário: toggle buttons + tooltip de ajuda
 function ToggleField({
   id,
   label,
@@ -773,11 +773,10 @@ function ToggleField({
   onColor: string
   offColor: string
 }) {
-  const color = checked ? onColor : offColor
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
-        <Label htmlFor={id}>{label}</Label>
+        <Label id={`${id}-label`}>{label}</Label>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -793,17 +792,41 @@ function ToggleField({
           </TooltipContent>
         </Tooltip>
       </div>
-      <div className="flex h-9 items-center gap-2">
-        <Switch
-          id={id}
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-          style={{ backgroundColor: color, borderColor: color }}
-        />
-        <span className="text-xs font-medium" style={{ color }}>
-          {checked ? onText : offText}
-        </span>
-      </div>
+      <ToggleGroup
+        aria-labelledby={`${id}-label`}
+        type="single"
+        variant="outline"
+        spacing={0}
+        className="w-full"
+        value={checked ? "on" : "off"}
+        // Radix permite desmarcar o item ativo; ignora para sempre haver um valor
+        onValueChange={(v) => v && onCheckedChange(v === "on")}
+      >
+        {(
+          [
+            ["on", onText, onColor],
+            ["off", offText, offColor],
+          ] as const
+        ).map(([value, text, color]) => {
+          const active = checked === (value === "on")
+          return (
+            <ToggleGroupItem
+              key={value}
+              value={value}
+              size="sm"
+              className={cn(
+                "flex-1 text-xs",
+                active
+                  ? "border-transparent text-white hover:text-white"
+                  : "text-muted-foreground"
+              )}
+              style={active ? { backgroundColor: color } : undefined}
+            >
+              {text}
+            </ToggleGroupItem>
+          )
+        })}
+      </ToggleGroup>
     </div>
   )
 }
