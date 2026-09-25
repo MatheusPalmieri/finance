@@ -6,6 +6,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarRange,
+  Info,
   Landmark,
   Pencil,
   Repeat,
@@ -27,6 +28,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Popover,
   PopoverContent,
@@ -675,52 +683,38 @@ function ClassificationModal({
           )}
         </div>
 
-        {/* Essencial — só para saídas */}
-        {!isIncome && (
-          <div className="flex flex-col gap-1.5">
-            <Label>Tipo de gasto</Label>
-            <div className="flex gap-2">
-              <SegButton
-                active={isEssential}
-                onClick={() => setValue("isEssential", true)}
-                color={FINANCE.essential}
-              >
-                Essencial
-              </SegButton>
-              <SegButton
-                active={!isEssential}
-                onClick={() => setValue("isEssential", false)}
-                color={FINANCE.nonEssential}
-              >
-                Não essencial
-              </SegButton>
-            </div>
-          </div>
-        )}
-
-        {/* Recorrência */}
-        <div className="flex flex-col gap-1.5">
-          <Label>Recorrência</Label>
-          <div className="flex gap-2">
-            <SegButton
-              active={recurrence === "fixed"}
-              onClick={() => setValue("recurrence", "fixed")}
-              color={FINANCE.fixed}
-            >
-              Fixo
-            </SegButton>
-            <SegButton
-              active={recurrence === "variable"}
-              onClick={() => {
-                setValue("recurrence", "variable")
-                setValue("budgetId", undefined)
+        {/* Tipo de gasto (só saídas) e recorrência, lado a lado */}
+        <TooltipProvider delayDuration={150}>
+          <div className="grid grid-cols-2 gap-3">
+            {!isIncome && (
+              <ToggleField
+                id="tx-essential"
+                label="Tipo de gasto"
+                help="Essencial é o que você não consegue cortar (moradia, mercado, saúde). Não essencial é o que dá para reduzir ou evitar — entra na fatia de desejos do 50/30/20."
+                checked={isEssential}
+                onCheckedChange={(v) => setValue("isEssential", v)}
+                onText="Essencial"
+                offText="Não essencial"
+                onColor={FINANCE.essential}
+                offColor={FINANCE.nonEssential}
+              />
+            )}
+            <ToggleField
+              id="tx-recurrence"
+              label="Recorrência"
+              help="Fixo se repete todo mês com valor parecido (aluguel, assinaturas) e pode ser vinculado a um orçamento. Variável muda de mês a mês (lazer, compras avulsas)."
+              checked={recurrence === "fixed"}
+              onCheckedChange={(v) => {
+                setValue("recurrence", v ? "fixed" : "variable")
+                if (!v) setValue("budgetId", undefined)
               }}
-              color={FINANCE.variable}
-            >
-              Variável
-            </SegButton>
+              onText="Fixo"
+              offText="Variável"
+              onColor={FINANCE.fixed}
+              offColor={FINANCE.variable}
+            />
           </div>
-        </div>
+        </TooltipProvider>
 
         {/* Orçamento vinculado (apenas gasto fixo) */}
         {recurrence === "fixed" && (
@@ -757,32 +751,60 @@ function ClassificationModal({
   )
 }
 
-// Botão segmentado para escolhas binárias do formulário
-function SegButton({
-  active,
-  onClick,
-  color,
-  children,
+// Escolha binária do formulário: switch + rótulo do estado atual + tooltip de ajuda
+function ToggleField({
+  id,
+  label,
+  help,
+  checked,
+  onCheckedChange,
+  onText,
+  offText,
+  onColor,
+  offColor,
 }: {
-  active: boolean
-  onClick: () => void
-  color: string
-  children: React.ReactNode
+  id: string
+  label: string
+  help: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  onText: string
+  offText: string
+  onColor: string
+  offColor: string
 }) {
+  const color = checked ? onColor : offColor
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex flex-1 items-center justify-center rounded-lg border py-2 text-xs font-medium transition-colors",
-        active
-          ? "border-transparent text-white"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-      style={active ? { backgroundColor: color } : {}}
-    >
-      {children}
-    </button>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1">
+        <Label htmlFor={id}>{label}</Label>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`O que é ${label.toLowerCase()}?`}
+              className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <Info size={13} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-60">
+            {help}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <div className="flex h-9 items-center gap-2">
+        <Switch
+          id={id}
+          checked={checked}
+          onCheckedChange={onCheckedChange}
+          style={{ backgroundColor: color, borderColor: color }}
+        />
+        <span className="text-xs font-medium" style={{ color }}>
+          {checked ? onText : offText}
+        </span>
+      </div>
+    </div>
   )
 }
 
