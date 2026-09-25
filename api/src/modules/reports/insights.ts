@@ -21,7 +21,7 @@ const SEVERITY_ORDER: Record<InsightSeverity, number> = {
 
 const TYPE_LABELS = {
   essential: "essenciais",
-  desire: "desejos",
+  desire: "variáveis",
   investment: "investimentos",
 } as const
 

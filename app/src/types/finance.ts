@@ -616,7 +616,7 @@ export const RECURRENCE_LABELS: Record<Recurrence, string> = {
 
 export const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
   essential: "Essencial",
-  desire: "Desejo",
+  desire: "Variável",
   investment: "Investimento",
 }
 

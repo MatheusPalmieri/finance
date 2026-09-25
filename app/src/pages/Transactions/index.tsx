@@ -758,7 +758,7 @@ function ClassificationModal({
               <ToggleField
                 id="tx-essential"
                 label="Tipo de gasto"
-                help="Essencial é o que você não consegue cortar (moradia, mercado, saúde). Não essencial é o que dá para reduzir ou evitar — entra na fatia de desejos do 50/30/20."
+                help="Essencial é o que você não consegue cortar (moradia, mercado, saúde). Não essencial é o que dá para reduzir ou evitar — entra na fatia variável do 50/30/20."
                 checked={isEssential}
                 onCheckedChange={(v) => setValue("isEssential", v)}
                 onText="Essencial"

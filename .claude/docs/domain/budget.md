@@ -1,7 +1,7 @@
 ---
 title: Domínio — Orçamento (Budget)
 area: domain
-updated: 2026-06-24
+updated: 2026-09-25
 ---
 
 ## Visão geral
@@ -21,6 +21,13 @@ O orçamento é um **catálogo de gastos planejados nomeados** (ex: "Aluguel", "
 | `amountMax` | numeric(10,2) | condicional | Máximo — obrigatório se `amountType = variable` |
 
 `budget_type` é um enum fixo no sistema (sem CRUD próprio).
+
+**Nomenclatura (2026-09-25):** na interface e nos textos gerados (insights do
+check-up) o grupo `desire` se chama **"Variável"** — o termo "Desejo" saiu da
+aplicação. O valor do enum no banco/API continua `desire` para não exigir
+migração nem colidir com `recurrence = "variable"` no código. Rótulos em
+`BUDGET_TYPE_LABELS` (`app/src/types/finance.ts`) e `TYPE_LABELS`
+(`api/src/modules/reports/insights.ts`).
 
 ## Regras de validação
 
