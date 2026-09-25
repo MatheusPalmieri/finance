@@ -91,7 +91,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
     async ({ params, body, status }) => {
       // Em gasto fixo o orçamento é obrigatório; em variável é sempre nulo
       if (body.recurrence === "fixed" && !body.budgetId) {
-        return status(400, { message: "Selecione o orçamento vinculado ao gasto fixo" })
+        return status(400, { message: "Selecione o orçamento vinculado ao gasto recorrente" })
       }
 
       const [transaction] = await db

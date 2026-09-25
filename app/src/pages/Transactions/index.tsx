@@ -353,8 +353,8 @@ export function Transactions() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toda recorrência</SelectItem>
-                  <SelectItem value="fixed">Fixo</SelectItem>
-                  <SelectItem value="variable">Variável</SelectItem>
+                  <SelectItem value="fixed">Recorrente</SelectItem>
+                  <SelectItem value="variable">Avulso</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -770,14 +770,14 @@ function ClassificationModal({
             <ToggleField
               id="tx-recurrence"
               label="Recorrência"
-              help="Fixo se repete todo mês com valor parecido (aluguel, assinaturas) e pode ser vinculado a um orçamento. Variável muda de mês a mês (lazer, compras avulsas)."
+              help="Recorrente se repete todo mês com valor parecido (aluguel, assinaturas) e pode ser vinculado a um orçamento. Avulso acontece de vez em quando ou muda de mês a mês (lazer, compras pontuais)."
               checked={recurrence === "fixed"}
               onCheckedChange={(v) => {
                 setValue("recurrence", v ? "fixed" : "variable")
                 if (!v) setValue("budgetId", undefined)
               }}
-              onText="Fixo"
-              offText="Variável"
+              onText="Recorrente"
+              offText="Avulso"
               onColor={FINANCE.fixed}
               offColor={FINANCE.variable}
             />

@@ -27,7 +27,7 @@ Tabela com busca (padrão ou nome), filtro por origem e botão "Nova regra".
 | Origem | Badge `padrão` / `manual` / `aprendida` (esta em esmeralda) |
 | Usos | `hitCount`; o título mostra quando foi a última vez |
 
-O resumo ("renomeia para X · Moradia · Boleto · gasto fixo") evita uma tabela de
+O resumo ("renomeia para X · Moradia · Boleto · gasto recorrente") evita uma tabela de
 8 colunas para campos que quase sempre estão vazios.
 
 Ações por linha, reveladas no hover (sempre visíveis no toque): ligar/desligar,
@@ -37,8 +37,8 @@ Ações por linha, reveladas no hover (sempre visíveis no toque): ligar/desliga
 ### Modal de criar/editar
 
 Campos: padrão, tipo de match, prioridade, renomear para, categoria, forma de
-pagamento, recorrência e, só quando a recorrência é "Fixo", **orçamento
-vinculado** (`BudgetCombobox`, o mesmo da reclassificação). Sair de "Fixo" limpa
+pagamento, recorrência e, só quando a recorrência é "Recorrente", **orçamento
+vinculado** (`BudgetCombobox`, o mesmo da reclassificação). Sair de "Recorrente" limpa
 o orçamento, e o payload manda `budgetId: null` fora de gasto fixo. Todos exceto o padrão aceitam "Não definir" — a regra
 aplica só o que preencher.
 

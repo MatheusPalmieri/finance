@@ -34,7 +34,7 @@ Os campos que não se aplicam ao `amountType` são gravados como `null`.
 ## Integração na rota de Transações
 
 `POST` / `PUT /transactions` agora aceitam `budgetId` (nullable). Validação:
-- `recurrence = fixed` e sem `budgetId` → **400** `"Selecione o orçamento vinculado ao gasto fixo"`.
+- `recurrence = fixed` e sem `budgetId` → **400** `"Selecione o orçamento vinculado ao gasto recorrente"`.
 - `recurrence = variable` → `budgetId` é forçado a `null`, mesmo se enviado.
 
 `GET /transactions` e `GET /transactions/:id` passam a trazer a relation `budget`.

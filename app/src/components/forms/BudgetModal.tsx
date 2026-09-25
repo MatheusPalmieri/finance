@@ -208,7 +208,7 @@ export function BudgetModal({
               onClick={() => setValue("amountType", "variable")}
               color={FINANCE.variable}
             >
-              Variável (faixa)
+              Faixa (mín–máx)
             </SegButton>
           </div>
         </div>

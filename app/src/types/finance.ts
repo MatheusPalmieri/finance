@@ -610,8 +610,8 @@ export const ACCOUNT_TYPE_HEX: Record<AccountType, string> = {
 }
 
 export const RECURRENCE_LABELS: Record<Recurrence, string> = {
-  fixed: "Fixo",
-  variable: "Variável",
+  fixed: "Recorrente",
+  variable: "Avulso",
 }
 
 export const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {

@@ -52,6 +52,8 @@ const VARIABLE_WORDS = new Set([
   "variável",
   "pontual",
   "eventual",
+  "avulso",
+  "avulsa",
 ])
 
 /** Aceita as variações em português que o modelo local costuma emitir. */

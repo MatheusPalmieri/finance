@@ -29,6 +29,14 @@ migração nem colidir com `recurrence = "variable"` no código. Rótulos em
 `BUDGET_TYPE_LABELS` (`app/src/types/finance.ts`) e `TYPE_LABELS`
 (`api/src/modules/reports/insights.ts`).
 
+Para "Variável" não ter três sentidos, na mesma data:
+- `amountType` aparece como **"Valor fixo" / "Faixa"** (antes "Valor variável").
+- `transactions.recurrence` aparece como **"Recorrente" / "Avulso"** (antes
+  "Fixo" / "Variável") em Transações, Regras, Início ("Recorrentes") e Projeção
+  ("Gastos recorrentes" / "Avulsos (provável)"). Os valores no banco seguem
+  `fixed`/`variable`; o classificador por IA aceita "avulso"/"avulsa" como
+  `variable`.
+
 ## Regras de validação
 
 Aplicadas na rota (`api/src/routes/budgets.ts`, `validateAmounts`):

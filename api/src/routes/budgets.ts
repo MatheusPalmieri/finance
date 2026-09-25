@@ -17,10 +17,10 @@ type BudgetBody = typeof budgetBody.static
 // Valida as regras condicionais de valor; retorna mensagem de erro ou null
 function validateAmounts(body: BudgetBody): string | null {
   if (body.amountType === "fixed") {
-    if (body.amount == null) return "Valor é obrigatório para orçamento fixo"
+    if (body.amount == null) return "Valor é obrigatório para orçamento de valor fixo"
   } else {
     if (body.amountMin == null || body.amountMax == null) {
-      return "Valor mínimo e máximo são obrigatórios para orçamento variável"
+      return "Valor mínimo e máximo são obrigatórios para orçamento em faixa"
     }
     if (body.amountMin >= body.amountMax) {
       return "O valor mínimo deve ser menor que o máximo"

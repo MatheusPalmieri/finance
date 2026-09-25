@@ -583,9 +583,9 @@ function MonthlyTable({ projection }: { projection: CashflowProjection }) {
 
               {isOpen && (
                 <div className="grid gap-2 bg-muted/30 px-4 py-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                  <Detail label="Gastos fixos" value={month.fixedExpenses} />
+                  <Detail label="Gastos recorrentes" value={month.fixedExpenses} />
                   <Detail
-                    label="Variáveis (provável)"
+                    label="Avulsos (provável)"
                     value={month.variableExpensesP50}
                   />
                   <Detail

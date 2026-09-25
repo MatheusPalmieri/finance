@@ -167,7 +167,7 @@ export function Budgets() {
             <AlertDialogTitle>Excluir orçamento?</AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{deleting?.name}</strong> será removido permanentemente.
-              Transações fixas vinculadas a ele ficarão sem orçamento.
+              Transações recorrentes vinculadas a ele ficarão sem orçamento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -219,7 +219,7 @@ function BudgetCard({
         <div className="min-w-0">
           <p className="truncate font-medium">{budget.name}</p>
           <span className="text-xs text-muted-foreground">
-            {budget.amountType === "fixed" ? "Valor fixo" : "Valor variável"}
+            {budget.amountType === "fixed" ? "Valor fixo" : "Faixa"}
           </span>
         </div>
 

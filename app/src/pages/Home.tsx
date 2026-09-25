@@ -427,7 +427,7 @@ function LimitMeter({
 }
 
 // ── Gastos do mês ─────────────────────────────────────────────────────────────
-// Total, compras no cartão, essencial e fixos, com o ritmo contra o mês
+// Total, compras no cartão, essencial e recorrentes, com o ritmo contra o mês
 // anterior no mesmo dia e a composição numa barra só.
 function SpendCard({
   data,
@@ -537,7 +537,7 @@ function SpendCard({
               hint={`${pct(essential, total)}% do total`}
             />
             <Kpi
-              label="Fixos"
+              label="Recorrentes"
               value={formatCurrency(fixed)}
               hint={`${pct(fixed, total)}% do total`}
             />

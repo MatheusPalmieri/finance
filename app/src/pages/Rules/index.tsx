@@ -366,7 +366,7 @@ function ruleEffects(rule: ClassificationRule): string[] {
   if (rule.category) out.push(rule.category.name)
   if (rule.paymentMethod) out.push(PAYMENT_METHOD_LABELS[rule.paymentMethod])
   if (rule.recurrence)
-    out.push(rule.recurrence === "fixed" ? "gasto fixo" : "gasto variável")
+    out.push(rule.recurrence === "fixed" ? "gasto recorrente" : "gasto avulso")
   if (rule.isEssential !== null)
     out.push(rule.isEssential ? "essencial" : "não essencial")
   if (rule.forceIncome) out.push("força entrada")
@@ -664,8 +664,8 @@ function RuleModal({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE}>Não definir</SelectItem>
-              <SelectItem value="fixed">Fixo</SelectItem>
-              <SelectItem value="variable">Variável</SelectItem>
+              <SelectItem value="fixed">Recorrente</SelectItem>
+              <SelectItem value="variable">Avulso</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -679,7 +679,7 @@ function RuleModal({
               selectedName={rule?.budget?.name}
             />
             <p className="text-xs text-muted-foreground">
-              Sem orçamento, a transação entra como variável.
+              Sem orçamento, a transação entra como avulsa.
             </p>
           </div>
         )}

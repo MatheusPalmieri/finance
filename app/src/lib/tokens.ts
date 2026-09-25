@@ -31,8 +31,8 @@ export const PALETTE = {
 export const FINANCE = {
   essential: PALETTE.amber, // gasto essencial
   nonEssential: PALETTE.violet, // gasto não essencial
-  fixed: PALETTE.indigo, // recorrência fixa
-  variable: PALETTE.teal, // recorrência variável
+  fixed: PALETTE.indigo, // recorrência: recorrente (também "valor fixo" do orçamento)
+  variable: PALETTE.teal, // recorrência: avulso (também "faixa" do orçamento)
   expense: PALETTE.red, // saída de dinheiro
   income: PALETTE.emerald, // entrada / crescimento
   neutral: PALETTE.gray, // sem categoria / fallback
