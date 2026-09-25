@@ -59,17 +59,21 @@ describe("e2e — transações vêm só do Open Finance", () => {
       { name: "PIX 123", amount: 250, date: dayIn(0, 3), categoryId: category.id, accountId: account.id },
     ])
 
-    const res = await api.patch<{ name: string; categoryId: string; amount: string; date: string }>(
+    const res = await api.patch<{
+      name: string; categoryId: string; amount: string; date: string; paymentMethod: string
+    }>(
       `/transactions/${tx.id}`,
       {
-        name: "Feira", categoryId: other.id, paymentMethod: "pix", isEssential: true,
+        name: "Feira", categoryId: other.id, isEssential: true,
         recurrence: "variable", budgetId: null, notes: "sábado",
         // Campos do banco no corpo são ignorados pela validação do Elysia
-        amount: 1, date: "2000-01-01",
+        amount: 1, date: "2000-01-01", paymentMethod: "pix",
       }
     )
     expect(res.status).toBe(200)
     expect(res.body).toMatchObject({ name: "Feira", categoryId: other.id, amount: "250.00", date: dayIn(0, 3) })
+    // Forma de pagamento vem do Open Finance: o PATCH não a altera
+    expect(res.body.paymentMethod).toBe("credit_card")
   })
 
   test("entrada reclassificada nunca vira essencial", async () => {
@@ -119,7 +123,6 @@ describe("e2e — transações vêm só do Open Finance", () => {
     await api.patch(`/transactions/${created[2].id}`, {
       name: "Outro Servico Totalmente Diferente",
       categoryId: category.id,
-      paymentMethod: "credit_card",
       isEssential: false,
       recurrence: "variable",
     })

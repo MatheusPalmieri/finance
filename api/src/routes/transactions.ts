@@ -7,23 +7,13 @@ import { REAL_TRANSACTIONS } from "../lib/scope"
 import { scheduleRecalculate } from "../modules/classification"
 
 // Transações são somente leitura na origem: todas vêm do Open Finance (sync).
-// Não existe criar, importar nem excluir — valor, data, conta, status e
-// natureza são do banco. O usuário só ajusta a CLASSIFICAÇÃO, que o sync nunca
-// sobrescreve (ver modules/open-finance/sync.ts).
-
-const paymentMethodUnion = t.Union([
-  t.Literal("cash"),
-  t.Literal("pix"),
-  t.Literal("credit_card"),
-  t.Literal("debit_card"),
-  t.Literal("boleto"),
-  t.Literal("transfer"),
-])
+// Não existe criar, importar nem excluir — valor, data, conta, status,
+// natureza e forma de pagamento são do banco. O usuário só ajusta a
+// CLASSIFICAÇÃO, que o sync nunca sobrescreve (ver modules/open-finance/sync.ts).
 
 const classificationBody = t.Object({
   name: t.String({ minLength: 1 }),
   categoryId: t.String({ minLength: 1 }),
-  paymentMethod: paymentMethodUnion,
   isEssential: t.Boolean(),
   recurrence: t.Union([t.Literal("fixed"), t.Literal("variable")]),
   budgetId: t.Optional(t.Nullable(t.String())),
@@ -103,7 +93,6 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         .set({
           name: body.name,
           categoryId: body.categoryId,
-          paymentMethod: body.paymentMethod,
           // Entrada (valor negativo) nunca é essencial — resolvido no banco
           // porque o valor não vem no corpo
           isEssential: sql`(${transactions.amount} >= 0 and ${body.isEssential})`,

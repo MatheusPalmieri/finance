@@ -33,15 +33,14 @@ removidos (respondem 404).
 {
   "name": "Supermercado",
   "categoryId": "uuid",
-  "paymentMethod": "credit_card",
   "isEssential": true,
   "recurrence": "variable",
   "budgetId": null,
   "notes": null
 }
 ```
-- `amount`, `date`, `accountId` no corpo são descartados pela validação — são
-  do banco.
+- `amount`, `date`, `accountId` e `paymentMethod` no corpo são descartados pela
+  validação — são do banco.
 - `recurrence = fixed` sem `budgetId` → 400; `variable` força `budgetId = null`.
 - Entrada (amount < 0) nunca vira essencial, mesmo com `isEssential: true`.
 - Dispara `scheduleRecalculate()` (recorrências), pois renomear muda a chave do

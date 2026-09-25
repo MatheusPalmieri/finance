@@ -37,7 +37,7 @@ dados e do número de requisições, e sem nada mockado.
 
 | Tema | Antes | Agora |
 |---|---|---|
-| Transações | Sync + manual + CSV | **Só o sync**. O usuário reclassifica (`PATCH /transactions/:id`: nome, categoria, forma de pagamento, essencial, recorrência, orçamento, observação) |
+| Transações | Sync + manual + CSV | **Só o sync**. O usuário reclassifica (`PATCH /transactions/:id`: nome, categoria, essencial, recorrência, orçamento, observação) |
 | Excluir transação | `DELETE` devolvia o valor ao saldo | Não existe. Some quando o banco remove (o sync apaga) |
 | Contas | CRUD com saldo, conta padrão, sandbox | Nascem no sync. Só aparência editável (`PATCH /accounts/:id`) |
 | Saldo / investimentos | Pluggy a cada leitura, cache em memória de 60 s / 5 min | **Retrato no Postgres** (`open_finance_snapshots`), prazo de 15 min / 1 h, gravado também no fim de cada sync |

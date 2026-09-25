@@ -77,12 +77,6 @@ const schema = z
   .object({
     name: z.string().min(1, "Informe o nome"),
     categoryId: z.string().min(1, "Selecione a categoria"),
-    paymentMethod: z.enum(
-      ["cash", "pix", "credit_card", "debit_card", "boleto", "transfer"],
-      {
-        error: "Selecione a forma de pagamento",
-      }
-    ),
     isEssential: z.boolean(),
     recurrence: z.enum(["fixed", "variable"]),
     budgetId: z.string().optional(),
@@ -529,7 +523,6 @@ function ClassificationModal({
     defaultValues: {
       name: transaction.name,
       categoryId: transaction.categoryId,
-      paymentMethod: transaction.paymentMethod,
       isEssential: transaction.isEssential,
       recurrence: transaction.recurrence,
       budgetId: transaction.budgetId ?? undefined,
@@ -599,10 +592,11 @@ function ClassificationModal({
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">
               {formatDate(transaction.date)} ·{" "}
-              {transaction.account?.name ?? "—"}
+              {transaction.account?.name ?? "—"} ·{" "}
+              {PAYMENT_METHOD_LABELS[transaction.paymentMethod]}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              Valor, data e conta vêm do Open Finance
+              Valor, data, conta e forma de pagamento vêm do Open Finance
             </p>
           </div>
           <span
@@ -652,33 +646,6 @@ function ClassificationModal({
           {errors.categoryId && (
             <p className="text-xs text-destructive">
               {errors.categoryId.message}
-            </p>
-          )}
-        </div>
-
-        {/* Forma de pagamento */}
-        <div className="flex flex-col gap-1.5">
-          <Label>Forma de pagamento</Label>
-          <Select
-            value={watch("paymentMethod")}
-            onValueChange={(v) =>
-              setValue("paymentMethod", v as FormValues["paymentMethod"])
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              {PAYMENT_METHOD_ORDER.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {PAYMENT_METHOD_LABELS[p]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.paymentMethod && (
-            <p className="text-xs text-destructive">
-              {errors.paymentMethod.message}
             </p>
           )}
         </div>

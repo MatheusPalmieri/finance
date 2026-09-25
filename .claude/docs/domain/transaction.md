@@ -30,7 +30,7 @@ distinguem pelo **sinal de `amount`** (positivo = despesa, negativo = entrada).
 | `originalName` | varchar(255) | banco | Nome oficial do extrato (`displayName` da Pluggy), antes de regras e edições. O sync regrava a cada rodada; nunca é editável. Base do botão "Restaurar nome" |
 | `name` | varchar(255) | usuário | Nome exibido (nasce de `originalName`, ajustado pelas regras; editável) |
 | `categoryId` | uuid FK → categories | usuário | Categoria |
-| `paymentMethod` | enum `payment_method` | usuário | Forma de pagamento (lista fixa, ver abaixo) |
+| `paymentMethod` | enum `payment_method` | banco | Forma de pagamento (lista fixa, ver abaixo). Definida pelo sync quando a transação chega (cartão → crédito; conta → `paymentData`/texto, ou a regra aprendida) e **não é editável** no PATCH |
 | `isEssential` | boolean | usuário | Gasto essencial. Entrada (amount < 0) é sempre `false` |
 | `recurrence` | enum `fixed` \| `variable` | usuário | Fixo (recorrente) ou variável |
 | `budgetId` | uuid FK → budgets | usuário | Obrigatório se `recurrence = fixed`; nulo se `variable` (ver `domain/budget.md`) |

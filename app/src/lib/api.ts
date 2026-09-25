@@ -64,7 +64,6 @@ export interface ListTransactionsParams {
 export interface TransactionClassificationInput {
   name: string
   categoryId: string
-  paymentMethod: PaymentMethod
   isEssential: boolean
   recurrence: Recurrence
   budgetId?: string | null
