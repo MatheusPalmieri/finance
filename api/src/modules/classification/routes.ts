@@ -124,6 +124,16 @@ export const classificationRoute = new Elysia({ prefix: "/classification" })
     const ok = await service.deleteRule(params.id)
     return ok ? { success: true } : status(404, { message: "Regra não encontrada" })
   })
+  // Regras só valem para o que o sync traz de novo; aqui ela é reaplicada no
+  // histórico. A prévia mostra o que muda; o POST recalcula e aplica.
+  .get("/rules/:id/apply", async ({ params, status }) => {
+    const preview = await service.previewApplyRule(params.id)
+    return preview ?? status(404, { message: "Regra não encontrada" })
+  })
+  .post("/rules/:id/apply", async ({ params, status }) => {
+    const result = await service.applyRule(params.id)
+    return result ?? status(404, { message: "Regra não encontrada" })
+  })
   // Preview antes de salvar: mostra o que a regra casaria no histórico.
   .post(
     "/rules/test",

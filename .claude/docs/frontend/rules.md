@@ -1,7 +1,7 @@
 ---
 title: Página /rules — Classificação
 area: frontend
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -31,18 +31,33 @@ O resumo ("renomeia para X · Moradia · Boleto · gasto fixo") evita uma tabela
 8 colunas para campos que quase sempre estão vazios.
 
 Ações por linha, reveladas no hover (sempre visíveis no toque): ligar/desligar,
-editar e excluir. Regra desligada fica esmaecida em vez de sumir — desligar não
+**aplicar às existentes** (ícone `History`), editar e excluir. Regra desligada fica esmaecida em vez de sumir — desligar não
 é apagar, e o diálogo de exclusão diz isso.
 
 ### Modal de criar/editar
 
 Campos: padrão, tipo de match, prioridade, renomear para, categoria, forma de
-pagamento e recorrência. Todos exceto o padrão aceitam "Não definir" — a regra
+pagamento, recorrência e, só quando a recorrência é "Fixo", **orçamento
+vinculado** (`BudgetCombobox`, o mesmo da reclassificação). Sair de "Fixo" limpa
+o orçamento, e o payload manda `budgetId: null` fora de gasto fixo. Todos exceto o padrão aceitam "Não definir" — a regra
 aplica só o que preencher.
 
 **Preview ao vivo**: `POST /classification/rules/test` com debounce de 400ms
 mostra quantas transações do histórico casariam e lista as primeiras, com data
 e valor. É o que impede criar uma regra genérica demais sem perceber.
+
+### Diálogo "Aplicar às transações existentes"
+
+`ApplyRuleDialog` (`AlertDialog`). Ao abrir, busca a prévia
+(`useRuleApplyPreview`, `GET /classification/rules/:id/apply`, sempre fresca) e
+lista cada transação que vai mudar: nome atual → novo nome, valor, data e os
+campos afetados ("muda recorrência, orçamento"). Sem nada a mudar, mostra
+"Nenhuma transação existente precisa mudar" e o botão fica desabilitado.
+
+"Aplicar a N" chama `useApplyRule` (`POST`), que só fecha o diálogo ao terminar
+e invalida regras, transações, dashboard, projeção e check-up. O texto explica
+que só a classificação muda: valor, data, conta e forma de pagamento continuam
+vindo do Open Finance.
 
 Editar uma regra `aprendida` preserva sua origem; para promovê-la a manual,
 basta salvar com a origem alterada.

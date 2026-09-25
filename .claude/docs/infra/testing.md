@@ -1,7 +1,7 @@
 ---
 title: Testes da API — unitários e e2e
 area: infra
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -93,6 +93,7 @@ assíncronas ao banco (a promessa fica pendente até o timeout do teste). O
 | Arquivo | Spec | Cenários |
 |---|---|---|
 | `src/e2e/classification.e2e.test.ts` | 01 | As 3 camadas, o seed do de-para, o Pix dinâmico, aprendizado por feedback e o conflito 409, CRUD de regras com preview, séries recorrentes |
+| `src/e2e/apply-rule.e2e.test.ts` | 01 | "Aplicar às existentes": prévia só com o que muda, casamento pelo `originalName`, só campos de classificação, idempotência, fixo sem orçamento e entrada nunca essencial |
 | `src/e2e/reports.e2e.test.ts` | 02 | Totais contra o dashboard, orçamentos, 50/30/20, anomalias, movers, estabelecimentos novos, insights, narrativa e ciclo de vida |
 | `src/e2e/forecast.e2e.test.ts` | 03 | Saldo inicial, determinismo, percentis, cenários, veredito, acionáveis, parser e preferências |
 | `src/e2e/llm.e2e.test.ts` | 00 | Health, telemetria em `llm_calls` (inclusive falhas), consumo agregado |

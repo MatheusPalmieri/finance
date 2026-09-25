@@ -134,6 +134,28 @@ export interface RuleTestResponse {
   total: number
 }
 
+/** Campos que "aplicar às existentes" altera numa transação. */
+export type RuleApplyField =
+  | "name"
+  | "category"
+  | "essential"
+  | "recurrence"
+  | "budget"
+
+/** Prévia de "aplicar às existentes": só as transações que mudariam. */
+export interface RuleApplyPreview {
+  total: number
+  data: {
+    id: string
+    date: string
+    amount: string
+    originalName: string | null
+    name: string
+    nextName: string
+    fields: RuleApplyField[]
+  }[]
+}
+
 export type RecurringStatus = "ACTIVE" | "OVERDUE" | "CANCELLED"
 
 export interface RecurringSeries {

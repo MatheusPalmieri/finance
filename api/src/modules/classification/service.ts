@@ -344,10 +344,12 @@ export async function testRule(pattern: string, matchType: RuleMatchType) {
     .select({
       id: transactions.id,
       name: transactions.name,
+      originalName: transactions.originalName,
       amount: transactions.amount,
       date: transactions.date,
     })
     .from(transactions)
+    .where(REAL_TRANSACTIONS)
     .orderBy(desc(transactions.date))
     .limit(500)
 
@@ -373,8 +375,151 @@ export async function testRule(pattern: string, matchType: RuleMatchType) {
     },
   ])
 
-  const matches = rows.filter((row) => matchRule(probe, row.name) !== null)
+  // Casa pelo nome do banco, como o sync — o nome editado não conta
+  const matches = rows
+    .filter((row) => matchRule(probe, row.originalName ?? row.name) !== null)
+    .map(({ originalName: _originalName, ...row }) => row)
   return { matches: matches.slice(0, 20), total: matches.length }
+}
+
+// ── Aplicar regra às existentes ──────────────────────────────────────────────
+// Regras só valem para transação nova do sync. Aqui a regra é reaplicada no
+// histórico, a pedido do usuário e com prévia. Só campos de classificação:
+// forma de pagamento e sinal (`paymentMethod`, `forceIncome`) são do Open Finance.
+
+export type ApplyField = "name" | "category" | "essential" | "recurrence" | "budget"
+
+interface PlannedChange {
+  id: string
+  date: string
+  amount: string
+  originalName: string | null
+  name: string
+  next: {
+    name: string
+    categoryId: string
+    isEssential: boolean
+    recurrence: "fixed" | "variable"
+    budgetId: string | null
+  }
+  fields: ApplyField[]
+}
+
+/**
+ * O que a regra mudaria em cada transação que ela casa — só as que mudam.
+ * Casa pelo nome do banco (`originalName`), como o sync faz, e não pelo nome
+ * que o usuário editou. Considera só esta regra, independente da prioridade.
+ */
+async function planApplication(rule: ClassificationRule): Promise<PlannedChange[]> {
+  const rows = await db
+    .select({
+      id: transactions.id,
+      date: transactions.date,
+      amount: transactions.amount,
+      originalName: transactions.originalName,
+      name: transactions.name,
+      categoryId: transactions.categoryId,
+      isEssential: transactions.isEssential,
+      recurrence: transactions.recurrence,
+      budgetId: transactions.budgetId,
+    })
+    .from(transactions)
+    .where(REAL_TRANSACTIONS)
+    .orderBy(desc(transactions.date))
+
+  const probe = [{ ...rule, enabled: true }]
+  const out: PlannedChange[] = []
+
+  for (const row of rows) {
+    if (!matchRule(probe, row.originalName ?? row.name)) continue
+
+    const isIncome = Number(row.amount) < 0
+    let recurrence = row.recurrence
+    let budgetId = row.budgetId
+    // Mesma regra do sync: fixo só com orçamento; variável zera o orçamento
+    if (rule.recurrence === "fixed" && rule.budgetId) {
+      recurrence = "fixed"
+      budgetId = rule.budgetId
+    } else if (rule.recurrence === "variable") {
+      recurrence = "variable"
+      budgetId = null
+    }
+
+    const next = {
+      name: rule.renameTo ?? row.name,
+      categoryId: rule.categoryId ?? row.categoryId,
+      // Entrada nunca é essencial
+      isEssential: isIncome ? false : (rule.isEssential ?? row.isEssential),
+      recurrence,
+      budgetId,
+    }
+
+    const fields: ApplyField[] = []
+    if (next.name !== row.name) fields.push("name")
+    if (next.categoryId !== row.categoryId) fields.push("category")
+    if (next.isEssential !== row.isEssential) fields.push("essential")
+    if (next.recurrence !== row.recurrence) fields.push("recurrence")
+    if (next.budgetId !== row.budgetId) fields.push("budget")
+    if (fields.length === 0) continue
+
+    out.push({
+      id: row.id,
+      date: row.date,
+      amount: row.amount,
+      originalName: row.originalName,
+      name: row.name,
+      next,
+      fields,
+    })
+  }
+  return out
+}
+
+async function findRule(id: string) {
+  const [rule] = await db
+    .select()
+    .from(classificationRules)
+    .where(eq(classificationRules.id, id))
+    .limit(1)
+  return rule ?? null
+}
+
+/** Prévia: até 50 transações que mudariam, com os campos afetados. */
+export async function previewApplyRule(id: string) {
+  const rule = await findRule(id)
+  if (!rule) return null
+  const plan = await planApplication(rule)
+  return {
+    total: plan.length,
+    data: plan.slice(0, 50).map(({ id, date, amount, originalName, name, next, fields }) => ({
+      id,
+      date,
+      amount,
+      originalName,
+      name,
+      nextName: next.name,
+      fields,
+    })),
+  }
+}
+
+/** Aplica a regra no histórico. Recalcula a prévia na hora — nunca confia no front. */
+export async function applyRule(id: string) {
+  const rule = await findRule(id)
+  if (!rule) return null
+  const plan = await planApplication(rule)
+
+  await db.transaction(async (tx) => {
+    for (const change of plan) {
+      await tx
+        .update(transactions)
+        .set(change.next)
+        .where(eq(transactions.id, change.id))
+    }
+  })
+
+  if (plan.length > 0) scheduleRecalculate()
+  return { applied: plan.length }
 }
 
 // ── Séries recorrentes ───────────────────────────────────────────────────────

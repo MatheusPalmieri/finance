@@ -46,6 +46,8 @@ export const keys = {
     all: ["classification"] as const,
     rules: (params: ListRulesParams) =>
       [...keys.classification.all, "rules", params] as const,
+    applyPreview: (id: string) =>
+      [...keys.classification.all, "apply-preview", id] as const,
   },
   recurring: {
     all: ["recurring"] as const,
@@ -336,6 +338,36 @@ export function useDeleteRule() {
 export function useTestRule() {
   return useMutation({
     mutationFn: api.classification.testRule,
+  })
+}
+
+/** Prévia do que a regra mudaria no histórico — sempre fresca ao abrir. */
+export function useRuleApplyPreview(id: string) {
+  return useQuery({
+    queryKey: keys.classification.applyPreview(id),
+    queryFn: () => api.classification.previewApplyRule(id),
+    staleTime: 0,
+  })
+}
+
+/** Reaplica a regra nas transações que já estão no banco. */
+export function useApplyRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.classification.applyRule(id),
+    onSuccess: ({ applied }) => {
+      qc.invalidateQueries({ queryKey: keys.classification.all })
+      qc.invalidateQueries({ queryKey: keys.transactions.all })
+      qc.invalidateQueries({ queryKey: keys.dashboard.all })
+      qc.invalidateQueries({ queryKey: keys.forecast.all })
+      qc.invalidateQueries({ queryKey: keys.reports.all })
+      toast.success(
+        applied === 0
+          ? "Nenhuma transação precisava mudar"
+          : `Regra aplicada a ${applied} ${applied === 1 ? "transação" : "transações"}`
+      )
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao aplicar a regra"),
   })
 }
 

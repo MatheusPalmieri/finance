@@ -1,7 +1,7 @@
 ---
 title: Endpoints /classification e /recurring
 area: api
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -93,6 +93,8 @@ O pattern é derivado de `merchantKey(description)`.
 | PATCH | `/classification/rules/:id/toggle` | Liga/desliga sem apagar |
 | DELETE | `/classification/rules/:id` | Remove de vez |
 | POST | `/classification/rules/test` | `{ pattern, matchType }` → até 20 transações que casariam. Preview antes de salvar |
+| GET | `/classification/rules/:id/apply` | Prévia de "aplicar às existentes": o que a regra mudaria no histórico |
+| POST | `/classification/rules/:id/apply` | Aplica a regra nas transações que já estão no banco |
 
 Corpo de criação/edição (todos os campos além de `pattern` são opcionais):
 
@@ -122,7 +124,43 @@ Toda escrita invalida o cache em memória das regras.
 { "matches": [{ "id": "uuid", "name": "...", "amount": "1800.00", "date": "2025-11-05" }], "total": 3 }
 ```
 
-Varre as 500 transações mais recentes e devolve no máximo 20 casos.
+Varre as 500 transações mais recentes (só `REAL_TRANSACTIONS`) e devolve no
+máximo 20 casos. Casa pelo **nome do banco** (`originalName`), como o sync — o
+nome que o usuário editou não conta.
+
+### `GET` / `POST /classification/rules/:id/apply`
+
+Regras só valem para transação nova do sync. Estas rotas reaplicam uma regra no
+histórico, a pedido do usuário.
+
+```jsonc
+// GET 200 — só as que mudariam, no máximo 50 na lista
+{
+  "total": 6,
+  "data": [
+    {
+      "id": "uuid", "date": "2026-08-31", "amount": "480.00",
+      "originalName": "Yduqs 5/6", "name": "Faculdade", "nextName": "Faculdade",
+      "fields": ["recurrence", "budget"]   // name | category | essential | recurrence | budget
+    }
+  ]
+}
+// POST 200
+{ "applied": 6 }
+```
+
+- Considera **só esta regra**, independente da prioridade, e casa pelo
+  `originalName`. Regra desligada também pode ser aplicada.
+- Só campos de classificação: `renameTo` → `name`, `categoryId`, `isEssential`
+  (entrada nunca vira essencial), `recurrence` e `budgetId`. `paymentMethod` e
+  `forceIncome` **não** são aplicados — forma de pagamento e sinal são do Open
+  Finance.
+- Recorrência segue o sync: `fixed` só com `budgetId` (sem orçamento, a
+  recorrência não muda); `variable` zera o orçamento.
+- O `POST` recalcula o plano na hora (não confia na prévia), grava tudo numa
+  transação e dispara `scheduleRecalculate()`. É idempotente: aplicar de novo
+  devolve `applied: 0`.
+- `404` se a regra não existe.
 
 ## Séries recorrentes
 

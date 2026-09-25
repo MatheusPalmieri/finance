@@ -227,6 +227,8 @@ export async function makeBudget(
 
 export interface TransactionSeed {
   name: string
+  /** Nome do banco; sem ele, o nome exibido faz as vezes (como no sync). */
+  originalName?: string | null
   /** Convenção do domínio: positivo = despesa, negativo = entrada. */
   amount: number
   date: string
@@ -247,6 +249,7 @@ export async function makeTransaction(seed: TransactionSeed) {
     .insert(transactions)
     .values({
       name: seed.name,
+      originalName: seed.originalName ?? seed.name,
       amount: String(seed.amount),
       date: seed.date,
       categoryId: seed.categoryId,

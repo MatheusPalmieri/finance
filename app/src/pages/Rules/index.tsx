@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import {
   CalendarClock,
+  History,
   ListFilter,
   Pencil,
   Plus,
@@ -31,16 +32,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { SegmentedControl } from "@/components/charts"
 import {
+  useApplyRule,
   useCategories,
   useCreateRule,
   useDeleteRule,
   useDismissRecurring,
   useRecalculateRecurring,
   useRecurring,
+  useRuleApplyPreview,
   useRules,
   useTestRule,
   useToggleRule,
@@ -57,6 +61,7 @@ import {
   RULE_MATCH_LABELS,
   RULE_SOURCE_LABELS,
   type ClassificationRule,
+  type RuleApplyField,
   type PaymentMethod,
   type RecurringSeries,
   type RecurringStatus,
@@ -103,6 +108,7 @@ function RulesTab() {
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<ClassificationRule | null>(null)
   const [deleting, setDeleting] = useState<ClassificationRule | null>(null)
+  const [applying, setApplying] = useState<ClassificationRule | null>(null)
 
   const params = useMemo(
     () => ({ search: search || undefined, source: source || undefined }),
@@ -178,7 +184,7 @@ function RulesTab() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border">
-          <div className="grid grid-cols-[1fr_140px_120px_100px_92px] gap-3 border-b bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
+          <div className="grid grid-cols-[1fr_140px_120px_100px_124px] gap-3 border-b bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
             <span>Padrão</span>
             <span>Aplica</span>
             <span>Origem</span>
@@ -191,6 +197,7 @@ function RulesTab() {
                 key={rule.id}
                 rule={rule}
                 onToggle={() => toggle.mutate(rule.id)}
+                onApply={() => setApplying(rule)}
                 onEdit={() => setEditing(rule)}
                 onDelete={() => setDeleting(rule)}
               />
@@ -209,6 +216,10 @@ function RulesTab() {
           title="Editar regra"
           rule={editing}
         />
+      )}
+
+      {applying && (
+        <ApplyRuleDialog rule={applying} onClose={() => setApplying(null)} />
       )}
 
       <AlertDialog
@@ -244,6 +255,110 @@ function RulesTab() {
   )
 }
 
+const APPLY_FIELD_LABELS: Record<RuleApplyField, string> = {
+  name: "nome",
+  category: "categoria",
+  essential: "tipo de gasto",
+  recurrence: "recorrência",
+  budget: "orçamento",
+}
+
+// Regras só valem para o que o sync traz de novo. Aqui o usuário reaplica
+// uma regra no histórico — sempre vendo antes o que vai mudar.
+function ApplyRuleDialog({
+  rule,
+  onClose,
+}: {
+  rule: ClassificationRule
+  onClose: () => void
+}) {
+  const { data: preview, isLoading, isError } = useRuleApplyPreview(rule.id)
+  const apply = useApplyRule()
+  const total = preview?.total ?? 0
+  const items = preview?.data ?? []
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent className="sm:max-w-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Aplicar às transações existentes</AlertDialogTitle>
+          <AlertDialogDescription>
+            A regra <strong className="font-mono">{rule.pattern}</strong> vale
+            para as transações novas do sync. Aplicar agora corrige também as
+            que já estão no banco. Só muda a classificação: valor, data, conta e
+            forma de pagamento continuam vindo do Open Finance.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 rounded-lg" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p className="text-sm text-destructive">
+            Não foi possível calcular a prévia.
+          </p>
+        ) : total === 0 ? (
+          <p className="rounded-lg border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
+            Nenhuma transação existente precisa mudar.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium">
+              {total} {total === 1 ? "transação vai" : "transações vão"} mudar
+            </p>
+            <ul className="flex max-h-72 flex-col divide-y overflow-y-auto rounded-lg border">
+              {items.map((item) => (
+                <li key={item.id} className="flex flex-col gap-0.5 px-3 py-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate">
+                      {item.name}
+                      {item.nextName !== item.name && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          → {item.nextName}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums">
+                      {formatCurrency(Math.abs(Number(item.amount)))}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(item.date)} · muda{" "}
+                    {item.fields.map((f) => APPLY_FIELD_LABELS[f]).join(", ")}
+                  </p>
+                </li>
+              ))}
+              {total > items.length && (
+                <li className="px-3 py-2 text-xs text-muted-foreground">
+                  e mais {total - items.length}
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={total === 0 || apply.isPending}
+            onClick={(e) => {
+              // Fecha só quando terminar, para o usuário ver o resultado
+              e.preventDefault()
+              apply.mutate(rule.id, { onSuccess: onClose })
+            }}
+          >
+            {apply.isPending ? "Aplicando..." : `Aplicar a ${total}`}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 /** Resumo legível do que a regra preenche — evita uma tabela de 8 colunas. */
 function ruleEffects(rule: ClassificationRule): string[] {
   const out: string[] = []
@@ -262,11 +377,13 @@ function ruleEffects(rule: ClassificationRule): string[] {
 function RuleRow({
   rule,
   onToggle,
+  onApply,
   onEdit,
   onDelete,
 }: {
   rule: ClassificationRule
   onToggle: () => void
+  onApply: () => void
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -275,7 +392,7 @@ function RuleRow({
   return (
     <div
       className={cn(
-        "group grid grid-cols-[1fr_140px_120px_100px_92px] items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40",
+        "group grid grid-cols-[1fr_140px_120px_100px_124px] items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40",
         !rule.enabled && "opacity-50"
       )}
     >
@@ -323,6 +440,15 @@ function RuleRow({
           className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
         >
           <Power size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={onApply}
+          aria-label={`Aplicar ${rule.pattern} às transações existentes`}
+          title="Aplicar às existentes"
+          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
+        >
+          <History size={14} />
         </button>
         <button
           type="button"
@@ -377,6 +503,7 @@ function RuleModal({
   const [recurrence, setRecurrence] = useState<Recurrence | "">(
     rule?.recurrence ?? ""
   )
+  const [budgetId, setBudgetId] = useState(rule?.budgetId ?? "")
 
   // Preview ao vivo com debounce de 400ms — mostra o que a regra casaria hoje
   const { mutate: runTest, data: preview, reset: resetTest } = test
@@ -401,6 +528,8 @@ function RuleModal({
       categoryId: categoryId || null,
       paymentMethod: paymentMethod || null,
       recurrence: recurrence || null,
+      // Orçamento só faz sentido em gasto fixo, como na transação
+      budgetId: recurrence === "fixed" ? budgetId || null : null,
     }
     if (rule) {
       update.mutate(
@@ -525,9 +654,10 @@ function RuleModal({
           <Label>Recorrência</Label>
           <Select
             value={recurrence || NONE}
-            onValueChange={(v) =>
+            onValueChange={(v) => {
               setRecurrence(v === NONE ? "" : (v as Recurrence))
-            }
+              if (v !== "fixed") setBudgetId("")
+            }}
           >
             <SelectTrigger>
               <SelectValue />
@@ -539,6 +669,20 @@ function RuleModal({
             </SelectContent>
           </Select>
         </div>
+
+        {recurrence === "fixed" && (
+          <div className="flex flex-col gap-1.5">
+            <Label>Orçamento vinculado</Label>
+            <BudgetCombobox
+              value={budgetId || undefined}
+              onChange={(id) => setBudgetId(id ?? "")}
+              selectedName={rule?.budget?.name}
+            />
+            <p className="text-xs text-muted-foreground">
+              Sem orçamento, a transação entra como variável.
+            </p>
+          </div>
+        )}
 
         {/* Preview ao vivo */}
         <div className="rounded-xl border bg-muted/30 p-3">

@@ -23,6 +23,7 @@ import type {
   RecurringStatus,
   RuleMatchType,
   RuleSource,
+  RuleApplyPreview,
   RuleTestResponse,
   SuggestResponse,
   OpenFinanceStatus,
@@ -268,6 +269,12 @@ export const api = {
       request<RuleTestResponse>("/classification/rules/test", {
         method: "POST",
         body: JSON.stringify(body),
+      }),
+    previewApplyRule: (id: string) =>
+      request<RuleApplyPreview>(`/classification/rules/${id}/apply`),
+    applyRule: (id: string) =>
+      request<{ applied: number }>(`/classification/rules/${id}/apply`, {
+        method: "POST",
       }),
   },
 

@@ -1,7 +1,7 @@
 ---
 title: Classificação inteligente e recorrências
 area: domain
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 ## Visão geral
@@ -113,6 +113,25 @@ Corrigir uma categoria (reclassificar uma transação) chama
 Efeito prático: a próxima transação daquele estabelecimento já vem certa, e
 variações da mesma loja também, porque o pattern vive em espaço de
 `merchantKey`.
+
+## Aplicar regra às existentes
+
+A cascata só roda em transação **nova** do sync: criar ou editar uma regra não
+mexe no histórico, e reclassificar uma transação à mão não cria regra. Para
+corrigir o passado, a tela de regras tem **"Aplicar às existentes"**
+(`GET`/`POST /classification/rules/:id/apply`, em `service.ts`:
+`planApplication`, `previewApplyRule`, `applyRule`).
+
+- Casa pelo `originalName` (o nome do banco), como o sync. Considera só a regra
+  escolhida, sem olhar prioridade.
+- Aplica só a classificação: nome, categoria, essencial, recorrência e
+  orçamento. Nunca a forma de pagamento nem o sinal, que são do Open Finance.
+- Mesma regra do sync para gasto fixo: sem orçamento, a recorrência não muda.
+- A prévia lista só as transações que de fato mudariam, com os campos afetados.
+
+Fluxo típico: editar a regra (ex.: `yduqs` → fixo + orçamento Faculdade) e
+aplicar às existentes, o que corrige os meses anteriores e as parcelas futuras
+de uma vez.
 
 ## Privacidade na camada 3
 
