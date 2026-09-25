@@ -25,7 +25,7 @@ removidos (respondem 404).
 **Query params de GET:** `page`, `limit` (máx 100), `search` (ilike em `name`),
 `categoryId`, `paymentMethod` (valor fora do enum é ignorado), `accountId`,
 `recurrence` (`fixed`\|`variable`), `isEssential` (`true`\|`false`), `from`,
-`to`. Resposta: `{ data, total, page, limit }`. Sempre com `REAL_TRANSACTIONS`
+`to`, `order` (`asc`|`desc`, padrão `desc`; ordena por data dentro do período). Resposta: `{ data, total, page, limit }`. Sempre com `REAL_TRANSACTIONS`
 (`source = 'open_finance'`).
 
 **Body do PATCH:**

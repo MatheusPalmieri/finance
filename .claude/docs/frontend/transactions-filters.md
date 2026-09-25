@@ -35,6 +35,14 @@ enviado como `paymentMethod` em `GET /transactions`. Opções vêm de
 continua aceito pela API mas não tem mais controle na tela. Trocar a forma
 reseta `page` para 1.
 
+## Ordenação por data (2026-09-24)
+
+`Select` "Mais recentes primeiro" / "Mais antigas primeiro" (`order`, padrão
+`desc`), enviado como `order=asc|desc` em `GET /transactions`. Ordena por
+`date` e `createdAt` **dentro do período ativo** — o `customRange` quando há,
+senão o mês global da sidebar — porque `from`/`to` sempre são enviados. Trocar
+a ordem reseta `page` para 1.
+
 ## Não confundir com o Dashboard (Home)
 
 (Obsoleto — o mês é global.) `Home.tsx` tinha seu próprio `month`/`year` + navegação para `GET /dashboard/summary` — são estados independentes, cada página com o seu. Não há sincronização entre o mês do Dashboard e o mês de Transações.

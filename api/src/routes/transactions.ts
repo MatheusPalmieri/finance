@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia"
-import { and, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
 import { db } from "../db"
 import { transactions } from "../db/schema"
 import { isPaymentMethod } from "../lib/payment-methods"
@@ -42,12 +42,17 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       if (query.search) conditions.push(ilike(transactions.name, `%${query.search}%`))
 
       const where = and(...conditions)
+      // Ordenação vale só dentro do período filtrado; padrão: mais recente primeiro
+      const orderBy =
+        query.order === "asc"
+          ? [asc(transactions.date), asc(transactions.createdAt)]
+          : [desc(transactions.date), desc(transactions.createdAt)]
 
       const [data, [{ total }]] = await Promise.all([
         db.query.transactions.findMany({
           where,
           with: { account: true, category: true, budget: true },
-          orderBy: [desc(transactions.date), desc(transactions.createdAt)],
+          orderBy,
           limit,
           offset,
         }),
@@ -68,6 +73,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         isEssential: t.Optional(t.String()),
         from: t.Optional(t.String()),
         to: t.Optional(t.String()),
+        order: t.Optional(t.String()),
       }),
     }
   )

@@ -110,6 +110,7 @@ export function Transactions() {
     PaymentMethod | ""
   >("")
   const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
+  const [order, setOrder] = useState<"asc" | "desc">("desc")
   const [customRange, setCustomRange] = useState<{
     from: string
     to: string
@@ -154,6 +155,7 @@ export function Transactions() {
     recurrence: filterRecurrence || undefined,
     from,
     to,
+    order,
   }
 
   const { data, isLoading, isError, refetch } = useTransactions(params)
@@ -318,6 +320,22 @@ export function Transactions() {
             <SelectItem value="all">Toda recorrência</SelectItem>
             <SelectItem value="fixed">Fixo</SelectItem>
             <SelectItem value="variable">Variável</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={order}
+          onValueChange={(v) => {
+            setOrder(v as "asc" | "desc")
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Ordenar" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Mais recentes primeiro</SelectItem>
+            <SelectItem value="asc">Mais antigas primeiro</SelectItem>
           </SelectContent>
         </Select>
       </div>

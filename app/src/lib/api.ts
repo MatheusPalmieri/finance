@@ -57,6 +57,7 @@ export interface ListTransactionsParams {
   isEssential?: "true" | "false" | ""
   from?: string
   to?: string
+  order?: "asc" | "desc"
 }
 
 // Reclassificação: só os campos do usuário. Valor, data e conta vêm do banco
@@ -194,6 +195,7 @@ export const api = {
       if (params.isEssential) q.set("isEssential", params.isEssential)
       if (params.from) q.set("from", params.from)
       if (params.to) q.set("to", params.to)
+      if (params.order) q.set("order", params.order)
       return request<TransactionsResponse>(`/transactions?${q}`)
     },
     get: (id: string) => request<Transaction>(`/transactions/${id}`),
