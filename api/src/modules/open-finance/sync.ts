@@ -285,6 +285,7 @@ async function applyAccount(
     .select({
       id: transactions.id,
       externalId: transactions.externalId,
+      originalName: transactions.originalName,
       amount: transactions.amount,
       date: transactions.date,
       status: transactions.status,
@@ -307,6 +308,7 @@ async function applyAccount(
   )
 
   const providerFields = (n: NormalizedTransaction) => ({
+    originalName: n.name,
     amount: n.amount.toFixed(2),
     date: n.date,
     status: n.status,
@@ -341,7 +343,8 @@ async function applyAccount(
         Number(existing.amount).toFixed(2) !== n.amount.toFixed(2) ||
         existing.date !== n.date ||
         existing.status !== n.status ||
-        existing.kind !== n.kind
+        existing.kind !== n.kind ||
+        existing.originalName !== n.name
       if (changed) {
         await tx.update(transactions).set(providerFields(n)).where(eq(transactions.id, existing.id))
         counts.updated++
@@ -392,6 +395,7 @@ async function applyAccount(
       const recurrence = s?.recurrence === "fixed" && s.budgetId ? "fixed" : "variable"
       return {
         name: (s?.suggestedName ?? n.name).slice(0, 255),
+        originalName: n.name,
         amount: n.amount.toFixed(2),
         categoryId,
         // No cartão é sempre crédito; na conta, a regra aprendida manda

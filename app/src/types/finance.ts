@@ -42,6 +42,8 @@ export interface Category {
 export interface Transaction {
   id: string
   name: string
+  /** Nome oficial do banco; nulo só antes do primeiro sync após a migração */
+  originalName: string | null
   amount: string
   categoryId: string
   paymentMethod: PaymentMethod

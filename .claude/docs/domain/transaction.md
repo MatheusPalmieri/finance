@@ -27,7 +27,8 @@ distinguem pelo **sinal de `amount`** (positivo = despesa, negativo = entrada).
 | `kind` | enum `transaction_kind` | banco | `regular` \| `bill_payment` \| `investment` \| `own_transfer` — ver "Movimentos internos" |
 | `source` | enum `transaction_source` | — | Só `open_finance` (default). O enum existe para um eventual segundo agregador |
 | `externalId` | varchar, **obrigatório**, único | banco | Id da transação na Pluggy — chave de idempotência do sync |
-| `name` | varchar(255) | usuário | Nome exibido (nasce da descrição do banco, ajustado pelas regras) |
+| `originalName` | varchar(255) | banco | Nome oficial do extrato (`displayName` da Pluggy), antes de regras e edições. O sync regrava a cada rodada; nunca é editável. Base do botão "Restaurar nome" |
+| `name` | varchar(255) | usuário | Nome exibido (nasce de `originalName`, ajustado pelas regras; editável) |
 | `categoryId` | uuid FK → categories | usuário | Categoria |
 | `paymentMethod` | enum `payment_method` | usuário | Forma de pagamento (lista fixa, ver abaixo) |
 | `isEssential` | boolean | usuário | Gasto essencial. Entrada (amount < 0) é sempre `false` |

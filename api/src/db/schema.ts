@@ -99,6 +99,10 @@ export const categories = pgTable("categories", {
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
+  // Nome oficial vindo do banco (Pluggy), antes de qualquer edição. O sync o
+  // regrava a cada rodada; `name` é o campo do usuário e pode divergir dele.
+  // Nulo só até o primeiro sync depois da migração.
+  originalName: varchar("original_name", { length: 255 }),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   categoryId: uuid("category_id")
     .references(() => categories.id)

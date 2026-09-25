@@ -22,6 +22,7 @@ export function FormModal({
   submitLabel = "Salvar",
   pendingLabel = "Salvando...",
   size = "md",
+  footerStart,
   children,
 }: {
   open: boolean
@@ -33,6 +34,8 @@ export function FormModal({
   submitLabel?: string
   pendingLabel?: string
   size?: "sm" | "md"
+  /** Ação secundária alinhada à esquerda do footer */
+  footerStart?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -49,6 +52,7 @@ export function FormModal({
         </form>
 
         <DialogFooter>
+          {footerStart && <div className="sm:mr-auto">{footerStart}</div>}
           <Button variant="outline" onClick={onClose} disabled={isPending}>
             Cancelar
           </Button>

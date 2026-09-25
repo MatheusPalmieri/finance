@@ -9,6 +9,7 @@ import {
   Landmark,
   Pencil,
   Repeat,
+  RotateCcw,
   Search,
   X,
   Zap,
@@ -530,6 +531,10 @@ function ClassificationModal({
 
   const isEssential = watch("isEssential")
   const recurrence = watch("recurrence")
+  // Só oferece reverter quando o nome atual difere do oficial do banco
+  const currentName = watch("name")
+  const canRestoreName =
+    !!transaction.originalName && currentName !== transaction.originalName
 
   const onSubmit = handleSubmit((values) => {
     reclassify.mutate(
@@ -561,6 +566,24 @@ function ClassificationModal({
       formId="transaction-form"
       onSubmit={onSubmit}
       isPending={reclassify.isPending}
+      footerStart={
+        canRestoreName && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() =>
+              setValue("name", transaction.originalName!, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            title={`Nome do banco: ${transaction.originalName}`}
+          >
+            <RotateCcw size={14} />
+            Restaurar nome
+          </Button>
+        )
+      }
     >
       <div className="flex flex-col gap-4 py-1">
         {/* O que veio do banco: só leitura */}
