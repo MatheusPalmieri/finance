@@ -9,6 +9,7 @@ import {
   Info,
   Landmark,
   Pencil,
+  PiggyBank,
   Repeat,
   RotateCcw,
   Search,
@@ -43,6 +44,10 @@ import {
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
+import {
+  BudgetModal,
+  type BudgetFormValues,
+} from "@/components/forms/BudgetModal"
 import {
   useCategories,
   useReclassifyTransaction,
@@ -112,6 +117,7 @@ export function Transactions() {
   const [draftFrom, setDraftFrom] = useState("")
   const [draftTo, setDraftTo] = useState("")
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [converting, setConverting] = useState<Transaction | null>(null)
 
   const { from, to } = customRange ?? monthRange(month, year)
   const isSingleDay =
@@ -355,6 +361,7 @@ export function Transactions() {
                     key={tx.id}
                     tx={tx}
                     onEdit={() => setEditing(tx)}
+                    onConvertToBudget={() => setConverting(tx)}
                   />
                 ))}
               </div>
@@ -395,17 +402,41 @@ export function Transactions() {
           transaction={editing}
         />
       )}
+
+      {converting && (
+        <BudgetModal
+          open
+          onClose={() => setConverting(null)}
+          title="Converter em orçamento"
+          submitLabel="Criar orçamento"
+          initialValues={budgetFromTransaction(converting)}
+        />
+      )}
     </div>
   )
+}
+
+// Pré-preenche o orçamento com o que a transação já diz: nome (ou o nome
+// original do banco), valor absoluto, fixo/variável e se é essencial
+function budgetFromTransaction(tx: Transaction): Partial<BudgetFormValues> {
+  const amount = Math.abs(Number(tx.amount))
+  return {
+    name: tx.name || tx.originalName || "",
+    type: tx.isEssential ? "essential" : "desire",
+    amountType: "fixed",
+    amount: amount > 0 ? amount : undefined,
+  }
 }
 
 // ── Linha de transação ────────────────────────────────────────────────────────
 function TransactionRow({
   tx,
   onEdit,
+  onConvertToBudget,
 }: {
   tx: Transaction
   onEdit: () => void
+  onConvertToBudget: () => void
 }) {
   const amount = Number(tx.amount)
   const isIncome = amount < 0
@@ -482,6 +513,17 @@ function TransactionRow({
 
       {/* Ação: sempre visível no toque, revelada no hover no desktop */}
       <div className="flex shrink-0 items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
+        {!isIncome && (
+          <button
+            type="button"
+            onClick={onConvertToBudget}
+            aria-label="Converter em orçamento"
+            title="Converter em orçamento"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
+          >
+            <PiggyBank size={15} className="lg:size-3.5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={onEdit}
