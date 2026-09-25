@@ -58,3 +58,14 @@ A suíte **nunca** fala com a Pluggy: `src/test/setup.ts` zera as `PLUGGY_*`, e
 os testes injetam o `MockOpenFinanceProvider` com `__setProvider()`. Suítes:
 `modules/open-finance/normalize.test.ts`, `e2e/open-finance-sync.e2e.test.ts` e
 `e2e/open-finance-routes.e2e.test.ts`.
+
+## Reclassificar o que caiu em "Outros"
+
+`bun run reclassify:other` (em `api/`) passa de novo pela cascata as transações
+regulares em "Outros" e mostra o que mudaria; `--apply` grava. Só troca a
+categoria. Suba `LLM_TIMEOUT_MS` (ex.: 300000) e aqueça o Ollama antes.
+
+**Cuidado:** em 2026-09-24, o `qwen2.5:7b-instruct` classificou Pix e
+transferências entre pessoas como "Salário" (confiança 0,72) — foram revertidas
+à mão. Rode sempre a simulação primeiro e desconfie de lote em que tudo cai na
+mesma categoria.
