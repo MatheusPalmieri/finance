@@ -38,8 +38,10 @@ direto no cache da query do período (`setQueryData`), sem ler de novo.
    contra o mês anterior. A seta é colorida pela **direção desejada**, não pelo
    sinal: gasto caindo é verde, receita caindo é vermelha. `deltaPct: null` vira
    "sem base de comparação".
-3. **Narrativa** — card com o texto (max-width ~65ch) e as sugestões acionáveis,
-   com rodapé "Texto gerado por IA a partir dos números acima · <modelo>".
+3. **Narrativa** — card com o texto (max-width ~65ch, para a linha não ficar
+   longa demais) e as sugestões acionáveis. Em `lg+` as sugestões ficam numa
+   coluna à direita, separadas por borda, para o card não sobrar vazio ao lado
+   do texto; abaixo disso vão embaixo, separadas por borda no topo. Rodapé "Texto gerado por IA a partir dos números acima · <modelo>".
    Quando `GENERATED` ou `NARRATION_FAILED`, vira um card tracejado com o motivo
    e o botão "Gerar texto" (desabilitado se `aiAvailable: false`). O caso
    rejeitado diz explicitamente que os números acima continuam corretos.

@@ -454,36 +454,46 @@ function Narrative({
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-      <p className="max-w-[65ch] text-sm leading-relaxed whitespace-pre-line">
-        {report.narrative}
-      </p>
+      {/* Texto limitado a ~65ch para leitura; em tela larga as sugestões
+          ocupam a coluna ao lado em vez de deixar o card vazio à direita */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,65ch)_minmax(0,1fr)] lg:gap-8">
+        <p className="max-w-[65ch] text-sm leading-relaxed whitespace-pre-line">
+          {report.narrative}
+        </p>
 
-      {report.suggestions && report.suggestions.length > 0 && (
-        <ul className="flex flex-col gap-2 border-t pt-4">
-          {report.suggestions.map((suggestion, i) => (
-            <li key={i} className="flex gap-2.5">
-              <span
-                className="mt-1.5 size-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: FINANCE.income }}
-              />
-              <div>
-                <p className="text-sm font-medium">{suggestion.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {suggestion.rationale}
-                  {suggestion.estimatedSavingBrl !== null && (
-                    <>
-                      {" "}
-                      <span className="tabular-nums">
-                        (~{formatCurrency(suggestion.estimatedSavingBrl)}/mês)
-                      </span>
-                    </>
-                  )}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+        {report.suggestions && report.suggestions.length > 0 && (
+          <div className="flex flex-col gap-3 border-t pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Sugestões
+            </p>
+            <ul className="flex flex-col gap-3">
+              {report.suggestions.map((suggestion, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span
+                    className="mt-1.5 size-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: FINANCE.income }}
+                  />
+                  <div>
+                    <p className="text-sm font-medium">{suggestion.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {suggestion.rationale}
+                      {suggestion.estimatedSavingBrl !== null && (
+                        <>
+                          {" "}
+                          <span className="tabular-nums">
+                            (~{formatCurrency(suggestion.estimatedSavingBrl)}
+                            /mês)
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
       <p className="text-xs text-muted-foreground">
         Texto gerado por IA a partir dos números acima
