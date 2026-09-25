@@ -41,6 +41,8 @@ export const keys = {
   budgets: {
     all: ["budgets"] as const,
     list: (name?: string) => [...keys.budgets.all, "list", name ?? ""] as const,
+    summary: (params: DashboardParams) =>
+      [...keys.budgets.all, "summary", params] as const,
   },
   classification: {
     all: ["classification"] as const,
@@ -194,6 +196,8 @@ export function useReclassifyTransaction() {
       api.transactions.reclassify(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
+      // Vínculo com orçamento muda o realizado da tela de Orçamentos
+      qc.invalidateQueries({ queryKey: keys.budgets.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       qc.invalidateQueries({ queryKey: keys.forecast.all })
       qc.invalidateQueries({ queryKey: keys.reports.all })
@@ -205,6 +209,13 @@ export function useReclassifyTransaction() {
 }
 
 // ── Budgets ───────────────────────────────────────────────────────────────────
+export function useBudgetSummary(params: DashboardParams) {
+  return useQuery({
+    queryKey: keys.budgets.summary(params),
+    queryFn: () => api.budgets.summary(params),
+  })
+}
+
 export function useBudgets(name?: string) {
   return useQuery({
     queryKey: keys.budgets.list(name),
@@ -358,6 +369,7 @@ export function useApplyRule() {
     onSuccess: ({ applied }) => {
       qc.invalidateQueries({ queryKey: keys.classification.all })
       qc.invalidateQueries({ queryKey: keys.transactions.all })
+      qc.invalidateQueries({ queryKey: keys.budgets.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       qc.invalidateQueries({ queryKey: keys.forecast.all })
       qc.invalidateQueries({ queryKey: keys.reports.all })
@@ -557,6 +569,7 @@ export function useDashboardSummary(params: DashboardParams = {}) {
 // Tudo que muda quando o sync grava transações novas
 const SYNC_AFFECTED = [
   keys.transactions.all,
+  keys.budgets.all,
   keys.dashboard.all,
   keys.forecast.all,
   keys.reports.all,

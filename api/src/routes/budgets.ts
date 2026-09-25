@@ -1,7 +1,83 @@
 import { Elysia, t } from "elysia"
-import { eq, ilike } from "drizzle-orm"
+import { and, between, eq, ilike, sql } from "drizzle-orm"
 import { db } from "../db"
-import { budgets } from "../db/schema"
+import { budgets, transactions } from "../db/schema"
+import { REAL_TRANSACTIONS } from "../lib/scope"
+
+// Primeiro e último dia do mês ("YYYY-MM-DD")
+function monthBounds(month: number, year: number) {
+  const mm = String(month).padStart(2, "0")
+  return {
+    firstDay: `${year}-${mm}-01`,
+    lastDay: `${year}-${mm}-${new Date(year, month, 0).getDate()}`,
+  }
+}
+
+/**
+ * Realizado do mês para a tela de Orçamentos. Regra (ver domain/budget.md):
+ * - vinculada a um orçamento → grupo daquele orçamento;
+ * - `kind = investment` sem vínculo → investimento, pelo líquido
+ *   (aplicações − resgates);
+ * - toda outra saída `regular` sem vínculo → variável (`desire`).
+ * Essencial/não essencial não pesa aqui. Fatura e transferência entre contas
+ * próprias ficam fora.
+ */
+async function buildSummary(month: number, year: number) {
+  const { firstDay, lastDay } = monthBounds(month, year)
+  const inMonth = and(REAL_TRANSACTIONS, between(transactions.date, firstDay, lastDay))
+  const amount = sql`${transactions.amount}::numeric`
+
+  const [totals] = await db
+    .select({
+      income: sql<string>`coalesce(-sum(${amount}) filter (where ${transactions.kind} = 'regular' and ${amount} < 0), 0)`,
+      unlinkedVariable: sql<string>`coalesce(sum(${amount}) filter (where ${transactions.kind} = 'regular' and ${transactions.budgetId} is null and ${amount} > 0), 0)`,
+      invested: sql<string>`coalesce(sum(${amount}) filter (where ${transactions.kind} = 'investment' and ${transactions.budgetId} is null and ${amount} > 0), 0)`,
+      redeemed: sql<string>`coalesce(-sum(${amount}) filter (where ${transactions.kind} = 'investment' and ${transactions.budgetId} is null and ${amount} < 0), 0)`,
+    })
+    .from(transactions)
+    .where(inMonth)
+
+  // Soma líquida por orçamento (estorno abate)
+  const linked = await db
+    .select({
+      budgetId: transactions.budgetId,
+      type: budgets.type,
+      spent: sql<string>`sum(${amount})`,
+    })
+    .from(transactions)
+    .innerJoin(budgets, eq(transactions.budgetId, budgets.id))
+    .where(and(inMonth, sql`${transactions.kind} in ('regular', 'investment')`))
+    .groupBy(transactions.budgetId, budgets.type)
+
+  const byType = { essential: 0, desire: 0, investment: 0 }
+  const byBudget: Record<string, number> = {}
+  for (const row of linked) {
+    const value = Number(row.spent)
+    byType[row.type] += value
+    if (row.budgetId) byBudget[row.budgetId] = value
+  }
+
+  const invested = Number(totals?.invested ?? 0)
+  const redeemed = Number(totals?.redeemed ?? 0)
+  byType.desire += Number(totals?.unlinkedVariable ?? 0)
+  byType.investment += invested - redeemed
+
+  const round = (v: number) => Number(v.toFixed(2))
+  return {
+    month,
+    year,
+    income: round(Number(totals?.income ?? 0)),
+    spentByType: {
+      essential: round(byType.essential),
+      desire: round(byType.desire),
+      investment: round(byType.investment),
+    },
+    investmentFlow: { invested: round(invested), redeemed: round(redeemed) },
+    spentByBudget: Object.fromEntries(
+      Object.entries(byBudget).map(([id, v]) => [id, round(v)])
+    ),
+  }
+}
 
 const budgetBody = t.Object({
   name: t.String({ minLength: 1 }),
@@ -55,6 +131,21 @@ export const budgetsRoute = new Elysia({ prefix: "/budgets" })
       return db.select().from(budgets).orderBy(budgets.name)
     },
     { query: t.Object({ name: t.Optional(t.String()) }) }
+  )
+  .get(
+    "/summary",
+    ({ query }) => {
+      const now = new Date()
+      const month = Number(query.month) || now.getMonth() + 1
+      const year = Number(query.year) || now.getFullYear()
+      return buildSummary(month, year)
+    },
+    {
+      query: t.Object({
+        month: t.Optional(t.String()),
+        year: t.Optional(t.String()),
+      }),
+    }
   )
   .get("/:id", async ({ params, status }) => {
     const [budget] = await db.select().from(budgets).where(eq(budgets.id, params.id))

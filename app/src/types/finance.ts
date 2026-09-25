@@ -76,6 +76,19 @@ export interface Budget {
   updatedAt: string
 }
 
+/** Realizado do mês na tela de Orçamentos (GET /budgets/summary). */
+export interface BudgetSummary {
+  month: number
+  year: number
+  /** Entradas `regular` do mês — base da % na tela */
+  income: number
+  spentByType: Record<BudgetType, number>
+  /** Aplicações e resgates sem vínculo; o grupo investimento usa o líquido */
+  investmentFlow: { invested: number; redeemed: number }
+  /** Soma líquida das transações vinculadas, por id do orçamento */
+  spentByBudget: Record<string, number>
+}
+
 // ── Classificação inteligente ───────────────────────────────────────────────
 export type RuleSource = "seed" | "manual" | "learned"
 export type RuleMatchType = "contains" | "exact" | "regex"
@@ -616,6 +629,14 @@ export const RECURRENCE_LABELS: Record<Recurrence, string> = {
 
 export const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
   essential: "Essencial",
+  desire: "Variável",
+  investment: "Investimento",
+}
+
+// Nome dos grupos só na tela de Orçamentos: lá "essencial" é o que você
+// vinculou como recorrente, então se chama "Fixo" (ver domain/budget.md)
+export const BUDGET_GROUP_LABELS: Record<BudgetType, string> = {
+  essential: "Fixo",
   desire: "Variável",
   investment: "Investimento",
 }

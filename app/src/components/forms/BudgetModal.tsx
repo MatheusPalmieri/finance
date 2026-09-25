@@ -15,7 +15,7 @@ import { useCreateBudget, useUpdateBudget } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { FINANCE } from "@/lib/tokens"
 import {
-  BUDGET_TYPE_LABELS,
+  BUDGET_GROUP_LABELS,
   BUDGET_TYPE_TARGET,
   type Budget,
   type BudgetType,
@@ -174,7 +174,7 @@ export function BudgetModal({
 
         {/* Tipo (50/30/20) */}
         <div className="flex flex-col gap-1.5">
-          <Label>Tipo</Label>
+          <Label>Grupo</Label>
           <Select
             value={watch("type")}
             onValueChange={(v) => setValue("type", v as BudgetType)}
@@ -185,7 +185,7 @@ export function BudgetModal({
             <SelectContent>
               {TYPE_ORDER.map((type) => (
                 <SelectItem key={type} value={type}>
-                  {BUDGET_TYPE_LABELS[type]} ({BUDGET_TYPE_TARGET[type]}%)
+                  {BUDGET_GROUP_LABELS[type]} ({BUDGET_TYPE_TARGET[type]}%)
                 </SelectItem>
               ))}
             </SelectContent>
@@ -201,7 +201,7 @@ export function BudgetModal({
               onClick={() => setValue("amountType", "fixed")}
               color={FINANCE.fixed}
             >
-              Fixo
+              Valor exato
             </SegButton>
             <SegButton
               active={amountType === "variable"}

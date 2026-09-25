@@ -54,7 +54,31 @@ A coluna `transactions.budget_id` (FK nullable → budgets) vincula um gasto fix
 
 Validado em `resolveBudgetId` (`api/src/routes/transactions.ts`). No frontend, o campo só aparece quando a transação é fixa e usa um **combobox com busca** (`BudgetCombobox`) que consulta `GET /budgets?name=...`.
 
+## Realizado do mês (tela de Orçamentos, 2026-09-25)
+
+A tela compara o plano com o que aconteceu no mês (`GET /budgets/summary`).
+Regra de cada grupo — **essencial/não essencial não pesa aqui** (o check-up
+continua usando `classifySpend`):
+
+| Grupo na tela | Enum | O que entra |
+|---|---|---|
+| **Fixo** | `essential` | Transações vinculadas a orçamentos desse grupo (o usuário vincula as recorrentes) |
+| **Variável** | `desire` | Vinculadas a orçamentos desse grupo + **toda saída `regular` sem vínculo** |
+| **Investimento** | `investment` | Vinculadas a esse grupo + `kind = investment` sem vínculo, pelo **líquido** (aplicações − resgates) |
+
+Fatura (`bill_payment`) e transferência entre contas próprias ficam fora. A
+**base da %** é a renda do mês: entradas `regular` (amount < 0). Proventos
+("Valor recebido de Investimentos") entram como renda, não como resgate.
+
+Faixas (mín–máx) entram nos totais pelo modo escolhido na tela: mínimo, médio
+(padrão) ou máximo. O uso de cada item é medido contra o teto (valor exato ou
+máximo da faixa).
+
+Nomes só da tela de Orçamentos (e do `BudgetModal`): `essential` aparece como
+**"Fixo"** (`BUDGET_GROUP_LABELS`); no resto do app segue "Essencial". A forma
+do valor aparece como **"Valor exato" / "Faixa"**.
+
 ## Impacto da migração
 
 - O widget de "Orçamento" do Dashboard/Home (gasto vs orçado por categoria) foi **removido** — o novo modelo não tem escopo mensal por categoria. `dashboard/summary` não retorna mais `budgetProgress`.
-- A página de Orçamentos virou um CRUD agrupado por tipo (50/30/20) com busca por nome.
+- A página de Orçamentos virou um CRUD agrupado por tipo (50/30/20) com busca por nome. Em 2026-09-25 foi redesenhada (ver `frontend/budgets.md`).

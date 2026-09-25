@@ -4,6 +4,7 @@ import type {
   AppSettings,
   BalancesSnapshot,
   Budget,
+  BudgetSummary,
   CashflowProjection,
   BudgetAmountType,
   BudgetType,
@@ -212,6 +213,12 @@ export const api = {
     list: (name?: string) => {
       const q = name ? `?name=${encodeURIComponent(name)}` : ""
       return request<Budget[]>(`/budgets${q}`)
+    },
+    summary: (params: DashboardParams = {}) => {
+      const q = new URLSearchParams()
+      if (params.month) q.set("month", String(params.month))
+      if (params.year) q.set("year", String(params.year))
+      return request<BudgetSummary>(`/budgets/summary?${q}`)
     },
     get: (id: string) => request<Budget>(`/budgets/${id}`),
     create: (body: BudgetInput) =>

@@ -23,6 +23,7 @@ sidebar (rodapé, acima do tema) e no drawer mobile.
 | Home | `useDashboardSummary({ month, year })`. Cards de saldo, projeção e check-up seguem o próprio escopo (saldo atual, futuro, mês anterior). |
 | Transações | `monthRange(month, year)`. Trocar o mês descarta o "período específico" e volta à página 1. |
 | Check-up | Gera (sob demanda) e mostra o relatório do mês global. Deixou de abrir em `/current`. |
+| Orçamentos | `useBudgetSummary({ month, year })` — realizado do mês contra o plano. |
 | Previsão | Não usa — o horizonte é futuro (3/6/12 meses). |
 
 Novas telas que dependam de mês devem usar `usePeriod()` — não criar `useState`
