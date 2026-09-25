@@ -51,3 +51,12 @@ a ordem reseta `page` para 1.
 
 Saída sempre em vermelho e **sem sinal de menos**; entrada em verde com "+".
 Vale na lista de Transações, no modal de reclassificação e em "Recentes" do Início.
+
+## Filtros em popover (2026-09-24)
+
+Categoria, forma de pagamento, recorrência e ordenação saíram da raiz da
+barra e vivem num único botão "Filtros" (ícone `SlidersHorizontal`) que abre
+um `Popover` com grade de duas colunas (uma no mobile). Cada `Select` aplica
+ao trocar, sem botão de confirmar. O botão fica preenchido e mostra um
+contador quando há filtro ativo (ordenação `asc` também conta). A busca
+continua na raiz.

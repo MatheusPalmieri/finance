@@ -13,6 +13,7 @@ import {
   Repeat,
   RotateCcw,
   Search,
+  SlidersHorizontal,
   X,
   Zap,
 } from "lucide-react"
@@ -161,6 +162,11 @@ export function Transactions() {
   const { data, isLoading, isError, refetch } = useTransactions(params)
   const { data: categories } = useCategories()
 
+  // Filtros ativos dentro do popover (ordenação fora do padrão também conta)
+  const activeFilters =
+    [filterCategoryId, filterPaymentMethod, filterRecurrence].filter(Boolean)
+      .length + (order !== "desc" ? 1 : 0)
+
   const grouped = groupByDate(data?.data ?? [])
 
   return (
@@ -266,78 +272,113 @@ export function Transactions() {
           />
         </div>
 
-        <Select
-          value={filterCategoryId || "all"}
-          onValueChange={(v) => {
-            setFilterCategoryId(v === "all" ? "" : v)
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as categorias</SelectItem>
-            {categories?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={activeFilters > 0 ? "default" : "outline"}
+              className="gap-2"
+            >
+              <SlidersHorizontal size={14} />
+              Filtros
+              {activeFilters > 0 && (
+                <span className="rounded-full bg-background/20 px-1.5 text-[10px] font-semibold">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="grid w-[min(36rem,calc(100vw-2rem))] grid-cols-1 gap-4 sm:grid-cols-2"
+          >
+            <div className="flex flex-col gap-1.5">
+              <Label>Categoria</Label>
+              <Select
+                value={filterCategoryId || "all"}
+                onValueChange={(v) => {
+                  setFilterCategoryId(v === "all" ? "" : v)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {categories?.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <Select
-          value={filterPaymentMethod || "all"}
-          onValueChange={(v) => {
-            setFilterPaymentMethod(v === "all" ? "" : (v as PaymentMethod))
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="Forma de pagamento" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os pagamentos</SelectItem>
-            {PAYMENT_METHOD_ORDER.map((p) => (
-              <SelectItem key={p} value={p}>
-                {PAYMENT_METHOD_LABELS[p]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Forma de pagamento</Label>
+              <Select
+                value={filterPaymentMethod || "all"}
+                onValueChange={(v) => {
+                  setFilterPaymentMethod(
+                    v === "all" ? "" : (v as PaymentMethod)
+                  )
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os pagamentos</SelectItem>
+                  {PAYMENT_METHOD_ORDER.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PAYMENT_METHOD_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <Select
-          value={filterRecurrence || "all"}
-          onValueChange={(v) => {
-            setFilterRecurrence(v === "all" ? "" : (v as Recurrence))
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Recorrência" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toda recorrência</SelectItem>
-            <SelectItem value="fixed">Fixo</SelectItem>
-            <SelectItem value="variable">Variável</SelectItem>
-          </SelectContent>
-        </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Recorrência</Label>
+              <Select
+                value={filterRecurrence || "all"}
+                onValueChange={(v) => {
+                  setFilterRecurrence(v === "all" ? "" : (v as Recurrence))
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Recorrência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toda recorrência</SelectItem>
+                  <SelectItem value="fixed">Fixo</SelectItem>
+                  <SelectItem value="variable">Variável</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <Select
-          value={order}
-          onValueChange={(v) => {
-            setOrder(v as "asc" | "desc")
-            setPage(1)
-          }}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Ordenar" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">Mais recentes primeiro</SelectItem>
-            <SelectItem value="asc">Mais antigas primeiro</SelectItem>
-          </SelectContent>
-        </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label>Ordenação</Label>
+              <Select
+                value={order}
+                onValueChange={(v) => {
+                  setOrder(v as "asc" | "desc")
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Ordenar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Mais recentes primeiro</SelectItem>
+                  <SelectItem value="asc">Mais antigas primeiro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Lista */}
