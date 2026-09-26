@@ -12,9 +12,9 @@ O `docker-compose.yml` na raiz do projeto sobe um PostgreSQL local para desenvol
 
 | Serviço | Imagem | Porta host | Porta container |
 |---------|--------|-----------|----------------|
-| `postgres` | `postgres:16-alpine` | **5433** | 5432 |
+| `postgres` | `postgres:16-alpine` | **5435** | 5432 |
 
-A porta do host é **5433** (não 5432) para evitar conflito com instâncias locais de PostgreSQL.
+A porta do host é **5435** (não 5432) para evitar conflito com instâncias locais de PostgreSQL.
 
 ## Credenciais
 
@@ -27,7 +27,7 @@ A porta do host é **5433** (não 5432) para evitar conflito com instâncias loc
 ## DATABASE_URL
 
 ```
-postgresql://finance:finance@localhost:5433/finance
+postgresql://finance:finance@localhost:5435/finance
 ```
 
 Este valor já está em `api/.env.example`. Copie para `api/.env` antes de rodar o backend.

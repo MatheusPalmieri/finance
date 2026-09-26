@@ -217,7 +217,7 @@ API listens on `http://localhost:3001` (ver `api/src/index.ts`). Requires `api/.
 ### Docker (raiz do projeto)
 
 ```bash
-docker compose up -d    # Sobe PostgreSQL na porta 5433
+docker compose up -d    # Sobe PostgreSQL na porta 5435
 docker compose down     # Para containers
 docker compose down -v  # Para e apaga volume (reseta banco)
 ```
@@ -255,7 +255,7 @@ bun run dev   # sobe api + app juntos
 
 ### Infra
 
-- **Docker Compose** — PostgreSQL 16-alpine na porta `5433` (credenciais: `finance/finance/finance`)
+- **Docker Compose** — PostgreSQL 16-alpine na porta `5435` (credenciais: `finance/finance/finance`)
 
 ## Business Rules
 
