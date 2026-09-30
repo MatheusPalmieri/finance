@@ -1,14 +1,9 @@
 // Monta os insumos da projeção e orquestra o Monte Carlo.
 // É o único arquivo do módulo, junto de `history.ts`, que toca o banco.
 
-import { and, between, eq, gt, sql } from "drizzle-orm"
+import { and, between, eq, gt, notInArray, sql } from "drizzle-orm"
 import { db } from "../../db"
-import {
-  appSettings,
-  budgets,
-  transactions,
-  type AppSettings,
-} from "../../db/schema"
+import { appSettings, transactions, type AppSettings } from "../../db/schema"
 import { COUNTED_TRANSACTIONS } from "../../lib/scope"
 import { getBalances } from "../open-finance/balances"
 import { getInvestments } from "../open-finance/investments"
@@ -109,7 +104,8 @@ interface ForecastInputs {
  * zero e `openingBalanceSource` vira "unavailable" para a UI avisar.
  *
  * O cartão entra negativo com a **fatura em aberto**: o usado do limite menos
- * as parcelas futuras, que já estão em `knownTransactions` do mês em que caem —
+ * as parcelas futuras, que já estão na projeção do mês em que caem (em
+ * `knownTransactions` ou, se a categoria tem orçamento, no plano dela) —
  * sem esse desconto elas seriam contadas duas vezes, e sem a fatura a projeção
  * ignoraria compras já feitas e ainda não pagas.
  *
@@ -205,49 +201,63 @@ async function buildInputs(
     await Promise.all([
       loadOpeningBalance(),
       loadHistory(historyStart.from, historyEnd.to, historyKeys),
-      db.select().from(budgets),
+      db.query.budgets.findMany({ with: { category: true } }),
     ])
 
-  // Orçamentos: fixos entram determinísticos, faixas viram triangulares
-  let fixedTotal = 0
+  // Orçamentos por categoria: valor exato entra determinístico, faixa vira
+  // triangular. A categoria com orçamento sai do histórico e das transações
+  // futuras — o plano já cobre o mês dela, e somar os dois contaria duas vezes
+  let exactTotal = 0
   const rangeBudgets: RangeBudget[] = []
+  const budgetedCategoryIds = budgetRows.map((b) => b.categoryId)
   for (const budget of budgetRows) {
-    if (budget.amountType === "fixed") {
-      fixedTotal += Number(budget.amount ?? 0)
+    if (budget.amountType === "exact") {
+      exactTotal += Number(budget.amount ?? 0)
     } else {
       const min = Number(budget.amountMin ?? 0)
       const max = Number(budget.amountMax ?? 0)
       if (max <= 0) continue
       rangeBudgets.push({
         budgetId: budget.id,
-        name: budget.name,
+        name: budget.category.name,
         min,
         mode: (min + max) / 2,
         max,
       })
     }
   }
+  const unbudgetedHistory = history.categories.filter(
+    (c) => !budgetedCategoryIds.includes(c.categoryId)
+  )
 
-  // Transações já cadastradas com data futura (positivo = saída líquida)
+  // Transações já lançadas com data futura (positivo = saída líquida), fora
+  // das categorias com orçamento
   const futureRows = await db
     .select({
       month: sql<string>`to_char(${transactions.date}::date, 'YYYY-MM')`,
       total: sql<string>`sum(${transactions.amount}::numeric)`,
     })
     .from(transactions)
-    .where(and(gt(transactions.date, today()), COUNTED_TRANSACTIONS))
+    .where(
+      and(
+        gt(transactions.date, today()),
+        COUNTED_TRANSACTIONS,
+        budgetedCategoryIds.length > 0
+          ? notInArray(transactions.categoryId, budgetedCategoryIds)
+          : undefined
+      )
+    )
     .groupBy(sql`to_char(${transactions.date}::date, 'YYYY-MM')`)
   const futureByMonth = new Map(
     futureRows.map((r) => [r.month, Number(r.total)])
   )
 
   // O mês corrente já tem parte do gasto no saldo das contas. Para não contar
-  // duas vezes, descontamos o realizado dos fixos/receita e escalamos os
-  // componentes estocásticos pela fração do mês que ainda falta.
+  // duas vezes, descontamos a receita já recebida e escalamos os orçamentos e
+  // os componentes estocásticos pela fração do mês que ainda falta.
   const currentRange = monthRange(currentYear, currentMonth)
   const [realized] = await db
     .select({
-      expenses: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where ${transactions.amount}::numeric > 0), 0)`,
       income: sql<string>`coalesce(abs(sum(${transactions.amount}::numeric) filter (where ${transactions.amount}::numeric < 0)), 0)`,
     })
     .from(transactions)
@@ -277,8 +287,8 @@ async function buildInputs(
             Math.max(0, history.recurringIncome.monthlyIncome - realizedIncome)
           )
         : round2(history.recurringIncome.monthlyIncome),
-      // Fixos do mês corrente entram pro-rata pelo que falta do mês
-      fixedExpenses: round2(fixedTotal * (isCurrent ? remainingFraction : 1)),
+      // Orçamentos exatos do mês corrente entram pro-rata pelo que falta do mês
+      exactBudgets: round2(exactTotal * (isCurrent ? remainingFraction : 1)),
       rangeBudgets,
       knownTransactions: round2(futureByMonth.get(slot.key) ?? 0),
       scenarioImpact: 0,
@@ -298,7 +308,7 @@ async function buildInputs(
     openingBalanceFetchedAt,
     months,
     horizon,
-    categories: history.categories,
+    categories: unbudgetedHistory,
     recurringIncome: history.recurringIncome,
     historyMonths: history.historyMonths,
     minimumReserveBrl,

@@ -16,7 +16,7 @@ function plan(partial: Partial<MonthPlan> = {}): MonthPlan {
     year: 2026,
     label: "out/26",
     expectedIncome: 0,
-    fixedExpenses: 0,
+    exactBudgets: 0,
     rangeBudgets: [],
     knownTransactions: 0,
     scenarioImpact: 0,
@@ -163,7 +163,7 @@ describe("simulate", () => {
   test("receita entra somando e despesa subtraindo", () => {
     const result = simulate(
       input({
-        months: [plan({ expectedIncome: 5000, fixedExpenses: 2000, knownTransactions: 300 })],
+        months: [plan({ expectedIncome: 5000, exactBudgets: 2000, knownTransactions: 300 })],
       })
     )
     expect(result.months[0].balance.p50).toBe(12700) // 10000 + 5000 - 2000 - 300
@@ -194,7 +194,7 @@ describe("simulate", () => {
       input({
         months: [
           plan({ month: 1, label: "jan/26" }),
-          plan({ month: 2, label: "fev/26", fixedExpenses: 9000 }),
+          plan({ month: 2, label: "fev/26", exactBudgets: 9000 }),
           plan({ month: 3, label: "mar/26", expectedIncome: 9000 }),
         ],
       })
@@ -208,7 +208,7 @@ describe("simulate", () => {
       input({
         openingBalance: 1000,
         months: [
-          plan({ month: 1, label: "jan/26", fixedExpenses: 2000 }),
+          plan({ month: 1, label: "jan/26", exactBudgets: 2000 }),
           plan({ month: 2, label: "fev/26", expectedIncome: 5000 }),
         ],
       })

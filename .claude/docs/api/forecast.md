@@ -1,7 +1,7 @@
 ---
 title: Endpoints /forecast e /settings
 area: api
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -37,8 +37,8 @@ Código: `api/src/modules/forecast/`.
     {
       "month": 9, "year": 2026, "label": "set/26",
       "expectedIncome": 0,
-      "fixedExpenses": 1518,
-      "variableExpensesP50": 0,
+      "budgetedExpenses": 1518,        // orçamentos: exatos + ponto médio das faixas
+      "unbudgetedExpensesP50": 0,      // categorias sem orçamento, pelo histórico
       "knownTransactions": 0,
       "scenarioImpact": 0,
       "balance": { "p10": 16969.03, "p25": 17100, "p50": 17227.07, "p75": 17240, "p90": 17248.2 },

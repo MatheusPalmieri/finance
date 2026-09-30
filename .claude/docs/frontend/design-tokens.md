@@ -1,7 +1,7 @@
 ---
 title: Design tokens e paleta de cor
 area: frontend
-updated: 2026-06-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -36,7 +36,8 @@ cor de marca e de crescimento (investimentos).
 
 - `PALETTE` — escala nomeada de hex (emerald, blue, indigo, …). **Único lugar com hex.**
 - `FINANCE` — cores semânticas de negócio com significado fixo:
-  `essential` (amber), `nonEssential` (violet), `fixed` (indigo), `variable` (teal),
+  `essential` (amber) e `variable` (violet) — grupos 50/30/20 —, `exact`
+  (indigo) e `range` (teal) — forma do orçamento —,
   `expense` (red), `income` (emerald), `neutral` (gray).
 - `CHART_PALETTE` — ordem das séries de gráfico (lidera com esmeralda).
 - `PICKER_SWATCHES` + `DEFAULT_PICKER_COLOR` — única lista de swatches do seletor

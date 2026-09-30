@@ -113,9 +113,10 @@ describe("buildNarrativePayload", () => {
       },
       biggestExpense: null,
       budgets: [],
-      distribution: buildDistribution({
-        essential: 50, desire: 30, investment: 20,
-      }),
+      distribution: buildDistribution(
+        { essential: 4000, variable: 2400, investment: 1600 },
+        8000
+      ),
       anomalies: [],
       topMovers: { up: [], down: [] },
       newMerchants: [],
@@ -128,8 +129,8 @@ describe("buildNarrativePayload", () => {
     const payload = buildNarrativePayload(
       metrics({
         budgets: [
-          { budgetId: "b1", name: "No alvo", type: "essential", amountType: "fixed", plannedBrl: 1000, plannedMinBrl: null, plannedMaxBrl: null, actualBrl: 1000, status: "on_track", transactionCount: 1 },
-          { budgetId: "b2", name: "Estourou", type: "essential", amountType: "fixed", plannedBrl: 1000, plannedMinBrl: null, plannedMaxBrl: null, actualBrl: 1500, status: "over", transactionCount: 1 },
+          { categoryId: "c1", name: "No alvo", color: "#ef4444", group: "essential", amountType: "exact", plannedBrl: 1000, plannedMinBrl: null, plannedMaxBrl: null, actualBrl: 1000, status: "on_track", transactionCount: 1 },
+          { categoryId: "c2", name: "Estourou", color: "#ef4444", group: "essential", amountType: "exact", plannedBrl: 1000, plannedMinBrl: null, plannedMaxBrl: null, actualBrl: 1500, status: "over", transactionCount: 1 },
         ],
       }),
       []
@@ -144,7 +145,7 @@ describe("buildNarrativePayload", () => {
     const payload = buildNarrativePayload(
       metrics({
         budgets: [
-          { budgetId: "b1", name: "Faixa", type: "essential", amountType: "variable", plannedBrl: null, plannedMinBrl: 500, plannedMaxBrl: 800, actualBrl: 900, status: "over", transactionCount: 3 },
+          { categoryId: "c1", name: "Faixa", color: "#ef4444", group: "essential", amountType: "range", plannedBrl: null, plannedMinBrl: 500, plannedMaxBrl: 800, actualBrl: 900, status: "over", transactionCount: 3 },
         ],
       }),
       []

@@ -1,7 +1,7 @@
 ---
 title: Página /rules — Classificação
 area: frontend
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -27,8 +27,8 @@ Tabela com busca (padrão ou nome), filtro por origem e botão "Nova regra".
 | Origem | Badge `padrão` / `manual` / `aprendida` (esta em esmeralda) |
 | Usos | `hitCount`; o título mostra quando foi a última vez |
 
-O resumo ("renomeia para X · Moradia · Boleto · gasto recorrente") evita uma tabela de
-8 colunas para campos que quase sempre estão vazios.
+O resumo ("renomeia para X · Moradia · Boleto") evita uma tabela de colunas
+que quase sempre estão vazias.
 
 Ações por linha, reveladas no hover (sempre visíveis no toque): ligar/desligar,
 **aplicar às existentes** (ícone `History`), editar e excluir. Regra desligada fica esmaecida em vez de sumir — desligar não
@@ -36,11 +36,10 @@ Ações por linha, reveladas no hover (sempre visíveis no toque): ligar/desliga
 
 ### Modal de criar/editar
 
-Campos: padrão, tipo de match, prioridade, renomear para, categoria, forma de
-pagamento, recorrência e, só quando a recorrência é "Recorrente", **orçamento
-vinculado** (`BudgetCombobox`, o mesmo da reclassificação). Sair de "Recorrente" limpa
-o orçamento, e o payload manda `budgetId: null` fora de gasto fixo. Todos exceto o padrão aceitam "Não definir" — a regra
-aplica só o que preencher.
+Campos: padrão, tipo de match, prioridade, renomear para, categoria e forma de
+pagamento. Todos exceto o padrão aceitam "Não definir": a regra aplica só o
+que preencher. Não há orçamento nem recorrência. Uma nota lembra que a categoria
+decide o orçamento e o grupo 50/30/20.
 
 **Preview ao vivo**: `POST /classification/rules/test` com debounce de 400ms
 mostra quantas transações do histórico casariam e lista as primeiras, com data

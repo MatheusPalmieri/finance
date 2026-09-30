@@ -1,21 +1,16 @@
-import type {
-  PaymentMethod,
-  Recurrence,
-} from "../../db/schema"
+import type { PaymentMethod } from "../../db/schema"
 
 /** Qual camada produziu a sugestão. */
 export type SuggestionSource = "rule" | "knn" | "llm" | "none"
 
-/** Campos que uma camada pode preencher numa linha da importação. */
+/**
+ * Campos que uma camada pode preencher numa transação nova do sync. A categoria
+ * decide o resto: grupo 50/30/20 e orçamento vêm dela.
+ */
 export interface ClassificationPatch {
   suggestedName: string | null
   categoryId: string | null
   paymentMethod: PaymentMethod | null
-  recurrence: Recurrence | null
-  isEssential: boolean | null
-  budgetId: string | null
-  /** Força o sinal, ignorando o do extrato (caso "Aplicação RDB"). */
-  forceIncome: boolean | null
 }
 
 export interface Suggestion extends ClassificationPatch {
@@ -29,10 +24,6 @@ export interface Suggestion extends ClassificationPatch {
 export interface SuggestItem {
   index: number
   description: string
-  /** Usado pelo detector de recorrência — nunca é repassado ao LLM. */
-  date?: string
-  /** Idem. */
-  amount?: number
 }
 
 export interface SuggestStats {
@@ -53,8 +44,4 @@ export const EMPTY_PATCH: ClassificationPatch = {
   suggestedName: null,
   categoryId: null,
   paymentMethod: null,
-  recurrence: null,
-  isEssential: null,
-  budgetId: null,
-  forceIncome: null,
 }

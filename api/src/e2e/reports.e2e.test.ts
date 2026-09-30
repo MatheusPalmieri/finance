@@ -160,24 +160,28 @@ describe("e2e POST /reports/monthly/generate — totais", () => {
 })
 
 describe("e2e — orçamentos e 50/30/20", () => {
-  test("classifica over, under, on_track e missing", async () => {
+  test("classifica over, under, on_track e missing pelo gasto da categoria", async () => {
     const account = await makeAccount()
-    const category = await makeCategory("Moradia")
-    const estourado = await makeBudget("Estourado", { amount: 1000 })
-    const noAlvo = await makeBudget("No alvo", { amount: 1000 })
-    const abaixo = await makeBudget("Abaixo", { amount: 1000 })
-    await makeBudget("Esquecido", { amount: 1000 })
+    const estourado = await makeCategory("Estourado")
+    const noAlvo = await makeCategory("No alvo")
+    const abaixo = await makeCategory("Abaixo")
+    const esquecido = await makeCategory("Esquecido")
+    for (const category of [estourado, noAlvo, abaixo, esquecido]) {
+      await makeBudget(category.id, { amount: 1000 })
+    }
 
     await makeTransactions([
-      { name: "a", amount: 1200, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, recurrence: "fixed", budgetId: estourado.id },
-      { name: "b", amount: 1010, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, recurrence: "fixed", budgetId: noAlvo.id },
-      { name: "c", amount: 900, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, recurrence: "fixed", budgetId: abaixo.id },
+      // Duas transações na mesma categoria somam no mesmo orçamento
+      { name: "a", amount: 700, date: dayIn(1, 5), categoryId: estourado.id, accountId: account.id },
+      { name: "a2", amount: 500, date: dayIn(1, 9), categoryId: estourado.id, accountId: account.id },
+      { name: "b", amount: 1010, date: dayIn(1, 5), categoryId: noAlvo.id, accountId: account.id },
+      { name: "c", amount: 900, date: dayIn(1, 5), categoryId: abaixo.id, accountId: account.id },
     ])
 
     const report = await generate()
     const byName = new Map(report.body.metrics.budgets.map((b) => [b.name, b]))
 
-    expect(byName.get("Estourado")!.status).toBe("over")
+    expect(byName.get("Estourado")!).toMatchObject({ status: "over", actualBrl: 1200, transactionCount: 2 })
     expect(byName.get("No alvo")!.status).toBe("on_track")
     expect(byName.get("Abaixo")!.status).toBe("under")
     expect(byName.get("Esquecido")!.status).toBe("missing")
@@ -186,42 +190,40 @@ describe("e2e — orçamentos e 50/30/20", () => {
   test("orçamento de faixa respeita os limites", async () => {
     const account = await makeAccount()
     const category = await makeCategory("Alimentação")
-    const faixa = await makeBudget("Faixa", { amountMin: 500, amountMax: 800 })
+    await makeBudget(category.id, { amountMin: 500, amountMax: 800 })
 
     await makeTransaction({
       name: "no limite", amount: 800.01, date: dayIn(1, 5),
       categoryId: category.id, accountId: account.id,
-      recurrence: "fixed", budgetId: faixa.id,
     })
 
     const report = await generate()
     expect(report.body.metrics.budgets[0].status).toBe("over")
   })
 
-  test("a distribuição segue a regra determinística", async () => {
+  test("a distribuição vem do grupo da categoria, em % da renda", async () => {
     const account = await makeAccount()
-    const category = await makeCategory("Diversos")
-    const investimento = await makeBudget("Aportes", {
-      type: "investment",
-      amount: 200,
-    })
+    const salary = await makeCategory("Salário")
+    const market = await makeCategory("Mercado", { group: "essential" })
+    const fun = await makeCategory("Lazer")
+    const invest = await makeCategory("Investimento", { group: "investment" })
 
     await makeTransactions([
-      // fixo com orçamento de investimento → investment
-      { name: "Aporte", amount: 200, date: dayIn(1, 5), categoryId: category.id, accountId: account.id, recurrence: "fixed", budgetId: investimento.id },
-      // variável essencial → essential
-      { name: "Mercado", amount: 500, date: dayIn(1, 6), categoryId: category.id, accountId: account.id, isEssential: true },
-      // variável não essencial → desire
-      { name: "Cinema", amount: 300, date: dayIn(1, 7), categoryId: category.id, accountId: account.id, isEssential: false },
+      { name: "Salário", amount: -1000, date: dayIn(1, 5), categoryId: salary.id, accountId: account.id },
+      { name: "Giassi", amount: 500, date: dayIn(1, 6), categoryId: market.id, accountId: account.id },
+      { name: "Cinema", amount: 300, date: dayIn(1, 7), categoryId: fun.id, accountId: account.id },
+      // Aplicação conta pelo líquido, como na tela de Orçamentos
+      { name: "Aplicação RDB", amount: 250, date: dayIn(1, 8), categoryId: invest.id, accountId: account.id, kind: "investment" },
+      { name: "Resgate RDB", amount: -50, date: dayIn(1, 9), categoryId: invest.id, accountId: account.id, kind: "investment" },
     ])
 
     const report = await generate()
     const { distribution } = report.body.metrics
 
-    expect(distribution.investment.amountBrl).toBe(200)
     expect(distribution.essential.amountBrl).toBe(500)
-    expect(distribution.desire.amountBrl).toBe(300)
-    // 500 de 1000 = 50%, exatamente na meta
+    expect(distribution.variable.amountBrl).toBe(300)
+    expect(distribution.investment.amountBrl).toBe(200)
+    // 500 de 1000 de renda = 50%, exatamente na meta
     expect(distribution.essential.pct).toBe(50)
     expect(distribution.essential.deltaPp).toBe(0)
     expect(distribution.investment.deltaPp).toBe(0)
@@ -348,7 +350,8 @@ describe("e2e — insights", () => {
   })
 
   test("mês sem movimento nenhum não gera insight", async () => {
-    await makeBudget("Aluguel", { amount: 1000 })
+    const housing = await makeCategory("Moradia")
+    await makeBudget(housing.id, { amount: 1000 })
     const report = await generate()
 
     expect(report.status).toBe(200)
@@ -359,16 +362,15 @@ describe("e2e — insights", () => {
   test("os insights carregam referências para a UI navegar", async () => {
     const account = await makeAccount()
     const category = await makeCategory("Moradia")
-    const budget = await makeBudget("Aluguel", { amount: 1000 })
+    await makeBudget(category.id, { amount: 1000 })
     await makeTransaction({
       name: "Aluguel", amount: 1500, date: dayIn(1, 5),
       categoryId: category.id, accountId: account.id,
-      recurrence: "fixed", budgetId: budget.id,
     })
 
     const report = await generate()
     const over = report.body.insights.find((i) => i.kind === "budget_over")
-    expect(over?.budgetId).toBe(budget.id)
+    expect(over?.categoryId).toBe(category.id)
   })
 })
 

@@ -98,15 +98,16 @@ Docs existentes:
 - `.claude/docs/infra/open-finance-sync.md` — gatilhos do sync, `bun run sync:pluggy` e a tarefa do Agendador do Windows
 - `.claude/docs/domain/client.md` — entidade Client, regras de negócio, status
 - `.claude/docs/domain/transaction.md` — entidade Transação (só do Open Finance; campos do banco vs do usuário, sinal de amount, escopo das análises)
-- `.claude/docs/domain/budget.md` — entidade Orçamento (50/30/20), validações e link com transações
+- `.claude/docs/domain/budget.md` — orçamento = plano mensal da categoria; grupo 50/30/20 na categoria; regra única do gasto do plano (`lib/spending.ts`)
 - `.claude/docs/api/clients.md` — todos os endpoints /clients
 - `.claude/docs/api/lookups.md` — endpoints /categories (bancos, carteiras e formas de pagamento removidos como CRUD)
 - `.claude/docs/api/transactions.md` — endpoints /transactions (leitura + PATCH de reclassificação), /accounts (leitura + aparência) e /dashboard
-- `.claude/docs/api/budgets.md` — endpoints /budgets e integração budget_id nas transações
+- `.claude/docs/api/budgets.md` — endpoints /budgets (resumo por categoria e grupo, PUT/DELETE do plano por categoryId)
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
-- `.claude/docs/frontend/budgets.md` — página /budgets: resumo Fixo/Variável/Investimento contra a meta 50/30/20 (base = renda do mês), toggle de faixa mín/médio/máx e tabela compacta
+- `.claude/docs/frontend/budgets.md` — página /budgets: resumo Essencial/Variável/Investimento contra a meta 50/30/20 (base = renda do mês), tabela por categoria e `BudgetModal` (grupo + valor)
 - `.claude/docs/frontend/global-month.md` — seletor de mês global na sidebar (`PeriodProvider`/`usePeriod`) e quem o consome
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês, período específico e filtro por conta em Transações
+- `.claude/docs/decisions/orcamento-por-categoria.md` — ADR: orçamento por categoria, grupo na categoria, fim de recorrência/essencial/vínculo por transação
 - `.claude/docs/decisions/remocao-carteiras.md` — ADR: por que as carteiras saíram (a conta sandbox que as substituiu também saiu depois)
 - `.claude/docs/decisions/remocao-open-finance.md` — ADR (substituído pela spec 04): por que a primeira integração Open Finance foi removida
 - `.claude/docs/decisions/elysia-status-helper.md` — ADR: usar status() (não error()) nos handlers
@@ -191,7 +192,7 @@ bun run dev        # Dev server (Vite) — http://localhost:5173
 bun run build      # tsc -b && vite build
 bun run lint       # ESLint
 bun run format     # Prettier
-bun run typecheck  # tsc --noEmit
+bun run typecheck  # tsc -b (o tsconfig raiz só tem referências)
 bun run preview    # Preview production build
 ```
 

@@ -29,10 +29,10 @@ export const PALETTE = {
 // ── Cores semânticas de finanças ──────────────────────────────────────────────
 // Significado fixo de negócio — reutilizado por gráficos, badges e barras.
 export const FINANCE = {
-  essential: PALETTE.amber, // gasto essencial
-  nonEssential: PALETTE.violet, // gasto não essencial
-  fixed: PALETTE.indigo, // recorrência: recorrente (também "valor fixo" do orçamento)
-  variable: PALETTE.teal, // recorrência: avulso (também "faixa" do orçamento)
+  essential: PALETTE.amber, // grupo essencial (50/30/20)
+  variable: PALETTE.violet, // grupo variável (50/30/20)
+  exact: PALETTE.indigo, // orçamento de valor exato
+  range: PALETTE.teal, // orçamento em faixa (mín–máx)
   expense: PALETTE.red, // saída de dinheiro
   income: PALETTE.emerald, // entrada / crescimento
   neutral: PALETTE.gray, // sem categoria / fallback

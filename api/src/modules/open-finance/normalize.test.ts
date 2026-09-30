@@ -112,7 +112,9 @@ describe("pluggyCategoryToLocalName", () => {
     expect(pluggyCategoryToLocalName("07000000")).toBe("Serviços")
   })
 
-  test("comida, transporte e sem mapeamento", () => {
+  test("mercado, comida fora, transporte e sem mapeamento", () => {
+    // Supermercado é essencial (Mercado); comer fora é variável (Alimentação)
+    expect(pluggyCategoryToLocalName("10000000")).toBe("Mercado")
     expect(pluggyCategoryToLocalName("11020000")).toBe("Alimentação")
     expect(pluggyCategoryToLocalName("19050001")).toBe("Transporte")
     expect(pluggyCategoryToLocalName("05000000")).toBeNull()

@@ -1,7 +1,7 @@
 ---
 title: Check-up mensal (relatório e anomalias)
 area: domain
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -43,26 +43,26 @@ nome, data e categoria).
 
 Duas leituras, ambas úteis:
 
-**a) Planejado vs. realizado** — para cada `budget`, soma as transações do mês
-com aquele `budgetId`:
+As duas leituras usam o gasto do plano de `lib/spending.ts`, a mesma conta da
+tela de Orçamentos (ver `domain/budget.md`).
+
+**a) Planejado vs. realizado:** para cada orçamento, o gasto da **categoria**
+dele no mês. Cada linha traz `categoryId`, `name`, `color` e `group`.
 
 | `amountType` | `over` | `under` | `on_track` |
 |---|---|---|---|
-| `fixed` | `> amount * 1,02` | `< amount * 0,98` | entre os dois |
-| `variable` | `> amountMax` | `< amountMin` | entre os dois |
+| `exact` | `> amount * 1,02` | `< amount * 0,98` | entre os dois |
+| `range` | `> amountMax` | `< amountMin` | entre os dois |
 
-Orçamento **sem nenhum lançamento no mês** entra com status `missing` — é assim
-que o relatório pega "esqueceu de lançar a conta de luz".
+Categoria orçada **sem nenhuma transação no mês** entra com status `missing`:
+a conta de luz não chegou, ou caiu em outra categoria.
 
-**b) Distribuição do gasto total** — gasto variável não tem `budgetId`, então a
-classificação é por outra regra, determinística:
+**b) Distribuição 50/30/20:** gasto por grupo da categoria (`essential`,
+`variable`, `investment`, com o líquido das aplicações neste último) em **% da
+renda do mês**. O que sobra da renda não entra em grupo nenhum. Sem renda, os
+percentuais ficam em 0 e não viram insight.
 
-- `recurrence = "fixed"` → herda o `type` do orçamento vinculado;
-- `recurrence = "variable"` + `isEssential` → `essential`;
-- `recurrence = "variable"` sem `isEssential` → `desire`;
-- `investment` só vem de orçamento vinculado.
-
-Resultado por bucket: `{ amountBrl, pct, targetPct, deltaPp }`.
+Resultado por grupo: `{ amountBrl, pct, targetPct, deltaPp }`.
 
 ### 3. Anomalias por categoria
 

@@ -5,9 +5,9 @@
 // Se a base passar de ~50 mil transações, trocar por `pg_trgm` é uma mudança
 // interna deste arquivo — a interface não muda.
 
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm"
+import { desc } from "drizzle-orm"
 import { db } from "../../db"
-import { transactions, type PaymentMethod, type Recurrence } from "../../db/schema"
+import { transactions, type PaymentMethod } from "../../db/schema"
 import { diceSimilarity, merchantKey, trigrams } from "./normalize"
 import { REAL_TRANSACTIONS } from "../../lib/scope"
 import { EMPTY_PATCH, type ClassificationPatch } from "./types"
@@ -18,34 +18,43 @@ export const KNN_THRESHOLD = 0.75
 export const KNN_K = 5
 /** Quantas transações entram no índice. */
 export const KNN_SAMPLE_SIZE = 1000
-/** Abaixo disso, a carteira não tem histórico suficiente e usa o global. */
 
 export interface KnnEntry {
   key: string
   grams: Set<string>
+  /** Nome que o usuário deu — reaproveitado quando a chave é a mesma. */
   name: string
   categoryId: string
   paymentMethod: PaymentMethod
-  recurrence: Recurrence
-  isEssential: boolean
 }
 
 export type KnnIndex = KnnEntry[]
 
+/**
+ * A chave sai do nome do BANCO (`originalName`), não do nome editado: a
+ * transação nova chega com o texto do banco, e comparar com "Financiamento do
+ * carro" nunca acharia "Pagamento efetuado - AYMORE…". Sem `originalName`, cai
+ * no `name`.
+ */
 export function buildKnnIndex(
   rows: {
     name: string
+    originalName: string | null
     categoryId: string
     paymentMethod: PaymentMethod
-    recurrence: Recurrence
-    isEssential: boolean
   }[]
 ): KnnIndex {
   const index: KnnIndex = []
   for (const row of rows) {
-    const key = merchantKey(row.name)
+    const key = merchantKey(row.originalName ?? row.name)
     if (!key) continue
-    index.push({ ...row, key, grams: trigrams(key) })
+    index.push({
+      key,
+      grams: trigrams(key),
+      name: row.name,
+      categoryId: row.categoryId,
+      paymentMethod: row.paymentMethod,
+    })
   }
   return index
 }
@@ -126,34 +135,24 @@ export function knnSuggest(
       suggestedName:
         supporters[0].entry.key === key ? supporters[0].entry.name : null,
       paymentMethod: mode(supporters.map((n) => n.entry.paymentMethod)),
-      recurrence: mode(supporters.map((n) => n.entry.recurrence)),
-      isEssential: mode(supporters.map((n) => n.entry.isEssential)),
     },
   }
 }
 
-/** Índice das últimas transações classificadas (sem as de contas sandbox). */
+/** Índice das últimas transações classificadas. */
 export async function loadKnnIndex(): Promise<KnnIndex> {
   const rows = await db
     .select({
       name: transactions.name,
+      originalName: transactions.originalName,
       categoryId: transactions.categoryId,
       paymentMethod: transactions.paymentMethod,
-      recurrence: transactions.recurrence,
-      isEssential: transactions.isEssential,
     })
     .from(transactions)
-    .where(and(isNotNull(transactions.categoryId), REAL_TRANSACTIONS))
+    .where(REAL_TRANSACTIONS)
     .orderBy(desc(transactions.date), desc(transactions.createdAt))
     .limit(KNN_SAMPLE_SIZE)
 
   return buildKnnIndex(rows)
 }
 
-/** Contagem usada pelo `/classification/rules/test` e pela UI de diagnóstico. */
-export async function historySize(): Promise<number> {
-  const [row] = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(transactions)
-  return row?.total ?? 0
-}

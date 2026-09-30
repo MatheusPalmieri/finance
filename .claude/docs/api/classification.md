@@ -1,7 +1,7 @@
 ---
 title: Endpoints /classification e /recurring
 area: api
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -23,7 +23,7 @@ Coração do motor. Recebe descrições cruas, devolve sugestões com a origem.
 {
   "useAi": true,               // false pula a camada 3
   "items": [
-    { "index": 0, "description": "PAG*Netflix", "date": "2026-09-03", "amount": 55.9 }
+    { "index": 0, "description": "PAG*Netflix" }
   ]
 }
 ```
@@ -40,37 +40,35 @@ Coração do motor. Recebe descrições cruas, devolve sugestões com a origem.
       "confidence": 0.86,
       "suggestedName": "Netflix",
       "categoryId": "uuid | null",
-      "paymentMethod": "credit_card | null",
-      "recurrence": "fixed | null",
-      "isEssential": false,
-      "budgetId": null,
-      "forceIncome": null
+      "paymentMethod": "credit_card | null"
     }
   ],
   "stats": { "rule": 12, "knn": 5, "llm": 3, "none": 1, "llmLatencyMs": 1840 }
 }
 ```
 
-- `amount` e `date` são usados pelo detector de recorrência e **não** são
-  repassados ao LLM.
+- Só a descrição entra: valor e data nunca chegam à rota nem ao LLM. Campos a
+  mais no corpo são descartados pela validação.
+- A sugestão cobre nome, categoria e forma de pagamento. O grupo 50/30/20 e o
+  orçamento vêm da categoria (ver `domain/budget.md`).
 - A rota **nunca falha por causa da IA**: se a camada 3 cair, as linhas
   residuais voltam com `source: "none"` e `aiAvailable: false`.
 - `confidence`: `1` para regra, a similaridade no kNN, teto de `0,9` no LLM.
 
 ## `POST /classification/feedback`
 
-Chamado quando o usuário corrige uma sugestão na revisão. É o que faz o sistema
-aprender.
+Transforma uma correção em regra `learned`.
+
+> **A confirmar:** nenhuma tela chama esta rota hoje (o hook do front saiu em
+> 2026-09-30 junto com a antiga revisão de importação). Ligar "aplicar sempre"
+> na reclassificação é o próximo passo natural.
 
 ```jsonc
 {
   "description": "PAG*Netflix 12/24",   // a descrição CRUA, não o nome editado
   "categoryId": "uuid",
   "paymentMethod": "credit_card",
-  "recurrence": "fixed",
-  "isEssential": false,
   "renameTo": "Netflix",
-  "budgetId": null,
   "createRule": true                    // false só registra, não cria regra
 }
 ```
@@ -87,7 +85,7 @@ O pattern é derivado de `merchantKey(description)`.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/classification/rules` | Query: `search`, `source`, `enabled`. Ordenada por `priority desc, hitCount desc`; traz `category` e `budget` |
+| GET | `/classification/rules` | Query: `search`, `source`, `enabled`. Ordenada por `priority desc, hitCount desc`; traz `category` |
 | POST | `/classification/rules` | Cria. `400` com regex inválida quando `matchType: "regex"` |
 | PUT | `/classification/rules/:id` | Edita |
 | PATCH | `/classification/rules/:id/toggle` | Liga/desliga sem apagar |
@@ -107,10 +105,6 @@ Corpo de criação/edição (todos os campos além de `pattern` são opcionais):
   "renameTo": "Aluguel",
   "categoryId": "uuid | null",
   "paymentMethod": "boleto | null",
-  "recurrence": "fixed | null",
-  "isEssential": true,
-  "forceIncome": null,
-  "budgetId": null,
   "enabled": true
 }
 ```
@@ -141,7 +135,7 @@ histórico, a pedido do usuário.
     {
       "id": "uuid", "date": "2026-08-31", "amount": "480.00",
       "originalName": "Yduqs 5/6", "name": "Faculdade", "nextName": "Faculdade",
-      "fields": ["recurrence", "budget"]   // name | category | essential | recurrence | budget
+      "fields": ["name", "category"]   // name | category
     }
   ]
 }
@@ -151,12 +145,9 @@ histórico, a pedido do usuário.
 
 - Considera **só esta regra**, independente da prioridade, e casa pelo
   `originalName`. Regra desligada também pode ser aplicada.
-- Só campos de classificação: `renameTo` → `name`, `categoryId`, `isEssential`
-  (entrada nunca vira essencial), `recurrence` e `budgetId`. `paymentMethod` e
-  `forceIncome` **não** são aplicados — forma de pagamento e sinal são do Open
-  Finance.
-- Recorrência segue o sync: `fixed` só com `budgetId` (sem orçamento, a
-  recorrência não muda); `variable` zera o orçamento.
+- Só nome (`renameTo`) e categoria (`categoryId`). `paymentMethod` **não** é
+  aplicado: a forma de pagamento é do Open Finance. Mudar a categoria já move o
+  gasto de orçamento e de grupo.
 - O `POST` recalcula o plano na hora (não confia na prévia), grava tudo numa
   transação e dispara `scheduleRecalculate()`. É idempotente: aplicar de novo
   devolve `applied: 0`.

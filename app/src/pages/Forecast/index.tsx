@@ -522,8 +522,8 @@ function MonthlyTable({ projection }: { projection: CashflowProjection }) {
       <div className="divide-y">
         {projection.months.map((month) => {
           const outflow =
-            month.fixedExpenses +
-            month.variableExpensesP50 +
+            month.budgetedExpenses +
+            month.unbudgetedExpensesP50 +
             month.knownTransactions +
             month.scenarioImpact
           const isOpen = expanded === month.label
@@ -583,10 +583,10 @@ function MonthlyTable({ projection }: { projection: CashflowProjection }) {
 
               {isOpen && (
                 <div className="grid gap-2 bg-muted/30 px-4 py-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                  <Detail label="Gastos recorrentes" value={month.fixedExpenses} />
+                  <Detail label="Orçado" value={month.budgetedExpenses} />
                   <Detail
-                    label="Avulsos (provável)"
-                    value={month.variableExpensesP50}
+                    label="Sem orçamento (provável)"
+                    value={month.unbudgetedExpensesP50}
                   />
                   <Detail
                     label="Já lançado no futuro"

@@ -1,5 +1,5 @@
-// E2E do painel inicial: ritmo contra o mês anterior, balde "sem classificação"
-// e Recentes sem parcelas futuras.
+// E2E do painel inicial: ritmo contra o mês anterior, grupos 50/30/20 pela
+// categoria, balde "sem classificação" e Recentes sem parcelas futuras.
 
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
@@ -13,8 +13,7 @@ import {
 
 interface Summary {
   totalExpenses: string
-  essentialExpenses: string
-  nonEssentialExpenses: string
+  expensesByGroup: { essential: string; variable: string; investment: string }
   unclassifiedExpenses: string
   unclassifiedCount: number
   pace: { previousTotal: string; cutoffDay: number; partial: boolean }
@@ -43,18 +42,22 @@ describe("e2e — dashboard", () => {
     expect(Number(res.body.totalExpenses)).toBe(300)
   })
 
-  test("categoria de reserva do sync vai para o balde próprio, não para não essencial", async () => {
+  test("grupo vem da categoria; a de reserva do sync vai para o balde próprio", async () => {
     const account = await makeAccount("Nubank")
-    const category = await makeCategory("Mercado")
-    await makeTransaction({ name: "Classificada", amount: 100, date: dayIn(2, 5), categoryId: category.id, accountId: account.id, isEssential: true })
+    const market = await makeCategory("Mercado", { group: "essential" })
+    const food = await makeCategory("Alimentação")
+    await makeTransaction({ name: "Giassi", amount: 100, date: dayIn(2, 5), categoryId: market.id, accountId: account.id })
+    await makeTransaction({ name: "iFood", amount: 30, date: dayIn(2, 5), categoryId: food.id, accountId: account.id })
     const outros = await makeCategory("Outros")
     await makeTransaction({ name: "Solta", amount: 40, date: dayIn(2, 6), categoryId: outros.id, accountId: account.id })
 
     const { month, year } = monthOffset(2)
     const res = await api.get<Summary>(`/dashboard/summary?month=${month}&year=${year}`)
 
-    expect(Number(res.body.essentialExpenses)).toBe(100)
-    expect(Number(res.body.nonEssentialExpenses)).toBe(0)
+    const byGroup = res.body.expensesByGroup
+    expect(Number(byGroup.essential)).toBe(100)
+    expect(Number(byGroup.variable)).toBe(30)
+    expect(Number(byGroup.investment)).toBe(0)
     expect(Number(res.body.unclassifiedExpenses)).toBe(40)
     expect(res.body.unclassifiedCount).toBe(1)
   })

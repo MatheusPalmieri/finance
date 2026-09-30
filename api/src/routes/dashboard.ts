@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia"
 import { and, between, eq, desc, lte, sql } from "drizzle-orm"
 import { db } from "../db"
-import { accounts, categories, transactions } from "../db/schema"
+import { accounts, categories, transactions, type SpendingGroup } from "../db/schema"
 import { PAYMENT_METHOD_HEX, PAYMENT_METHOD_LABELS } from "../lib/payment-methods"
 import { FALLBACK_CATEGORY } from "../lib/fallback-category"
 import { COUNTED_TRANSACTIONS, REAL_TRANSACTIONS } from "../lib/scope"
@@ -39,19 +39,19 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
         COUNTED_TRANSACTIONS
       )
 
-      // Totais do mês (despesas), com cortes por essencial e por recorrência
+      // Totais do mês (despesas), cortados pelo grupo 50/30/20 da categoria
+      const byGroup = (group: SpendingGroup) =>
+        sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where ${categories.group} = ${group} and not ${unclassified}), 0)`
       const [totals] = await db
         .select({
           total: sql<string>`coalesce(sum(amount::numeric), 0)`,
-          // Na categoria de reserva do sync = ainda sem classificação: ele grava
-          // `is_essential = false` por padrão, então contar isso como "não
-          // essencial" seria inventar dado. Fica num balde próprio.
-          essential: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where ${transactions.isEssential} and not ${unclassified}), 0)`,
-          nonEssential: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where not ${transactions.isEssential} and not ${unclassified}), 0)`,
+          essential: byGroup("essential"),
+          variable: byGroup("variable"),
+          investment: byGroup("investment"),
+          // Na categoria de reserva do sync = ainda sem classificação: contar
+          // isso no grupo dela seria inventar dado. Fica num balde próprio.
           unclassified: sql<string>`coalesce(sum(${transactions.amount}::numeric) filter (where ${unclassified}), 0)`,
           unclassifiedCount: sql<number>`(count(*) filter (where ${unclassified}))::int`,
-          fixed: sql<string>`coalesce(sum(amount::numeric) filter (where recurrence = 'fixed'), 0)`,
-          variable: sql<string>`coalesce(sum(amount::numeric) filter (where recurrence = 'variable'), 0)`,
           transactionCount: sql<number>`count(*)::int`,
         })
         .from(transactions)
@@ -144,15 +144,18 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
       // lançadas com data adiante e não são "recentes"
       const recentTransactions = await db.query.transactions.findMany({
         where: and(REAL_TRANSACTIONS, lte(transactions.date, today)),
-        with: { account: true, category: true, budget: true },
+        with: { account: true, category: true },
         orderBy: [desc(transactions.date), desc(transactions.createdAt)],
         limit: 6,
       })
 
       return {
         totalExpenses: String(totals?.total ?? 0),
-        essentialExpenses: String(totals?.essential ?? 0),
-        nonEssentialExpenses: String(totals?.nonEssential ?? 0),
+        expensesByGroup: {
+          essential: String(totals?.essential ?? 0),
+          variable: String(totals?.variable ?? 0),
+          investment: String(totals?.investment ?? 0),
+        },
         unclassifiedExpenses: String(totals?.unclassified ?? 0),
         unclassifiedCount: Number(totals?.unclassifiedCount ?? 0),
         pace: {
@@ -160,8 +163,6 @@ export const dashboardRoute = new Elysia({ prefix: "/dashboard" })
           cutoffDay,
           partial: isCurrentMonth,
         },
-        fixedExpenses: String(totals?.fixed ?? 0),
-        variableExpenses: String(totals?.variable ?? 0),
         transactionCount: Number(totals?.transactionCount ?? 0),
         expensesByCategory: expensesByCategory.map((r) => ({
           categoryId: r.categoryId,

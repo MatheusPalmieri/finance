@@ -14,10 +14,6 @@ function rule(partial: Partial<ClassificationRule>): ClassificationRule {
     renameTo: null,
     categoryId: null,
     paymentMethod: null,
-    recurrence: null,
-    isEssential: null,
-    forceIncome: null,
-    budgetId: null,
     enabled: true,
     hitCount: 0,
     lastHitAt: null,
@@ -110,6 +106,5 @@ describe("ruleToPatch", () => {
     expect(patch.suggestedName).toBe("Aluguel")
     expect(patch.paymentMethod).toBe("boleto")
     expect(patch.categoryId).toBeNull()
-    expect(patch.forceIncome).toBeNull()
   })
 })

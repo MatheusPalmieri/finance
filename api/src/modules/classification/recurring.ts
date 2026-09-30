@@ -258,7 +258,8 @@ export async function recalculate(): Promise<RecalculateResult> {
   return { detected: detected.length, updated, removed }
 }
 
-// Recálculo em rajada (importação de CSV) colapsa num único disparo.
+// Recálculo em rajada (sync, várias reclassificações seguidas) colapsa num
+// único disparo.
 let pending: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE_MS = 5000
 

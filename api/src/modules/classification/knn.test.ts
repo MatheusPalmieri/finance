@@ -4,13 +4,12 @@ import { buildKnnIndex, KNN_THRESHOLD, knnSuggest } from "./knn"
 const CAT_STREAMING = "cat-streaming"
 const CAT_FOOD = "cat-food"
 
-function entry(name: string, categoryId: string) {
+function entry(name: string, categoryId: string, originalName: string | null = null) {
   return {
     name,
+    originalName,
     categoryId,
     paymentMethod: "credit_card" as const,
-    recurrence: "fixed" as const,
-    isEssential: false,
   }
 }
 
@@ -57,14 +56,22 @@ describe("knnSuggest", () => {
     expect(result?.confidence).toBeGreaterThanOrEqual(KNN_THRESHOLD)
   })
 
-  test("herda forma de pagamento e recorrência dos vizinhos vencedores", () => {
+  test("herda a forma de pagamento dos vizinhos vencedores", () => {
     const index = buildKnnIndex([
       { ...entry("Spotify", CAT_STREAMING), paymentMethod: "pix" },
     ])
     const result = knnSuggest(index, "Spotify")
     expect(result?.patch.paymentMethod).toBe("pix")
-    expect(result?.patch.recurrence).toBe("fixed")
-    expect(result?.patch.isEssential).toBe(false)
+  })
+
+  test("casa pelo nome do banco e reaproveita o nome que o usuário deu", () => {
+    // O histórico foi renomeado; a transação nova chega com o texto do banco
+    const index = buildKnnIndex([
+      entry("Financiamento do carro", CAT_FOOD, "Pagamento efetuado - AYMORE CREDITO"),
+    ])
+    const result = knnSuggest(index, "Pagamento efetuado - AYMORE CREDITO")
+    expect(result?.patch.categoryId).toBe(CAT_FOOD)
+    expect(result?.patch.suggestedName).toBe("Financiamento do carro")
   })
 
   test("descrição sem chave utilizável devolve null", () => {

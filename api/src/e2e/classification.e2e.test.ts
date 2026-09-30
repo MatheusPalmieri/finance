@@ -76,8 +76,6 @@ describe("e2e POST /classification/suggest — camada 1 (regras)", () => {
     expect(carro.suggestedName).toBe("Financiamento do carro")
     expect(carro.categoryId).toBe(transporte.id)
 
-    // "Aplicação RDB" vem negativa no extrato mas é receita para este usuário
-    expect(rdb.forceIncome).toBe(true)
     expect(rdb.categoryId).toBe(investimento.id)
 
   })
@@ -222,8 +220,6 @@ describe("e2e POST /classification/suggest — camada 3 (IA)", () => {
           {
             index: 0,
             categoryId: lazer.id,
-            isEssential: false,
-            recurrence: "variable",
             confidence: 1,
             suggestedName: "Cinema",
           },
@@ -279,8 +275,6 @@ describe("e2e POST /classification/suggest — camada 3 (IA)", () => {
           {
             index: 0,
             categoryId: "00000000-0000-0000-0000-000000000000",
-            isEssential: null,
-            recurrence: null,
             confidence: 0.8,
             suggestedName: "Cinema",
           },
@@ -297,7 +291,7 @@ describe("e2e POST /classification/suggest — camada 3 (IA)", () => {
     expect(res.body.items[0].suggestedName).toBe("Cinema")
   })
 
-  test("linha omitida pelo modelo não quebra a importação", async () => {
+  test("linha omitida pelo modelo não quebra o lote", async () => {
     const lazer = await makeCategory("Lazer")
     useMockLlm(
       JSON.stringify({
@@ -305,8 +299,6 @@ describe("e2e POST /classification/suggest — camada 3 (IA)", () => {
           {
             index: 1,
             categoryId: lazer.id,
-            isEssential: null,
-            recurrence: null,
             confidence: 0.9,
             suggestedName: "Cinema",
           },

@@ -24,20 +24,18 @@ export const accountTypeEnum = pgEnum("account_type", [
   "OTHER",
 ])
 
-// Recorrência do gasto: fixo (recorrente) ou variável (pontual)
-export const recurrenceEnum = pgEnum("recurrence", ["fixed", "variable"])
-
-// Tipo de orçamento pela regra 50/30/20
-export const budgetTypeEnum = pgEnum("budget_type", [
+// Grupo da regra 50/30/20. Mora na categoria: todo gasto herda o grupo da
+// categoria em que está (ver domain/budget.md)
+export const spendingGroupEnum = pgEnum("spending_group", [
   "essential",
-  "desire",
+  "variable",
   "investment",
 ])
 
-// Forma do valor do orçamento: fixo ou faixa (mín–máx)
+// Forma do valor do orçamento: valor exato ou faixa (mín–máx)
 export const budgetAmountTypeEnum = pgEnum("budget_amount_type", [
-  "fixed",
-  "variable",
+  "exact",
+  "range",
 ])
 
 // Forma de pagamento — lista fixa do sistema, não é mais CRUD do usuário
@@ -93,6 +91,9 @@ export const categories = pgTable("categories", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
   color: varchar("color", { length: 7 }).default("#6366f1").notNull(),
+  // Grupo 50/30/20 dos gastos desta categoria. Em categoria de entrada
+  // (Salário) não pesa: só saídas entram na distribuição
+  group: spendingGroupEnum("group").default("variable").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
@@ -111,10 +112,6 @@ export const transactions = pgTable("transactions", {
   accountId: uuid("account_id")
     .references(() => accounts.id)
     .notNull(),
-  isEssential: boolean("is_essential").default(false).notNull(),
-  recurrence: recurrenceEnum("recurrence").notNull(),
-  // Obrigatório quando recurrence = 'fixed' (validado na rota); nulo se 'variable'
-  budgetId: uuid("budget_id").references(() => budgets.id),
   date: date("date").default(sql`CURRENT_DATE`).notNull(),
   notes: text("notes"),
   source: transactionSourceEnum("source").default("open_finance").notNull(),
@@ -130,13 +127,17 @@ export const transactions = pgTable("transactions", {
     .notNull(),
 })
 
+// Plano mensal de uma categoria — no máximo um por categoria. O realizado é a
+// soma das transações da categoria no mês; não existe vínculo por transação.
 export const budgets = pgTable("budgets", {
   id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  type: budgetTypeEnum("type").notNull(),
+  categoryId: uuid("category_id")
+    .references(() => categories.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(),
   amountType: budgetAmountTypeEnum("amount_type").notNull(),
   // Preenchido conforme amountType (validado na rota):
-  // fixed → amount; variable → amountMin/amountMax
+  // exact → amount; range → amountMin/amountMax
   amount: numeric("amount", { precision: 10, scale: 2 }),
   amountMin: numeric("amount_min", { precision: 10, scale: 2 }),
   amountMax: numeric("amount_max", { precision: 10, scale: 2 }),
@@ -151,9 +152,9 @@ export const budgets = pgTable("budgets", {
 // Motor de regras server-side que substitui o de-para hardcoded do frontend.
 
 export const ruleSourceEnum = pgEnum("rule_source", [
-  "seed", // migrado do depara.ts original
+  "seed", // seed base (db/seed-rules.ts)
   "manual", // criado pelo usuário na tela de regras
-  "learned", // gerado a partir de uma correção na revisão da importação
+  "learned", // gerado por POST /classification/feedback
 ])
 
 export const ruleMatchEnum = pgEnum("rule_match", [
@@ -178,13 +179,6 @@ export const classificationRules = pgTable(
       onDelete: "set null",
     }),
     paymentMethod: paymentMethodEnum("payment_method"),
-    recurrence: recurrenceEnum("recurrence"),
-    isEssential: boolean("is_essential"),
-    // Força o sinal, ignorando o do extrato (caso "Aplicação RDB")
-    forceIncome: boolean("force_income"),
-    budgetId: uuid("budget_id").references(() => budgets.id, {
-      onDelete: "set null",
-    }),
     enabled: boolean("enabled").default(true).notNull(),
     // Telemetria: quantas vezes a regra já casou e quando foi a última
     hitCount: integer("hit_count").default(0).notNull(),
@@ -433,8 +427,9 @@ export const accountsRelations = relations(accounts, ({ many }) => ({
   transactions: many(transactions),
 }))
 
-export const categoriesRelations = relations(categories, ({ many }) => ({
+export const categoriesRelations = relations(categories, ({ many, one }) => ({
   transactions: many(transactions),
+  budget: one(budgets),
 }))
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
@@ -446,14 +441,13 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
     fields: [transactions.categoryId],
     references: [categories.id],
   }),
-  budget: one(budgets, {
-    fields: [transactions.budgetId],
-    references: [budgets.id],
-  }),
 }))
 
-export const budgetsRelations = relations(budgets, ({ many }) => ({
-  transactions: many(transactions),
+export const budgetsRelations = relations(budgets, ({ one }) => ({
+  category: one(categories, {
+    fields: [budgets.categoryId],
+    references: [categories.id],
+  }),
 }))
 
 export const classificationRulesRelations = relations(
@@ -462,10 +456,6 @@ export const classificationRulesRelations = relations(
     category: one(categories, {
       fields: [classificationRules.categoryId],
       references: [categories.id],
-    }),
-    budget: one(budgets, {
-      fields: [classificationRules.budgetId],
-      references: [budgets.id],
     }),
   })
 )
@@ -503,11 +493,10 @@ export type PaymentMethod = (typeof paymentMethodEnum.enumValues)[number]
 
 export type Transaction = typeof transactions.$inferSelect
 export type NewTransaction = typeof transactions.$inferInsert
-export type Recurrence = (typeof recurrenceEnum.enumValues)[number]
 
 export type Budget = typeof budgets.$inferSelect
 export type NewBudget = typeof budgets.$inferInsert
-export type BudgetType = (typeof budgetTypeEnum.enumValues)[number]
+export type SpendingGroup = (typeof spendingGroupEnum.enumValues)[number]
 export type BudgetAmountType = (typeof budgetAmountTypeEnum.enumValues)[number]
 
 export type ClassificationRule = typeof classificationRules.$inferSelect

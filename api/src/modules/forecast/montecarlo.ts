@@ -57,7 +57,7 @@ export function trendFactor(
   return 1 + clamped
 }
 
-/** Despesa variável determinística de um mês (usada quando não há sorteio). */
+/** Gasto determinístico de uma categoria (usado quando não há sorteio). */
 function meanOf(series: number[]): number {
   if (series.length === 0) return 0
   return series.reduce((sum, v) => sum + v, 0) / series.length
@@ -72,9 +72,9 @@ export interface SimulationOutput {
  * Monte Carlo do saldo acumulado.
  *
  * Em cada iteração e mês:
- * `saldo += receita − fixos − faixas − variáveis − conhecidas − cenário`
+ * `saldo += receita − orçados exatos − faixas − sem orçamento − conhecidas − cenário`
  *
- * Os componentes estocásticos (faixas e variáveis) são escalados por
+ * Os componentes estocásticos (faixas e categorias sem orçamento) são escalados por
  * `remainingFraction`, que vale 1 em meses futuros e a fração restante no mês
  * corrente — o que já foi gasto este mês já está no saldo das contas.
  */
@@ -85,7 +85,7 @@ export function simulate(input: SimulationInput): SimulationOutput {
 
   // balancesByMonth[i][run] — saldo acumulado ao fim do mês i naquela iteração
   const balancesByMonth: number[][] = months.map(() => new Array<number>(runs))
-  const variableByMonth: number[][] = months.map(() => new Array<number>(runs))
+  const unbudgetedByMonth: number[][] = months.map(() => new Array<number>(runs))
   let anyNegative = 0
 
   for (let run = 0; run < runs; run++) {
@@ -100,25 +100,25 @@ export function simulate(input: SimulationInput): SimulationOutput {
         ranges += triangular(budget.min, budget.mode, budget.max, rand)
       }
 
-      let variable = 0
+      let unbudgeted = 0
       for (const category of categories) {
         // Categoria com histórico curto não é sorteada: vira constante.
         const draw = category.lowConfidence
           ? meanOf(category.series)
           : sample(category.series, rand)
-        variable += draw * trendFactor(category.trendMonthlyPct, i)
+        unbudgeted += draw * trendFactor(category.trendMonthlyPct, i)
       }
 
-      const scaled = (ranges + variable) * plan.remainingFraction
+      const scaled = (ranges + unbudgeted) * plan.remainingFraction
       balance +=
         plan.expectedIncome -
-        plan.fixedExpenses -
+        plan.exactBudgets -
         scaled -
         plan.knownTransactions -
         plan.scenarioImpact
 
       balancesByMonth[i][run] = balance
-      variableByMonth[i][run] = variable * plan.remainingFraction
+      unbudgetedByMonth[i][run] = unbudgeted * plan.remainingFraction
       if (balance < 0) wentNegative = true
     }
 
@@ -128,19 +128,19 @@ export function simulate(input: SimulationInput): SimulationOutput {
   const projected: ProjectedMonth[] = months.map((plan, i) => {
     const balances = balancesByMonth[i]
     const negatives = balances.reduce((count, b) => count + (b < 0 ? 1 : 0), 0)
-    const variableSorted = [...variableByMonth[i]].sort((a, b) => a - b)
+    const unbudgetedSorted = [...unbudgetedByMonth[i]].sort((a, b) => a - b)
 
     return {
       month: plan.month,
       year: plan.year,
       label: plan.label,
       expectedIncome: round2(plan.expectedIncome),
-      fixedExpenses: round2(
-        plan.fixedExpenses +
+      budgetedExpenses: round2(
+        plan.exactBudgets +
           plan.rangeBudgets.reduce((sum, b) => sum + b.mode, 0) *
             plan.remainingFraction
       ),
-      variableExpensesP50: round2(percentile(variableSorted, 0.5)),
+      unbudgetedExpensesP50: round2(percentile(unbudgetedSorted, 0.5)),
       knownTransactions: round2(plan.knownTransactions),
       scenarioImpact: round2(plan.scenarioImpact),
       balance: percentilesOf(balances),

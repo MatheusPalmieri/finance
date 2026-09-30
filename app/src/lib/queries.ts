@@ -9,16 +9,15 @@ import { toast } from "sonner"
 import {
   api,
   type AffordInput,
-  type BudgetInput,
+  type CategoryInput,
+  type CategoryPlanInput,
   type DashboardParams,
-  type FeedbackInput,
   type ForecastParams,
   type GenerateReportInput,
   type ListRecurringParams,
   type ListRulesParams,
   type ListTransactionsParams,
   type RuleInput,
-  type SuggestInput,
   type TransactionClassificationInput,
 } from "./api"
 
@@ -40,7 +39,7 @@ export const keys = {
   },
   budgets: {
     all: ["budgets"] as const,
-    list: (name?: string) => [...keys.budgets.all, "list", name ?? ""] as const,
+    list: () => [...keys.budgets.all, "list"] as const,
     summary: (params: DashboardParams) =>
       [...keys.budgets.all, "summary", params] as const,
   },
@@ -143,16 +142,13 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({
-      id,
-      ...body
-    }: {
-      id: string
-      name: string
-      color?: string
-    }) => api.categories.update(id, body),
+    mutationFn: ({ id, ...body }: { id: string } & CategoryInput) =>
+      api.categories.update(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.categories.all })
+      // O nome da categoria aparece em orçamentos e transações
+      qc.invalidateQueries({ queryKey: keys.budgets.all })
+      qc.invalidateQueries({ queryKey: keys.transactions.all })
       toast.success("Categoria atualizada")
     },
     onError: (e: Error) =>
@@ -166,8 +162,8 @@ export function useDeleteCategory() {
     mutationFn: (id: string) => api.categories.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.categories.all })
+      // O orçamento da categoria sai junto
       qc.invalidateQueries({ queryKey: keys.budgets.all })
-      // Orçamentos são a perna fixa da projeção de fluxo de caixa
       qc.invalidateQueries({ queryKey: keys.forecast.all })
       toast.success("Categoria excluída")
     },
@@ -196,7 +192,7 @@ export function useReclassifyTransaction() {
       api.transactions.reclassify(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.transactions.all })
-      // Vínculo com orçamento muda o realizado da tela de Orçamentos
+      // A categoria decide o orçamento e o grupo em que o gasto conta
       qc.invalidateQueries({ queryKey: keys.budgets.all })
       qc.invalidateQueries({ queryKey: keys.dashboard.all })
       qc.invalidateQueries({ queryKey: keys.forecast.all })
@@ -216,53 +212,49 @@ export function useBudgetSummary(params: DashboardParams) {
   })
 }
 
-export function useBudgets(name?: string) {
+export function useBudgets() {
   return useQuery({
-    queryKey: keys.budgets.list(name),
-    queryFn: () => api.budgets.list(name),
+    queryKey: keys.budgets.list(),
+    queryFn: api.budgets.list,
   })
 }
 
-export function useCreateBudget() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: BudgetInput) => api.budgets.create(body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.budgets.all })
-      // Orçamentos são a perna fixa da projeção de fluxo de caixa
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Orçamento criado")
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar orçamento"),
-  })
+// O grupo e o orçamento mudam a distribuição 50/30/20 de todas as telas e a
+// projeção (categoria com orçamento usa o plano no lugar do histórico)
+function invalidatePlan(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: keys.budgets.all })
+  qc.invalidateQueries({ queryKey: keys.categories.all })
+  qc.invalidateQueries({ queryKey: keys.dashboard.all })
+  qc.invalidateQueries({ queryKey: keys.forecast.all })
+  qc.invalidateQueries({ queryKey: keys.reports.all })
 }
 
-export function useUpdateBudget() {
+/** Grava o grupo da categoria e cria, altera ou remove o orçamento dela. */
+export function useSaveCategoryPlan() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string } & BudgetInput) =>
-      api.budgets.update(id, body),
+    mutationFn: ({
+      categoryId,
+      ...body
+    }: { categoryId: string } & CategoryPlanInput) =>
+      api.budgets.savePlan(categoryId, body),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.budgets.all })
-      // Orçamentos são a perna fixa da projeção de fluxo de caixa
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      qc.invalidateQueries({ queryKey: keys.transactions.all })
-      toast.success("Orçamento atualizado")
+      invalidatePlan(qc)
+      toast.success("Plano da categoria salvo")
     },
     onError: (e: Error) =>
-      toast.error(e.message ?? "Erro ao atualizar orçamento"),
+      toast.error(e.message ?? "Erro ao salvar o plano da categoria"),
   })
 }
 
+/** Remove só o orçamento; a categoria e o grupo ficam. */
 export function useDeleteBudget() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.budgets.delete(id),
+    mutationFn: (categoryId: string) => api.budgets.delete(categoryId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.budgets.all })
-      // Orçamentos são a perna fixa da projeção de fluxo de caixa
-      qc.invalidateQueries({ queryKey: keys.forecast.all })
-      toast.success("Orçamento excluído")
+      invalidatePlan(qc)
+      toast.success("Orçamento removido")
     },
     onError: (e: Error) =>
       toast.error(e.message ?? "Erro ao excluir orçamento"),
@@ -270,25 +262,6 @@ export function useDeleteBudget() {
 }
 
 // ── Classificação ─────────────────────────────────────────────────────────────
-// Sugestão é mutation (POST com corpo grande, não deve cachear)
-export function useClassificationSuggest() {
-  return useMutation({
-    mutationFn: (body: SuggestInput) => api.classification.suggest(body),
-  })
-}
-
-/** Corrigir uma sugestão na revisão vira regra. Falha em silêncio é aceitável
- *  aqui: a importação não pode parar porque o aprendizado falhou. */
-export function useClassificationFeedback() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: FeedbackInput) => api.classification.feedback(body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.classification.all })
-    },
-  })
-}
-
 export function useRules(params: ListRulesParams = {}) {
   return useQuery({
     queryKey: keys.classification.rules(params),

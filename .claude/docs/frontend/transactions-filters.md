@@ -1,7 +1,7 @@
 ---
 title: Frontend — Filtros e navegação por mês em Transações
 area: frontend
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -54,9 +54,17 @@ Vale na lista de Transações, no modal de reclassificação e em "Recentes" do 
 
 ## Filtros em popover (2026-09-24)
 
-Categoria, forma de pagamento, recorrência e ordenação saíram da raiz da
+Categoria, forma de pagamento e ordenação saíram da raiz da
 barra e vivem num único botão "Filtros" (ícone `SlidersHorizontal`) que abre
 um `Popover` com grade de duas colunas (uma no mobile). Cada `Select` aplica
 ao trocar, sem botão de confirmar. O botão fica preenchido e mostra um
 contador quando há filtro ativo (ordenação `asc` também conta). A busca
 continua na raiz.
+
+## Abrir filtrada pela URL (2026-09-30)
+
+`/transactions?categoryId=…&from=…&to=…` abre com a categoria e o período
+específico já aplicados (lidos uma vez, no carregamento). Usado pelo gasto de
+cada categoria em Orçamentos e pelos insights e anomalias do Check-up, que já
+montavam esse link, mas a página ignorava os parâmetros. O filtro de
+recorrência saiu junto com o campo.

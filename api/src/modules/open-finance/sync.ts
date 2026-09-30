@@ -2,9 +2,9 @@
 //
 // Garantias (spec 04, F2–F4):
 // - Idempotente pelo id do provedor (`transactions.external_id`).
-// - Campos do usuário (nome, categoria, forma de pagamento, essencial,
-//   recorrência, orçamento, observação) NUNCA são sobrescritos. O sync só
-//   mexe no que é do banco: valor, data, status e natureza (`kind`).
+// - Campos do usuário (nome, categoria, observação) NUNCA são sobrescritos.
+//   O sync só mexe no que é do banco: valor, data, status e natureza (`kind`).
+//   A forma de pagamento é definida só quando a transação chega.
 // - A Pluggy troca o id quando uma transação muda (pendente → lançada, valor
 //   ou data): a linha que sumiu é "religada" ao id novo em vez de apagada e
 //   recriada, preservando a edição do usuário.
@@ -375,24 +375,16 @@ async function applyAccount(
   if (toInsert.length > 0) {
     const classified = await suggest({
       useAi: ctx.useAi,
-      items: toInsert.map(({ n }, index) => ({
-        index,
-        description: n.name,
-        date: n.date,
-        amount: n.amount,
-      })),
+      items: toInsert.map(({ n }, index) => ({ index, description: n.name })),
     })
     const byIndex = new Map(classified.items.map((s) => [s.index, s]))
 
     const values: NewTransaction[] = toInsert.map(({ n }, index) => {
       const s = byIndex.get(index)
-      const isIncome = n.amount < 0
       const categoryId =
         s?.categoryId ??
         (n.localCategoryName ? ctx.categoryIdByName.get(n.localCategoryName.toLowerCase()) : undefined) ??
         ctx.fallbackCategoryId
-      // Gasto fixo exige orçamento (regra da rota); sem ele, fica variável
-      const recurrence = s?.recurrence === "fixed" && s.budgetId ? "fixed" : "variable"
       return {
         name: (s?.suggestedName ?? n.name).slice(0, 255),
         originalName: n.name,
@@ -402,9 +394,6 @@ async function applyAccount(
         paymentMethod:
           ctx.accountType === "CREDIT" ? "credit_card" : (s?.paymentMethod ?? n.paymentMethod),
         accountId: ctx.accountId,
-        isEssential: isIncome ? false : (s?.isEssential ?? false),
-        recurrence,
-        budgetId: recurrence === "fixed" ? s!.budgetId : null,
         date: n.date,
         source: "open_finance",
         externalId: n.externalId,

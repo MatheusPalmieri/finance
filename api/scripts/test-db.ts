@@ -38,18 +38,37 @@ try {
 // ── 2. Aplica o schema ───────────────────────────────────────────────────────
 // `drizzle-kit push` é o mesmo caminho usado em desenvolvimento (o projeto não
 // mantém arquivos de migração), então o schema de teste nunca diverge.
-const push = Bun.spawnSync(
-  ["bunx", "drizzle-kit", "push", "--force"],
-  {
+function push() {
+  const run = Bun.spawnSync(["bunx", "drizzle-kit", "push", "--force"], {
     env: { ...process.env, DATABASE_URL: testUrl },
+    // Sem stdin: uma pergunta do drizzle-kit falha na hora em vez de travar
+    stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
-  }
-)
+  })
+  const output = `${run.stdout.toString()}
+${run.stderr.toString()}`
+  // O drizzle-kit sai com código 0 mesmo quando falha: com enum ou coluna
+  // renomeada ele quer perguntar no terminal e, sem TTY, só imprime o erro. Por
+  // isso o sucesso é a confirmação na saída, não o código de saída
+  return { ok: /Changes applied|No changes detected/.test(output), output }
+}
 
-if (push.exitCode !== 0) {
+let result = push()
+if (!result.ok) {
+  // Banco descartável: recria o schema do zero e aplica de novo, sem perguntas
+  const reset = postgres(testUrl, { max: 1, onnotice: () => {} })
+  try {
+    await reset.unsafe("drop schema public cascade; create schema public")
+  } finally {
+    await reset.end()
+  }
+  result = push()
+}
+
+if (!result.ok) {
   console.error("✗ falha ao aplicar o schema no banco de teste")
-  console.error(push.stderr.toString())
+  console.error(result.output)
   process.exit(1)
 }
 

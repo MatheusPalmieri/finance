@@ -1,7 +1,7 @@
 ---
 title: Frontend — Início (Home)
 area: frontend
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 # Início (`pages/Home.tsx`)
@@ -12,7 +12,7 @@ no bloco certo. Quatro blocos, de cima para baixo:
 | # | Bloco | Fonte |
 |---|-------|-------|
 | 1 | **Posição agora** — Saldo em conta · Fatura aberta · Investido, com Patrimônio líquido no rodapé | `useBalances`, `useInvestments` (retrato do Open Finance) |
-| 2 | **Gastos do mês** — total (com ritmo vs mês anterior no mesmo dia), compras no cartão, essencial, fixos + barra de composição | `GET /dashboard/summary` |
+| 2 | **Gastos do mês** — total (com ritmo vs mês anterior no mesmo dia), compras no cartão, essencial, variável + barra de composição | `GET /dashboard/summary` |
 | 3 | **Para onde foi** — Gasto por mês (barras) e Por categoria (top 5 + "Outras") | idem |
 | 4 | **O que vem** — Projeção e Check-up (esticam à altura de Recentes) + Recentes | `useCashflow`, `useCurrentReport`, `recentTransactions` |
 
@@ -29,7 +29,9 @@ no bloco certo. Quatro blocos, de cima para baixo:
   diferente.
 - **Patrimônio** = conta + investido − dívida total dos cartões. É derivado, então
   vira rodapé com a fórmula escrita.
-- **Barra de composição** tem três partes: essencial, não essencial e **sem
+- **Essencial / Variável / Investimento** vêm do grupo 50/30/20 da categoria
+  (`expensesByGroup`), a mesma regra da tela de Orçamentos.
+- **Barra de composição**: essencial, variável, investimento e **sem
   classificação** (hachurada, com atalho "Classificar N →"). "Sem
   classificação" = transação na categoria de reserva do sync (`Outros`); ver
   `api/transactions.md`.

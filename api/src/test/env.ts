@@ -23,7 +23,8 @@ export function resolveTestDatabaseUrl(): string {
     )
   }
 
-  const url = new URL(explicit ?? dev!)
+  // `||` e não `??`: no .env, `TEST_DATABASE_URL=` vazio significa "não definida"
+  const url = new URL(explicit || dev!)
   if (!explicit) url.pathname = `/${TEST_DB_NAME}`
 
   if (dev) {

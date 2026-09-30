@@ -1,7 +1,7 @@
 ---
 title: Endpoints /reports
 area: api
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -85,13 +85,14 @@ Devolve o relatório completo (ver estrutura abaixo).
     },
     "biggestExpense": { "id", "name", "amountBrl", "date", "categoryName" },
     "budgets": [
-      { "budgetId", "name", "type", "amountType", "plannedBrl", "plannedMinBrl",
-        "plannedMaxBrl", "actualBrl", "status": "over|under|on_track|missing",
-        "transactionCount" }
+      { "categoryId", "name", "color", "group", "amountType": "exact|range",
+        "plannedBrl", "plannedMinBrl", "plannedMaxBrl", "actualBrl",
+        "status": "over|under|on_track|missing", "transactionCount" }
     ],
     "distribution": {
+      // pct = % da renda do mês
       "essential": { "amountBrl", "pct", "targetPct": 50, "deltaPp" },
-      "desire": { }, "investment": { }
+      "variable": { }, "investment": { }
     },
     "anomalies": [
       { "categoryId", "categoryName", "color", "currentBrl", "medianBrl",
@@ -104,11 +105,15 @@ Devolve o relatório completo (ver estrutura abaixo).
     "subscriptions": null
   },
   "insights": [
-    { "kind", "severity", "title", "amountBrl", "categoryId?", "budgetId?",
+    { "kind", "severity", "title", "amountBrl", "categoryId?",
       "recurringSeriesId?", "facts": { } }
   ]
 }
 ```
+
+`budget_over`/`budget_missing` apontam a categoria em `categoryId`. Relatórios
+gerados antes de 2026-09-30 guardam o formato antigo (`budgetId`, grupo
+`desire`) e devem ser gerados de novo.
 
 `deltaPct` é `null` quando o mês anterior é zero. `savingsRate.current` é `null`
 quando não há receita. `subscriptions` é `null` quando não há séries recorrentes

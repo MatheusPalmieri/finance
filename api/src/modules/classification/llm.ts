@@ -5,7 +5,6 @@
 // provedor é a nuvem, e está escrito aqui porque é uma decisão, não um detalhe.
 
 import { z } from "zod"
-import type { Recurrence } from "../../db/schema"
 import { runJson } from "../llm"
 import { normalizeDescription } from "./normalize"
 import { EMPTY_PATCH, type Suggestion } from "./types"
@@ -20,10 +19,10 @@ export const LLM_CONFIDENCE_CEILING = 0.9
  * O schema do lote é deliberadamente frouxo: `items` é uma lista de valores
  * desconhecidos, validados **um a um** em `sanitizeLlmResponse`.
  *
- * Um modelo 7B erra um campo de vez em quando — escreve `"fixo"` em vez de
- * `"fixed"`, ou manda a confiança como `80`. Com um schema estrito, um único
- * campo torto numa linha derruba o lote inteiro de até 40 descrições e o
- * usuário perde todas as sugestões. A tolerância por linha é o mesmo princípio
+ * Um modelo 7B erra um campo de vez em quando — manda a confiança como `80`
+ * ou o índice como texto. Com um schema estrito, um único campo torto numa
+ * linha derruba o lote inteiro de até 40 descrições e o usuário perde todas
+ * as sugestões. A tolerância por linha é o mesmo princípio
  * que já vale para a linha ausente: o que não dá para aproveitar é descartado
  * sozinho, sem levar o resto junto.
  */
@@ -35,8 +34,6 @@ const responseSchema = z.object({
 const itemSchema = z.object({
   index: z.number().int(),
   categoryId: z.string().nullish(),
-  isEssential: z.unknown().nullish(),
-  recurrence: z.unknown().nullish(),
   confidence: z.unknown().nullish(),
   suggestedName: z.string().nullish(),
 })
@@ -44,35 +41,6 @@ const itemSchema = z.object({
 export type LlmClassificationResponse = z.infer<typeof responseSchema>
 
 // ── Coerções tolerantes ──────────────────────────────────────────────────────
-
-const FIXED_WORDS = new Set(["fixed", "fixo", "fixa", "mensal", "recorrente"])
-const VARIABLE_WORDS = new Set([
-  "variable",
-  "variavel",
-  "variável",
-  "pontual",
-  "eventual",
-  "avulso",
-  "avulsa",
-])
-
-/** Aceita as variações em português que o modelo local costuma emitir. */
-export function coerceRecurrence(value: unknown): Recurrence | null {
-  if (typeof value !== "string") return null
-  const normalized = value.trim().toLowerCase()
-  if (FIXED_WORDS.has(normalized)) return "fixed"
-  if (VARIABLE_WORDS.has(normalized)) return "variable"
-  return null
-}
-
-export function coerceBoolean(value: unknown): boolean | null {
-  if (typeof value === "boolean") return value
-  if (typeof value !== "string") return null
-  const normalized = value.trim().toLowerCase()
-  if (["true", "sim", "yes"].includes(normalized)) return true
-  if (["false", "nao", "não", "no"].includes(normalized)) return false
-  return null
-}
 
 /** Confiança ausente ou absurda vira 0,5 — incerteza honesta, não zero nem um. */
 export function coerceConfidence(value: unknown): number {
@@ -88,20 +56,16 @@ const SYSTEM = `Você é um classificador de descrições de extrato bancário b
 Regras:
 - Escolha a categoria APENAS da lista fornecida, usando o id exato. Nunca invente uma categoria.
 - Quando estiver em dúvida, responda categoryId: null. É melhor deixar em branco do que errar.
-- "recurrence" é "fixed" para cobranças que se repetem todo mês (assinatura, aluguel, mensalidade) e "variable" para gastos pontuais.
-- "isEssential" é true para necessidades (moradia, alimentação básica, saúde, transporte para trabalho) e false para supérfluos.
 - "suggestedName" é um nome curto e legível para a transação (ex.: "Netflix", "Aluguel"), no máximo 60 caracteres.
 - "confidence" é a sua confiança, um número entre 0 e 1 (0.8, não 80).
 - Responda uma entrada para CADA índice recebido.
-
-Use EXATAMENTE estes valores, em inglês: "recurrence" é "fixed" ou "variable" (nunca "fixo", "mensal" ou "variável"); "isEssential" é true ou false (nunca "sim" ou "não").
 
 Exemplo. Descrições recebidas:
 0. condominio edificio central
 1. supermercado angeloni
 
 Resposta:
-{"items":[{"index":0,"categoryId":"<id de Moradia>","isEssential":true,"recurrence":"fixed","confidence":0.9,"suggestedName":"Condomínio"},{"index":1,"categoryId":"<id de Alimentação>","isEssential":true,"recurrence":"variable","confidence":0.8,"suggestedName":"Supermercado"}]}
+{"items":[{"index":0,"categoryId":"<id de Moradia>","confidence":0.9,"suggestedName":"Condomínio"},{"index":1,"categoryId":"<id de Mercado>","confidence":0.8,"suggestedName":"Supermercado"}]}
 
 Responda APENAS o JSON no formato {"items":[...]}`
 
@@ -164,8 +128,6 @@ export function sanitizeLlmResponse(
         (coerceConfidence(item.confidence) * LLM_CONFIDENCE_CEILING).toFixed(4)
       ),
       categoryId,
-      isEssential: coerceBoolean(item.isEssential),
-      recurrence: coerceRecurrence(item.recurrence),
       // Nome absurdamente longo é sinal de alucinação — melhor não usar
       suggestedName: item.suggestedName?.trim().slice(0, 60) || null,
     })

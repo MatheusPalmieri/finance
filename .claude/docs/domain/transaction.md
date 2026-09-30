@@ -1,7 +1,7 @@
 ---
 title: Domínio — Transação
 area: domain
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -29,11 +29,8 @@ distinguem pelo **sinal de `amount`** (positivo = despesa, negativo = entrada).
 | `externalId` | varchar, **obrigatório**, único | banco | Id da transação na Pluggy — chave de idempotência do sync |
 | `originalName` | varchar(255) | banco | Nome oficial do extrato (`displayName` da Pluggy), antes de regras e edições. O sync regrava a cada rodada; nunca é editável. Base do botão "Restaurar nome" |
 | `name` | varchar(255) | usuário | Nome exibido (nasce de `originalName`, ajustado pelas regras; editável) |
-| `categoryId` | uuid FK → categories | usuário | Categoria |
+| `categoryId` | uuid FK → categories | usuário | Categoria. Decide o orçamento e o grupo 50/30/20 em que o gasto conta (ver `domain/budget.md`) |
 | `paymentMethod` | enum `payment_method` | banco | Forma de pagamento (lista fixa, ver abaixo). Definida pelo sync quando a transação chega (cartão → crédito; conta → `paymentData`/texto, ou a regra aprendida) e **não é editável** no PATCH |
-| `isEssential` | boolean | usuário | Gasto essencial. Entrada (amount < 0) é sempre `false` |
-| `recurrence` | enum `fixed` \| `variable` | usuário | Fixo (recorrente) ou variável |
-| `budgetId` | uuid FK → budgets | usuário | Obrigatório se `recurrence = fixed`; nulo se `variable` (ver `domain/budget.md`) |
 | `notes` | text | usuário | Observação livre |
 
 "Banco" = o sync sobrescreve a cada sincronização. "Usuário" = nasce da
@@ -50,7 +47,6 @@ da janela buscada).
 ### Entradas
 - `amount > 0` → despesa (ícone `ArrowDownRight`); `amount < 0` → entrada
   (`ArrowUpRight`, verde `FINANCE.income`).
-- Entrada nunca é essencial: o PATCH grava `isEssential = amount >= 0 and <valor enviado>`.
 - `GET /dashboard/summary` é um painel só de despesas (filtra `amount > 0`);
   `recentTransactions` mostra as duas.
 
@@ -102,3 +98,5 @@ Proventos e rendimentos continuam `regular`: são renda de verdade.
 - 2026-09-23 — carteiras removidas (ver `decisions/remocao-carteiras.md`).
 - 2026-09-23 — Open Finance vira fonte única: saem lançamento manual,
   importação CSV, `accounts.balance`, conta padrão e conta sandbox.
+- 2026-09-30 — saem `isEssential`, `recurrence` e `budgetId`: a categoria
+  decide orçamento e grupo (ver `decisions/orcamento-por-categoria.md`).

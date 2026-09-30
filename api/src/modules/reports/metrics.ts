@@ -7,15 +7,15 @@
 import { and, between, desc, eq, sql } from "drizzle-orm"
 import { db } from "../../db"
 import {
-  budgets,
   categories,
   recurringSeries,
   transactions,
-  type BudgetType,
+  type SpendingGroup,
 } from "../../db/schema"
 import { merchantKey } from "../classification/normalize"
 import { monthlyCost, priceChangePct } from "../classification/recurring"
 import { COUNTED_TRANSACTIONS } from "../../lib/scope"
+import { GROUP_TARGETS, spendingByCategory, totalsByGroup } from "../../lib/spending"
 import { MIN_HISTORY_POINTS, robustZ } from "../../lib/stats"
 import type {
   Anomaly,
@@ -33,12 +33,6 @@ import type {
 
 /** Quantos meses de histórico as anomalias olham para trás. */
 export const ANOMALY_HISTORY_MONTHS = 6
-/** Metas da regra 50/30/20. */
-export const DISTRIBUTION_TARGETS: Record<BudgetType, number> = {
-  essential: 50,
-  desire: 30,
-  investment: 20,
-}
 /** Gasto mínimo para um estabelecimento novo virar notícia. */
 export const NEW_MERCHANT_MIN_BRL = 50
 
@@ -106,12 +100,12 @@ export function countNoSpendDays(
 }
 
 /**
- * Orçamento `fixed` tolera ±2% antes de virar over/under; `variable` usa a
+ * Orçamento `exact` tolera ±2% antes de virar over/under; `range` usa a
  * própria faixa como tolerância.
  */
 export function classifyBudgetStatus(
   budget: {
-    amountType: "fixed" | "variable"
+    amountType: "exact" | "range"
     amount: string | null
     amountMin: string | null
     amountMax: string | null
@@ -119,11 +113,11 @@ export function classifyBudgetStatus(
   actual: number,
   transactionCount: number
 ): BudgetLineStatus {
-  // Sem nenhum lançamento no mês: é assim que o relatório pega "esqueceu de
-  // lançar a conta de luz".
+  // Categoria orçada sem nenhuma transação no mês: a conta de luz não chegou
+  // (ou caiu em outra categoria)
   if (transactionCount === 0) return "missing"
 
-  if (budget.amountType === "fixed") {
+  if (budget.amountType === "exact") {
     const planned = Number(budget.amount ?? 0)
     if (actual > planned * 1.02) return "over"
     if (actual < planned * 0.98) return "under"
@@ -138,40 +132,27 @@ export function classifyBudgetStatus(
 }
 
 /**
- * Classificação 50/30/20 de uma despesa. Gasto variável não tem `budgetId`,
- * então precisa de outro critério — esta é a regra, e ela é determinística:
- *
- * - `fixed` herda o `type` do orçamento vinculado;
- * - `variable` + essencial → essential;
- * - `variable` + não essencial → desire;
- * - `investment` só vem de orçamento vinculado.
+ * Distribuição 50/30/20: o gasto de cada grupo (definido pela categoria, ver
+ * lib/spending.ts) em % da renda do mês — a mesma base da tela de Orçamentos.
+ * Sem renda no mês, os percentuais ficam em 0.
  */
-export function classifySpend(row: {
-  recurrence: "fixed" | "variable"
-  isEssential: boolean
-  budgetType: BudgetType | null
-}): BudgetType {
-  if (row.recurrence === "fixed" && row.budgetType) return row.budgetType
-  return row.isEssential ? "essential" : "desire"
-}
-
 export function buildDistribution(
-  byType: Record<BudgetType, number>
+  byGroup: Record<SpendingGroup, number>,
+  income: number
 ): Distribution {
-  const total = byType.essential + byType.desire + byType.investment
-  const bucket = (type: BudgetType) => {
-    const amountBrl = round2(byType[type])
-    const pct = total === 0 ? 0 : round2((amountBrl / total) * 100)
+  const bucket = (group: SpendingGroup) => {
+    const amountBrl = round2(byGroup[group])
+    const pct = income <= 0 ? 0 : round2((amountBrl / income) * 100)
     return {
       amountBrl,
       pct,
-      targetPct: DISTRIBUTION_TARGETS[type],
-      deltaPp: round2(pct - DISTRIBUTION_TARGETS[type]),
+      targetPct: GROUP_TARGETS[group],
+      deltaPp: round2(pct - GROUP_TARGETS[group]),
     }
   }
   return {
     essential: bucket("essential"),
-    desire: bucket("desire"),
+    variable: bucket("variable"),
     investment: bucket("investment"),
   }
 }
@@ -326,36 +307,20 @@ export async function computeMetrics(
     .orderBy(desc(sql`${transactions.amount}::numeric`))
     .limit(1)
 
-  // ── Planejado vs. realizado ────────────────────────────────────────────────
-  const budgetRows = await db.select().from(budgets)
-  const budgetActuals = await db
-    .select({
-      budgetId: transactions.budgetId,
-      total: sql<string>`sum(${transactions.amount}::numeric)`,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        between(transactions.date, range.from, range.to),
-        IS_EXPENSE,
-        COUNTED_TRANSACTIONS
-      )
-    )
-    .groupBy(transactions.budgetId)
-
-  const actualByBudget = new Map(
-    budgetActuals
-      .filter((r) => r.budgetId)
-      .map((r) => [r.budgetId!, { total: Number(r.total), count: r.count }])
-  )
+  // ── Planejado vs. realizado (por categoria) ────────────────────────────────
+  const [budgetRows, spending] = await Promise.all([
+    db.query.budgets.findMany({ with: { category: true } }),
+    spendingByCategory(range.from, range.to),
+  ])
+  const actualByCategory = new Map(spending.map((row) => [row.categoryId, row]))
 
   const budgetLines: BudgetLine[] = budgetRows.map((budget) => {
-    const actual = actualByBudget.get(budget.id) ?? { total: 0, count: 0 }
+    const actual = actualByCategory.get(budget.categoryId) ?? { total: 0, count: 0 }
     return {
-      budgetId: budget.id,
-      name: budget.name,
-      type: budget.type,
+      categoryId: budget.categoryId,
+      name: budget.category.name,
+      color: budget.category.color,
+      group: budget.category.group,
       amountType: budget.amountType,
       plannedBrl: budget.amount === null ? null : Number(budget.amount),
       plannedMinBrl: budget.amountMin === null ? null : Number(budget.amountMin),
@@ -367,29 +332,7 @@ export async function computeMetrics(
   })
 
   // ── Distribuição 50/30/20 ──────────────────────────────────────────────────
-  const spendRows = await db
-    .select({
-      recurrence: transactions.recurrence,
-      isEssential: transactions.isEssential,
-      budgetType: budgets.type,
-      total: sql<string>`sum(${transactions.amount}::numeric)`,
-    })
-    .from(transactions)
-    .leftJoin(budgets, eq(transactions.budgetId, budgets.id))
-    .where(
-      and(between(transactions.date, range.from, range.to), IS_EXPENSE, COUNTED_TRANSACTIONS)
-    )
-    .groupBy(transactions.recurrence, transactions.isEssential, budgets.type)
-
-  const byType: Record<BudgetType, number> = {
-    essential: 0,
-    desire: 0,
-    investment: 0,
-  }
-  for (const row of spendRows) {
-    byType[classifySpend(row)] += Number(row.total)
-  }
-  const distribution = buildDistribution(byType)
+  const distribution = buildDistribution(totalsByGroup(spending), current.income)
 
   // ── Anomalias e top movers ─────────────────────────────────────────────────
   const currentByCategory = await expensesByCategory(range.from, range.to)

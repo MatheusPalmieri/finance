@@ -3,7 +3,6 @@ import {
   buildDistribution,
   classifyAnomaly,
   classifyBudgetStatus,
-  classifySpend,
   countNoSpendDays,
   monthRange,
   nullableScalar,
@@ -88,115 +87,72 @@ describe("countNoSpendDays", () => {
 })
 
 describe("classifyBudgetStatus", () => {
-  const fixed = {
-    amountType: "fixed" as const,
+  const exact = {
+    amountType: "exact" as const,
     amount: "1000",
     amountMin: null,
     amountMax: null,
   }
-  const variable = {
-    amountType: "variable" as const,
+  const range = {
+    amountType: "range" as const,
     amount: null,
     amountMin: "500",
     amountMax: "800",
   }
 
   test("sem lançamento no mês vira missing", () => {
-    expect(classifyBudgetStatus(fixed, 0, 0)).toBe("missing")
+    expect(classifyBudgetStatus(exact, 0, 0)).toBe("missing")
   })
 
-  test("fixo dentro da tolerância de 2% fica on_track", () => {
-    expect(classifyBudgetStatus(fixed, 1010, 1)).toBe("on_track")
+  test("exato dentro da tolerância de 2% fica on_track", () => {
+    expect(classifyBudgetStatus(exact, 1010, 1)).toBe("on_track")
   })
 
-  test("fixo acima da tolerância estoura", () => {
-    expect(classifyBudgetStatus(fixed, 1030, 1)).toBe("over")
+  test("exato acima da tolerância estoura", () => {
+    expect(classifyBudgetStatus(exact, 1030, 1)).toBe("over")
   })
 
-  test("fixo bem abaixo fica under", () => {
-    expect(classifyBudgetStatus(fixed, 900, 1)).toBe("under")
+  test("exato bem abaixo fica under", () => {
+    expect(classifyBudgetStatus(exact, 900, 1)).toBe("under")
   })
 
-  test("variável dentro da faixa fica on_track", () => {
-    expect(classifyBudgetStatus(variable, 650, 3)).toBe("on_track")
+  test("faixa: dentro dela fica on_track", () => {
+    expect(classifyBudgetStatus(range, 650, 3)).toBe("on_track")
   })
 
   test("R$ 0,01 acima do máximo estoura", () => {
-    expect(classifyBudgetStatus(variable, 800.01, 3)).toBe("over")
+    expect(classifyBudgetStatus(range, 800.01, 3)).toBe("over")
   })
 
   test("abaixo do mínimo fica under", () => {
-    expect(classifyBudgetStatus(variable, 499.99, 3)).toBe("under")
-  })
-})
-
-describe("classifySpend", () => {
-  test("fixo herda o tipo do orçamento", () => {
-    expect(
-      classifySpend({
-        recurrence: "fixed",
-        isEssential: false,
-        budgetType: "investment",
-      })
-    ).toBe("investment")
-  })
-
-  test("variável essencial vira essential", () => {
-    expect(
-      classifySpend({
-        recurrence: "variable",
-        isEssential: true,
-        budgetType: null,
-      })
-    ).toBe("essential")
-  })
-
-  test("variável não essencial vira desire", () => {
-    expect(
-      classifySpend({
-        recurrence: "variable",
-        isEssential: false,
-        budgetType: null,
-      })
-    ).toBe("desire")
-  })
-
-  test("fixo sem orçamento cai na regra do essencial", () => {
-    expect(
-      classifySpend({
-        recurrence: "fixed",
-        isEssential: true,
-        budgetType: null,
-      })
-    ).toBe("essential")
+    expect(classifyBudgetStatus(range, 499.99, 3)).toBe("under")
   })
 })
 
 describe("buildDistribution", () => {
-  test("distribuição exata na meta zera o desvio", () => {
-    const dist = buildDistribution({
-      essential: 50,
-      desire: 30,
-      investment: 20,
-    })
+  test("a base é a renda: distribuição na meta zera o desvio", () => {
+    const dist = buildDistribution({ essential: 500, variable: 300, investment: 200 }, 1000)
     expect(dist.essential.pct).toBe(50)
     expect(dist.essential.deltaPp).toBe(0)
-    expect(dist.desire.deltaPp).toBe(0)
+    expect(dist.variable.deltaPp).toBe(0)
   })
 
-  test("desvio em pontos percentuais", () => {
-    const dist = buildDistribution({
-      essential: 70,
-      desire: 30,
-      investment: 0,
-    })
+  test("desvio em pontos percentuais da renda", () => {
+    const dist = buildDistribution({ essential: 700, variable: 300, investment: 0 }, 1000)
     expect(dist.essential.deltaPp).toBe(20)
     expect(dist.investment.deltaPp).toBe(-20)
   })
 
-  test("mês sem gasto nenhum não divide por zero", () => {
-    const dist = buildDistribution({ essential: 0, desire: 0, investment: 0 })
+  test("o que sobra da renda não entra em grupo nenhum", () => {
+    const dist = buildDistribution({ essential: 400, variable: 100, investment: 0 }, 2000)
+    expect(dist.essential.pct).toBe(20)
+    expect(dist.variable.pct).toBe(5)
+  })
+
+  test("mês sem renda não divide por zero", () => {
+    const dist = buildDistribution({ essential: 300, variable: 0, investment: 0 }, 0)
     expect(dist.essential.pct).toBe(0)
+    expect(dist.essential.amountBrl).toBe(300)
   })
 })
 

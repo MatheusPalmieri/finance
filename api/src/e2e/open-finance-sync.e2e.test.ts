@@ -111,7 +111,6 @@ describe("e2e sync — primeira sincronização", () => {
     const salary = byExternal.get("b2")!
     expect(salary.amount).toBe("-5000.00")
     expect(salary.kind).toBe("regular")
-    expect(salary.isEssential).toBe(false)
 
     expect(byExternal.get("b3")!.kind).toBe("bill_payment")
     expect(byExternal.get("c2")!.kind).toBe("bill_payment")
@@ -193,7 +192,7 @@ describe("e2e sync — sincronizações seguintes", () => {
     const moradia = (await db.query.categories.findFirst({ where: (c, { eq }) => eq(c.name, "Moradia") }))!
     await db
       .update(transactions)
-      .set({ name: "Pão", categoryId: moradia.id, isEssential: true, notes: "minha nota" })
+      .set({ name: "Pão", categoryId: moradia.id, notes: "minha nota" })
       .where(eq(transactions.externalId, "b1"))
 
     provider.transactions["acc-bank"][0].amount = -35
@@ -204,7 +203,6 @@ describe("e2e sync — sincronizações seguintes", () => {
     expect(row.amount).toBe("35.00")
     expect(row.name).toBe("Pão")
     expect(row.categoryId).toBe(moradia.id)
-    expect(row.isEssential).toBe(true)
     expect(row.notes).toBe("minha nota")
   })
 

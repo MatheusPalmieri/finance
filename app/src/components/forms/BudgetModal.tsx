@@ -10,85 +10,94 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { FormModal } from "@/components/forms/FormModal"
-import { useCreateBudget, useUpdateBudget } from "@/lib/queries"
-import { cn } from "@/lib/utils"
-import { FINANCE } from "@/lib/tokens"
+import { useSaveCategoryPlan } from "@/lib/queries"
 import {
-  BUDGET_GROUP_LABELS,
-  BUDGET_TYPE_TARGET,
+  SPENDING_GROUP_LABELS,
+  SPENDING_GROUP_ORDER,
+  SPENDING_GROUP_TARGET,
   type Budget,
-  type BudgetType,
+  type Category,
+  type SpendingGroup,
 } from "@/types/finance"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
+// "none" = a categoria fica sem orçamento; só o grupo 50/30/20 é gravado
 const schema = z
   .object({
-    name: z.string().min(1, "Informe o nome"),
-    type: z.enum(["essential", "desire", "investment"]),
-    amountType: z.enum(["fixed", "variable"]),
+    categoryId: z.string().min(1, "Selecione a categoria"),
+    group: z.enum(["essential", "variable", "investment"]),
+    amountType: z.enum(["exact", "range", "none"]),
     amount: z.number().positive("Valor deve ser positivo").optional(),
-    amountMin: z.number().positive("Valor deve ser positivo").optional(),
+    amountMin: z.number().min(0, "Valor não pode ser negativo").optional(),
     amountMax: z.number().positive("Valor deve ser positivo").optional(),
   })
   .superRefine((val, ctx) => {
-    if (val.amountType === "fixed") {
-      if (val.amount == null)
-        ctx.addIssue({
-          code: "custom",
-          path: ["amount"],
-          message: "Informe o valor",
-        })
-    } else {
-      if (val.amountMin == null)
-        ctx.addIssue({
-          code: "custom",
-          path: ["amountMin"],
-          message: "Informe o mínimo",
-        })
-      if (val.amountMax == null)
-        ctx.addIssue({
-          code: "custom",
-          path: ["amountMax"],
-          message: "Informe o máximo",
-        })
-      if (
-        val.amountMin != null &&
-        val.amountMax != null &&
-        val.amountMin >= val.amountMax
-      )
-        ctx.addIssue({
-          code: "custom",
-          path: ["amountMax"],
-          message: "Máximo deve ser maior que o mínimo",
-        })
+    if (val.amountType === "exact" && val.amount == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["amount"],
+        message: "Informe o valor",
+      })
     }
+    if (val.amountType !== "range") return
+    if (val.amountMin == null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["amountMin"],
+        message: "Informe o mínimo",
+      })
+    if (val.amountMax == null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["amountMax"],
+        message: "Informe o máximo",
+      })
+    if (
+      val.amountMin != null &&
+      val.amountMax != null &&
+      val.amountMin >= val.amountMax
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["amountMax"],
+        message: "Máximo deve ser maior que o mínimo",
+      })
   })
 
-export type BudgetFormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>
 
-const TYPE_ORDER: BudgetType[] = ["essential", "desire", "investment"]
+const AMOUNT_TYPES: { value: FormValues["amountType"]; label: string }[] = [
+  { value: "exact", label: "Valor exato" },
+  { value: "range", label: "Faixa" },
+  { value: "none", label: "Sem orçamento" },
+]
 
-// ── Modal de criar/editar ─────────────────────────────────────────────────────
-// Com `defaultValues` edita o orçamento; sem ele cria um novo, opcionalmente
-// pré-preenchido com `initialValues` (ex.: converter uma transação em orçamento)
+// `NaN` do input vazio vira `undefined` para o zod tratar como ausente
+const asNumber = {
+  setValueAs: (v: string) => (v === "" ? undefined : Number(v)),
+}
+
+// ── Modal do plano da categoria ───────────────────────────────────────────────
+// Com `category`, edita o plano dela; sem, o usuário escolhe entre `choices`
+// (categorias que ainda não têm orçamento)
 export function BudgetModal({
   open,
   onClose,
   title,
-  defaultValues,
-  initialValues,
-  submitLabel,
+  category,
+  budget,
+  choices,
 }: {
   open: boolean
   onClose: () => void
   title: string
-  defaultValues?: Budget
-  initialValues?: Partial<BudgetFormValues>
-  submitLabel?: string
+  category?: Category
+  budget?: Budget | null
+  choices?: Category[]
 }) {
-  const create = useCreateBudget()
-  const update = useUpdateBudget()
+  const save = useSaveCategoryPlan()
 
   const {
     register,
@@ -97,124 +106,148 @@ export function BudgetModal({
     setValue,
     formState: { errors },
     reset,
-  } = useForm<BudgetFormValues>({
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: defaultValues
-      ? {
-          name: defaultValues.name,
-          type: defaultValues.type,
-          amountType: defaultValues.amountType,
-          amount: defaultValues.amount
-            ? Number(defaultValues.amount)
-            : undefined,
-          amountMin: defaultValues.amountMin
-            ? Number(defaultValues.amountMin)
-            : undefined,
-          amountMax: defaultValues.amountMax
-            ? Number(defaultValues.amountMax)
-            : undefined,
-        }
-      : { type: "essential", amountType: "fixed", ...initialValues },
+    defaultValues: {
+      categoryId: category?.id ?? "",
+      group: category?.group ?? "variable",
+      amountType: budget?.amountType ?? (category ? "none" : "exact"),
+      amount: budget?.amount ? Number(budget.amount) : undefined,
+      amountMin: budget?.amountMin ? Number(budget.amountMin) : undefined,
+      amountMax: budget?.amountMax ? Number(budget.amountMax) : undefined,
+    },
   })
 
   const amountType = watch("amountType")
+  const group = watch("group")
+
+  function close() {
+    onClose()
+    reset()
+  }
 
   const onSubmit = handleSubmit((values) => {
-    const payload =
-      values.amountType === "fixed"
-        ? {
-            name: values.name,
-            type: values.type,
-            amountType: "fixed" as const,
-            amount: values.amount,
-          }
-        : {
-            name: values.name,
-            type: values.type,
-            amountType: "variable" as const,
-            amountMin: values.amountMin,
-            amountMax: values.amountMax,
-          }
-
-    const finish = () => {
-      onClose()
-      reset()
-    }
-    if (defaultValues) {
-      update.mutate({ id: defaultValues.id, ...payload }, { onSuccess: finish })
-    } else {
-      create.mutate(payload, { onSuccess: finish })
-    }
+    save.mutate(
+      {
+        categoryId: values.categoryId,
+        group: values.group,
+        amountType: values.amountType === "none" ? null : values.amountType,
+        amount: values.amountType === "exact" ? values.amount : null,
+        amountMin: values.amountType === "range" ? values.amountMin : null,
+        amountMax: values.amountType === "range" ? values.amountMax : null,
+      },
+      { onSuccess: close }
+    )
   })
-
-  const isPending = create.isPending || update.isPending
 
   return (
     <FormModal
       open={open}
-      onClose={() => {
-        onClose()
-        reset()
-      }}
+      onClose={close}
       title={title}
       formId="budget-form"
       onSubmit={onSubmit}
-      isPending={isPending}
-      submitLabel={submitLabel}
+      isPending={save.isPending}
     >
       <div className="flex flex-col gap-4 py-1">
-        {/* Nome */}
-        <div className="flex flex-col gap-1.5">
-          <Label>Nome</Label>
-          <Input placeholder="Ex: Aluguel" autoFocus {...register("name")} />
-          {errors.name && (
-            <p className="text-xs text-destructive">{errors.name.message}</p>
-          )}
-        </div>
+        {/* Categoria: fixa ao editar, escolhida ao criar */}
+        {category ? (
+          <div className="flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2.5 text-sm font-medium">
+            <span
+              className="size-2.5 rounded-full"
+              style={{ backgroundColor: category.color }}
+            />
+            {category.name}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label>Categoria</Label>
+            <Select
+              value={watch("categoryId")}
+              onValueChange={(id) => {
+                setValue("categoryId", id, { shouldValidate: true })
+                // Começa pelo grupo que a categoria já tem
+                const chosen = choices?.find((c) => c.id === id)
+                if (chosen) setValue("group", chosen.group)
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {choices?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.categoryId && (
+              <p className="text-xs text-destructive">
+                {errors.categoryId.message}
+              </p>
+            )}
+          </div>
+        )}
 
-        {/* Tipo (50/30/20) */}
+        {/* Grupo 50/30/20 — vale para todo gasto da categoria */}
         <div className="flex flex-col gap-1.5">
-          <Label>Grupo</Label>
-          <Select
-            value={watch("type")}
-            onValueChange={(v) => setValue("type", v as BudgetType)}
+          <Label id="plan-group-label">Grupo</Label>
+          <ToggleGroup
+            aria-labelledby="plan-group-label"
+            type="single"
+            variant="outline"
+            spacing={0}
+            className="w-full"
+            value={group}
+            // Radix permite desmarcar o item ativo; ignora para sempre haver um valor
+            onValueChange={(v) => v && setValue("group", v as SpendingGroup)}
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPE_ORDER.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {BUDGET_GROUP_LABELS[type]} ({BUDGET_TYPE_TARGET[type]}%)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {SPENDING_GROUP_ORDER.map((g) => (
+              <ToggleGroupItem
+                key={g}
+                value={g}
+                size="sm"
+                className="flex-1 text-xs"
+              >
+                {SPENDING_GROUP_LABELS[g]} ({SPENDING_GROUP_TARGET[g]}%)
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <p className="text-xs text-muted-foreground">
+            Todo gasto desta categoria conta neste grupo da regra 50/30/20.
+          </p>
         </div>
 
         {/* Forma do valor */}
         <div className="flex flex-col gap-1.5">
-          <Label>Forma do valor</Label>
-          <div className="flex gap-2">
-            <SegButton
-              active={amountType === "fixed"}
-              onClick={() => setValue("amountType", "fixed")}
-              color={FINANCE.fixed}
-            >
-              Valor exato
-            </SegButton>
-            <SegButton
-              active={amountType === "variable"}
-              onClick={() => setValue("amountType", "variable")}
-              color={FINANCE.variable}
-            >
-              Faixa (mín–máx)
-            </SegButton>
-          </div>
+          <Label id="plan-amount-type-label">Orçamento mensal</Label>
+          <ToggleGroup
+            aria-labelledby="plan-amount-type-label"
+            type="single"
+            variant="outline"
+            spacing={0}
+            className="w-full"
+            value={amountType}
+            onValueChange={(v) =>
+              v && setValue("amountType", v as FormValues["amountType"])
+            }
+          >
+            {AMOUNT_TYPES.map(({ value, label }) => (
+              <ToggleGroupItem
+                key={value}
+                value={value}
+                size="sm"
+                className="flex-1 text-xs"
+              >
+                {label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
 
         {/* Valor(es) conforme a forma */}
-        {amountType === "fixed" ? (
+        {amountType === "exact" && (
           <div className="flex flex-col gap-1.5">
             <Label>Valor (R$)</Label>
             <Input
@@ -222,7 +255,7 @@ export function BudgetModal({
               step="0.01"
               min="0.01"
               placeholder="0,00"
-              {...register("amount", { valueAsNumber: true })}
+              {...register("amount", asNumber)}
             />
             {errors.amount && (
               <p className="text-xs text-destructive">
@@ -230,16 +263,17 @@ export function BudgetModal({
               </p>
             )}
           </div>
-        ) : (
+        )}
+        {amountType === "range" && (
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Mínimo (R$)</Label>
               <Input
                 type="number"
                 step="0.01"
-                min="0.01"
+                min="0"
                 placeholder="0,00"
-                {...register("amountMin", { valueAsNumber: true })}
+                {...register("amountMin", asNumber)}
               />
               {errors.amountMin && (
                 <p className="text-xs text-destructive">
@@ -254,7 +288,7 @@ export function BudgetModal({
                 step="0.01"
                 min="0.01"
                 placeholder="0,00"
-                {...register("amountMax", { valueAsNumber: true })}
+                {...register("amountMax", asNumber)}
               />
               {errors.amountMax && (
                 <p className="text-xs text-destructive">
@@ -264,36 +298,13 @@ export function BudgetModal({
             </div>
           </div>
         )}
+        {amountType === "none" && (
+          <p className="rounded-xl border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+            A categoria continua contando no grupo escolhido, mas sem meta de
+            valor. Na projeção, ela segue o histórico de gastos.
+          </p>
+        )}
       </div>
     </FormModal>
-  )
-}
-
-// Botão segmentado para escolhas binárias
-function SegButton({
-  active,
-  onClick,
-  color,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  color: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex flex-1 items-center justify-center rounded-lg border py-2 text-xs font-medium transition-colors",
-        active
-          ? "border-transparent text-white"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-      style={active ? { backgroundColor: color } : {}}
-    >
-      {children}
-    </button>
   )
 }

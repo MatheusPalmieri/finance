@@ -19,9 +19,9 @@ const SEVERITY_ORDER: Record<InsightSeverity, number> = {
   info: 2,
 }
 
-const TYPE_LABELS = {
+const GROUP_LABELS = {
   essential: "essenciais",
-  desire: "variáveis",
+  variable: "variáveis",
   investment: "investimentos",
 } as const
 
@@ -68,7 +68,7 @@ export function buildInsights(metrics: MonthlyReportMetrics): Insight[] {
         severity: "warn",
         title: `${line.name} estourou em ${brl(excess)}`,
         amountBrl: excess,
-        budgetId: line.budgetId,
+        categoryId: line.categoryId,
         facts: {
           budgetName: line.name,
           planned: ceiling,
@@ -83,7 +83,7 @@ export function buildInsights(metrics: MonthlyReportMetrics): Insight[] {
         severity: "warn",
         title: `${line.name} não teve nenhum lançamento no mês`,
         amountBrl: line.plannedBrl ?? line.plannedMinBrl,
-        budgetId: line.budgetId,
+        categoryId: line.categoryId,
         facts: {
           budgetName: line.name,
           planned: line.plannedBrl ?? line.plannedMinBrl ?? 0,
@@ -127,17 +127,20 @@ export function buildInsights(metrics: MonthlyReportMetrics): Insight[] {
   }
 
   // ── Regra 50/30/20 ─────────────────────────────────────────────────────────
-  for (const [type, bucket] of Object.entries(metrics.distribution)) {
+  // A base é a renda do mês: sem renda, os percentuais não dizem nada
+  const distribution =
+    metrics.totals.totalIncome.current > 0 ? Object.entries(metrics.distribution) : []
+  for (const [group, bucket] of distribution) {
     if (Math.abs(bucket.deltaPp) <= DISTRIBUTION_TOLERANCE_PP) continue
-    const label = TYPE_LABELS[type as keyof typeof TYPE_LABELS]
+    const label = GROUP_LABELS[group as keyof typeof GROUP_LABELS]
     const direction = bucket.deltaPp > 0 ? "acima" : "abaixo"
     insights.push({
       kind: "rule_503020_off",
       severity: "info",
-      title: `${bucket.pct}% em ${label} — ${Math.abs(bucket.deltaPp)} pontos ${direction} da meta de ${bucket.targetPct}%`,
+      title: `${bucket.pct}% da renda em ${label} — ${Math.abs(bucket.deltaPp)} pontos ${direction} da meta de ${bucket.targetPct}%`,
       amountBrl: bucket.amountBrl,
       facts: {
-        type,
+        group,
         pct: bucket.pct,
         targetPct: bucket.targetPct,
         deltaPp: bucket.deltaPp,

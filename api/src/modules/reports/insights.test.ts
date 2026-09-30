@@ -3,6 +3,17 @@ import { buildInsights, MAX_INSIGHTS } from "./insights"
 import { buildDistribution, scalar, nullableScalar } from "./metrics"
 import type { BudgetLine, MonthlyReportMetrics } from "./types"
 
+const INCOME = 8000
+
+/** Distribuição a partir de percentuais da renda (a base do 50/30/20). */
+function dist(essentialPct: number, variablePct: number, investmentPct: number) {
+  const of = (pct: number) => (pct / 100) * INCOME
+  return buildDistribution(
+    { essential: of(essentialPct), variable: of(variablePct), investment: of(investmentPct) },
+    INCOME
+  )
+}
+
 function metrics(
   partial: Partial<MonthlyReportMetrics> = {}
 ): MonthlyReportMetrics {
@@ -16,7 +27,7 @@ function metrics(
     },
     totals: {
       totalExpenses: scalar(5000, 5000),
-      totalIncome: scalar(8000, 8000),
+      totalIncome: scalar(INCOME, INCOME),
       netResult: scalar(3000, 3000),
       savingsRate: nullableScalar(37.5, 37.5),
       transactionCount: scalar(40, 40),
@@ -26,11 +37,7 @@ function metrics(
     biggestExpense: null,
     budgets: [],
     // Exatamente na meta: nenhum insight de 50/30/20 por padrão
-    distribution: buildDistribution({
-      essential: 50,
-      desire: 30,
-      investment: 20,
-    }),
+    distribution: dist(50, 30, 20),
     anomalies: [],
     topMovers: { up: [], down: [] },
     newMerchants: [],
@@ -41,10 +48,11 @@ function metrics(
 
 function budget(partial: Partial<BudgetLine> = {}): BudgetLine {
   return {
-    budgetId: "b1",
-    name: "Aluguel",
-    type: "essential",
-    amountType: "fixed",
+    categoryId: "c1",
+    name: "Moradia",
+    color: "#ef4444",
+    group: "essential",
+    amountType: "exact",
     plannedBrl: 1000,
     plannedMinBrl: null,
     plannedMaxBrl: null,
@@ -72,11 +80,7 @@ describe("buildInsights", () => {
           avgTicket: scalar(0, 0),
           noSpendDays: scalar(31, 31),
         },
-        distribution: buildDistribution({
-          essential: 0,
-          desire: 0,
-          investment: 0,
-        }),
+        distribution: buildDistribution({ essential: 0, variable: 0, investment: 0 }, 0),
         budgets: [
           budget({ actualBrl: 0, status: "missing", transactionCount: 0 }),
         ],
@@ -90,7 +94,7 @@ describe("buildInsights", () => {
       metrics({
         budgets: [
           budget({
-            amountType: "variable",
+            amountType: "range",
             plannedBrl: null,
             plannedMinBrl: 500,
             plannedMaxBrl: 800,
@@ -111,7 +115,7 @@ describe("buildInsights", () => {
     )
     expect(out[0].kind).toBe("budget_over")
     expect(out[0].amountBrl).toBe(200)
-    expect(out[0].budgetId).toBe("b1")
+    expect(out[0].categoryId).toBe("c1")
   })
 
   test("orçamento sem lançamento gera budget_missing", () => {
@@ -186,25 +190,28 @@ describe("buildInsights", () => {
   test("desvio acima de 5pp na 50/30/20 gera insight", () => {
     const out = buildInsights(
       metrics({
-        distribution: buildDistribution({
-          essential: 70,
-          desire: 30,
-          investment: 0,
-        }),
+        distribution: dist(70, 30, 0),
       })
     )
     const kinds = out.map((i) => i.kind)
     expect(kinds).toContain("rule_503020_off")
+    expect(out.find((i) => i.kind === "rule_503020_off")?.title).toContain("da renda")
+  })
+
+  test("sem renda no mês, a 50/30/20 não vira insight", () => {
+    const out = buildInsights(
+      metrics({
+        totals: { ...metrics().totals, totalIncome: scalar(0, 0) },
+        distribution: buildDistribution({ essential: 900, variable: 0, investment: 0 }, 0),
+      })
+    )
+    expect(out.filter((i) => i.kind === "rule_503020_off")).toHaveLength(0)
   })
 
   test("desvio de exatamente 5pp não gera insight", () => {
     const out = buildInsights(
       metrics({
-        distribution: buildDistribution({
-          essential: 55,
-          desire: 25,
-          investment: 20,
-        }),
+        distribution: dist(55, 25, 20),
       })
     )
     expect(out.filter((i) => i.kind === "rule_503020_off")).toHaveLength(0)
@@ -214,8 +221,8 @@ describe("buildInsights", () => {
     const out = buildInsights(
       metrics({
         budgets: [
-          budget({ budgetId: "b1", name: "Pequeno", actualBrl: 1050, status: "over" }),
-          budget({ budgetId: "b2", name: "Grande", actualBrl: 2000, status: "over" }),
+          budget({ categoryId: "c1", name: "Pequeno", actualBrl: 1050, status: "over" }),
+          budget({ categoryId: "c2", name: "Grande", actualBrl: 2000, status: "over" }),
         ],
       })
     )
@@ -225,7 +232,7 @@ describe("buildInsights", () => {
 
   test("guarda no máximo 12 insights", () => {
     const budgetLines = Array.from({ length: 30 }, (_, i) =>
-      budget({ budgetId: `b${i}`, name: `Orç ${i}`, actualBrl: 2000, status: "over" })
+      budget({ categoryId: `c${i}`, name: `Orç ${i}`, actualBrl: 2000, status: "over" })
     )
     expect(buildInsights(metrics({ budgets: budgetLines })).length).toBe(
       MAX_INSIGHTS

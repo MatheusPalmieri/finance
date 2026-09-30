@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia"
-import { and, asc, count, desc, eq, gte, ilike, lte, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, gte, ilike, lte } from "drizzle-orm"
 import { db } from "../db"
 import { transactions } from "../db/schema"
 import { isPaymentMethod } from "../lib/payment-methods"
@@ -9,14 +9,13 @@ import { scheduleRecalculate } from "../modules/classification"
 // Transações são somente leitura na origem: todas vêm do Open Finance (sync).
 // Não existe criar, importar nem excluir — valor, data, conta, status,
 // natureza e forma de pagamento são do banco. O usuário só ajusta a
-// CLASSIFICAÇÃO, que o sync nunca sobrescreve (ver modules/open-finance/sync.ts).
+// CLASSIFICAÇÃO (nome, categoria, observação), que o sync nunca sobrescreve
+// (ver modules/open-finance/sync.ts). A categoria decide o orçamento e o grupo
+// 50/30/20 — não há vínculo por transação.
 
 const classificationBody = t.Object({
   name: t.String({ minLength: 1 }),
   categoryId: t.String({ minLength: 1 }),
-  isEssential: t.Boolean(),
-  recurrence: t.Union([t.Literal("fixed"), t.Literal("variable")]),
-  budgetId: t.Optional(t.Nullable(t.String())),
   notes: t.Optional(t.Nullable(t.String())),
 })
 
@@ -33,10 +32,6 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       if (query.categoryId) conditions.push(eq(transactions.categoryId, query.categoryId))
       if (query.paymentMethod && isPaymentMethod(query.paymentMethod))
         conditions.push(eq(transactions.paymentMethod, query.paymentMethod))
-      if (query.recurrence === "fixed" || query.recurrence === "variable")
-        conditions.push(eq(transactions.recurrence, query.recurrence))
-      if (query.isEssential === "true") conditions.push(eq(transactions.isEssential, true))
-      if (query.isEssential === "false") conditions.push(eq(transactions.isEssential, false))
       if (query.from) conditions.push(gte(transactions.date, query.from))
       if (query.to) conditions.push(lte(transactions.date, query.to))
       if (query.search) conditions.push(ilike(transactions.name, `%${query.search}%`))
@@ -51,7 +46,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
       const [data, [{ total }]] = await Promise.all([
         db.query.transactions.findMany({
           where,
-          with: { account: true, category: true, budget: true },
+          with: { account: true, category: true },
           orderBy,
           limit,
           offset,
@@ -69,8 +64,6 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
         accountId: t.Optional(t.String()),
         categoryId: t.Optional(t.String()),
         paymentMethod: t.Optional(t.String()),
-        recurrence: t.Optional(t.String()),
-        isEssential: t.Optional(t.String()),
         from: t.Optional(t.String()),
         to: t.Optional(t.String()),
         order: t.Optional(t.String()),
@@ -80,7 +73,7 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .get("/:id", async ({ params, status }) => {
     const transaction = await db.query.transactions.findFirst({
       where: and(eq(transactions.id, params.id), REAL_TRANSACTIONS),
-      with: { account: true, category: true, budget: true },
+      with: { account: true, category: true },
     })
     if (!transaction) return status(404, { message: "Transação não encontrada" })
     return transaction
@@ -89,21 +82,11 @@ export const transactionsRoute = new Elysia({ prefix: "/transactions" })
   .patch(
     "/:id",
     async ({ params, body, status }) => {
-      // Em gasto fixo o orçamento é obrigatório; em variável é sempre nulo
-      if (body.recurrence === "fixed" && !body.budgetId) {
-        return status(400, { message: "Selecione o orçamento vinculado ao gasto recorrente" })
-      }
-
       const [transaction] = await db
         .update(transactions)
         .set({
           name: body.name,
           categoryId: body.categoryId,
-          // Entrada (valor negativo) nunca é essencial — resolvido no banco
-          // porque o valor não vem no corpo
-          isEssential: sql`(${transactions.amount} >= 0 and ${body.isEssential})`,
-          recurrence: body.recurrence,
-          budgetId: body.recurrence === "fixed" ? body.budgetId! : null,
           notes: body.notes ?? null,
         })
         .where(and(eq(transactions.id, params.id), REAL_TRANSACTIONS))

@@ -121,7 +121,7 @@ const PLUGGY_CATEGORY_MAP: [prefix: string, localName: string][] = [
   ["08", "Compras"], // Shopping, Clothing, Electronics, Bookstore...
   ["09030", "Música"], // Music streaming
   ["09", "Assinaturas"], // Digital services, Video streaming, Gaming
-  ["10", "Alimentação"], // Groceries
+  ["10", "Mercado"], // Groceries
   ["11", "Alimentação"], // Eating out, Food delivery
   ["12", "Lazer"], // Travel, Accomodation
   ["16", "Serviços"], // Bank fees

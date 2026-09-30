@@ -1,14 +1,7 @@
 import { useState, type ReactNode } from "react"
-import {
-  ChevronDown,
-  Pencil,
-  PiggyBank,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react"
+import { Link } from "react-router-dom"
+import { ChevronDown, Pencil, PiggyBank, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
@@ -24,20 +17,29 @@ import {
 import { BudgetModal } from "@/components/forms/BudgetModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { usePeriod } from "@/components/period-provider"
-import { useBudgetSummary, useBudgets, useDeleteBudget } from "@/lib/queries"
+import {
+  useBudgetSummary,
+  useBudgets,
+  useCategories,
+  useDeleteBudget,
+} from "@/lib/queries"
 import { formatCurrency } from "@/lib/format"
 import { FINANCE, PALETTE, tint } from "@/lib/tokens"
 import { cn } from "@/lib/utils"
 import {
-  BUDGET_GROUP_LABELS,
-  BUDGET_TYPE_HEX,
-  BUDGET_TYPE_TARGET,
+  SPENDING_GROUP_HEX,
+  SPENDING_GROUP_LABELS,
+  SPENDING_GROUP_ORDER,
+  SPENDING_GROUP_TARGET,
   type Budget,
   type BudgetSummary,
-  type BudgetType,
+  type Category,
+  type SpendingGroup,
 } from "@/types/finance"
 
-const TYPE_ORDER: BudgetType[] = ["essential", "desire", "investment"]
+// O orçamento é o plano mensal de uma CATEGORIA. O realizado é o gasto da
+// categoria no mês — tudo que a classificação põe nela conta, sem vínculo por
+// transação. O grupo 50/30/20 também é da categoria. Ver domain/budget.md.
 
 // Como uma faixa (mín–máx) entra nos totais
 type RangeMode = "mid" | "min" | "max"
@@ -50,7 +52,7 @@ const RANGE_MODES: { value: RangeMode; label: string }[] = [
 
 // Valor planejado do orçamento; valor exato ignora o modo
 function plannedValue(budget: Budget, mode: RangeMode) {
-  if (budget.amountType === "fixed") return Number(budget.amount ?? 0)
+  if (budget.amountType === "exact") return Number(budget.amount ?? 0)
   const min = Number(budget.amountMin ?? 0)
   const max = Number(budget.amountMax ?? 0)
   if (mode === "min") return min
@@ -60,7 +62,7 @@ function plannedValue(budget: Budget, mode: RangeMode) {
 
 // Texto do valor: exato ou faixa mín–máx
 function formatBudgetValue(budget: Budget) {
-  if (budget.amountType === "fixed") return formatCurrency(budget.amount ?? 0)
+  if (budget.amountType === "exact") return formatCurrency(budget.amount ?? 0)
   return `${formatCurrency(budget.amountMin ?? 0)} – ${formatCurrency(budget.amountMax ?? 0)}`
 }
 
@@ -68,18 +70,34 @@ function pct(value: number) {
   return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`
 }
 
+// Primeiro e último dia do mês, para abrir Transações já filtrada
+function monthRange(month: number, year: number) {
+  const mm = String(month).padStart(2, "0")
+  return {
+    from: `${year}-${mm}-01`,
+    to: `${year}-${mm}-${new Date(year, month, 0).getDate()}`,
+  }
+}
+
+/** Linha da tabela: categoria com orçamento, com gasto no mês, ou os dois. */
+interface PlanRow {
+  category: Category
+  budget: Budget | null
+  spent: number
+  count: number
+}
+
 // ── Página ────────────────────────────────────────────────────────────────────
 export function Budgets() {
   const { month, year } = usePeriod()
-  const [search, setSearch] = useState("")
   const [rangeMode, setRangeMode] = useState<RangeMode>("mid")
-  const [collapsed, setCollapsed] = useState<Set<BudgetType>>(new Set())
+  const [collapsed, setCollapsed] = useState<Set<SpendingGroup>>(new Set())
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<Budget | null>(null)
-  const [deleting, setDeleting] = useState<Budget | null>(null)
+  const [editing, setEditing] = useState<PlanRow | null>(null)
+  const [deleting, setDeleting] = useState<PlanRow | null>(null)
 
-  // Lista completa: o resumo precisa de todos; a busca filtra só a tabela
-  const { data: budgets, isLoading, isError, refetch } = useBudgets()
+  const categories = useCategories()
+  const budgets = useBudgets()
   const summary = useBudgetSummary({ month, year })
   const deleteMutation = useDeleteBudget()
 
@@ -88,29 +106,53 @@ export function Budgets() {
     year: "numeric",
   })
 
-  const plannedByType = Object.fromEntries(
-    TYPE_ORDER.map((type) => [
-      type,
-      (budgets ?? [])
-        .filter((b) => b.type === type)
-        .reduce((sum, b) => sum + plannedValue(b, rangeMode), 0),
+  const budgetByCategory = new Map(
+    (budgets.data ?? []).map((b) => [b.categoryId, b])
+  )
+  const spentByCategory = summary.data?.spentByCategory ?? {}
+
+  // Só entra na tabela o que tem plano ou movimento no mês
+  const rows: PlanRow[] = (categories.data ?? [])
+    .map((category) => ({
+      category,
+      budget: budgetByCategory.get(category.id) ?? null,
+      spent: spentByCategory[category.id]?.total ?? 0,
+      count: spentByCategory[category.id]?.count ?? 0,
+    }))
+    .filter((row) => row.budget || row.count > 0)
+    .sort(
+      (a, b) =>
+        Number(!!b.budget) - Number(!!a.budget) ||
+        b.spent - a.spent ||
+        a.category.name.localeCompare(b.category.name)
+    )
+
+  const plannedByGroup = Object.fromEntries(
+    SPENDING_GROUP_ORDER.map((group) => [
+      group,
+      rows
+        .filter((r) => r.category.group === group && r.budget)
+        .reduce((sum, r) => sum + plannedValue(r.budget!, rangeMode), 0),
     ])
-  ) as Record<BudgetType, number>
+  ) as Record<SpendingGroup, number>
 
-  const query = search.trim().toLowerCase()
-  const groups = TYPE_ORDER.map((type) => ({
-    type,
-    items: (budgets ?? []).filter(
-      (b) => b.type === type && b.name.toLowerCase().includes(query)
-    ),
+  const groups = SPENDING_GROUP_ORDER.map((group) => ({
+    group,
+    rows: rows.filter((r) => r.category.group === group),
   }))
-  const hasRange = budgets?.some((b) => b.amountType === "variable") ?? false
+  const hasRange = budgets.data?.some((b) => b.amountType === "range") ?? false
+  const withoutBudget = (categories.data ?? []).filter(
+    (c) => !budgetByCategory.has(c.id)
+  )
 
-  function toggleGroup(type: BudgetType) {
+  const isLoading = categories.isLoading || budgets.isLoading
+  const isError = categories.isError || budgets.isError
+
+  function toggleGroup(group: SpendingGroup) {
     setCollapsed((prev) => {
       const next = new Set(prev)
-      if (next.has(type)) next.delete(type)
-      else next.add(type)
+      if (next.has(group)) next.delete(group)
+      else next.add(group)
       return next
     })
   }
@@ -122,7 +164,7 @@ export function Budgets() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Orçamentos</h1>
           <p className="text-sm text-muted-foreground first-letter:uppercase">
-            {monthLabel} · plano pela regra 50/30/20
+            {monthLabel} · plano por categoria pela regra 50/30/20
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -156,7 +198,12 @@ export function Budgets() {
               </ToggleGroup>
             </div>
           )}
-          <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
+          <Button
+            onClick={() => setCreating(true)}
+            size="sm"
+            className="gap-2"
+            disabled={withoutBudget.length === 0}
+          >
             <Plus size={15} />
             Novo orçamento
           </Button>
@@ -172,12 +219,17 @@ export function Budgets() {
       ) : isError ? (
         <ErrorState
           message="Não foi possível carregar os orçamentos."
-          onRetry={() => refetch()}
+          onRetry={() => {
+            categories.refetch()
+            budgets.refetch()
+          }}
         />
-      ) : !budgets?.length ? (
+      ) : rows.length === 0 && !summary.isLoading ? (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
           <PiggyBank size={40} className="text-muted-foreground/40" />
-          <p className="text-muted-foreground">Nenhum orçamento cadastrado</p>
+          <p className="text-muted-foreground">
+            Nenhum orçamento e nenhum gasto neste mês
+          </p>
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
             Criar primeiro orçamento
           </Button>
@@ -185,78 +237,57 @@ export function Budgets() {
       ) : (
         <>
           <SummaryCard
-            plannedByType={plannedByType}
+            plannedByGroup={plannedByGroup}
             summary={summary.data}
             isLoading={summary.isLoading}
             isError={summary.isError}
             onRetry={() => summary.refetch()}
           />
 
-          {/* Lista compacta agrupada */}
           <section className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Itens do plano</h2>
-              <div className="relative w-full max-w-xs">
-                <Search
-                  size={14}
-                  className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  placeholder="Buscar por nome..."
-                  aria-label="Buscar orçamento"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+            <h2 className="text-sm font-semibold">Categorias do mês</h2>
+            <div className="overflow-x-auto rounded-xl border bg-card">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b text-left text-[11px] tracking-wide text-muted-foreground uppercase">
+                    <th className="px-4 py-2.5 font-semibold">Categoria</th>
+                    <th className="px-4 py-2.5 font-semibold">Orçamento</th>
+                    <th className="px-4 py-2.5 text-right font-semibold">
+                      Planejado
+                    </th>
+                    <th className="px-4 py-2.5 text-right font-semibold">
+                      Gasto no mês
+                    </th>
+                    <th className="px-4 py-2.5 text-right font-semibold">
+                      Do grupo
+                    </th>
+                    <th className="w-20 px-4 py-2.5">
+                      <span className="sr-only">Ações</span>
+                    </th>
+                  </tr>
+                </thead>
+                {groups.map(({ group, rows: groupRows }) =>
+                  groupRows.length === 0 ? null : (
+                    <PlanGroup
+                      key={group}
+                      group={group}
+                      rows={groupRows}
+                      open={!collapsed.has(group)}
+                      onToggle={() => toggleGroup(group)}
+                      groupPlanned={plannedByGroup[group]}
+                      groupSpent={summary.data?.spentByGroup[group]}
+                      rangeMode={rangeMode}
+                      transactionsHref={(categoryId) => {
+                        const { from, to } = monthRange(month, year)
+                        return `/transactions?categoryId=${categoryId}&from=${from}&to=${to}`
+                      }}
+                      onEdit={setEditing}
+                      onDelete={setDeleting}
+                    />
+                  )
+                )}
+              </table>
             </div>
-
-            {groups.every((g) => g.items.length === 0) ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Nenhum orçamento encontrado
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border bg-card">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-[11px] tracking-wide text-muted-foreground uppercase">
-                      <th className="px-4 py-2.5 font-semibold">Nome</th>
-                      <th className="px-4 py-2.5 font-semibold">Valor</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">
-                        Planejado
-                      </th>
-                      <th className="px-4 py-2.5 text-right font-semibold">
-                        Gasto no mês
-                      </th>
-                      <th className="px-4 py-2.5 text-right font-semibold">
-                        Do grupo
-                      </th>
-                      <th className="w-20 px-4 py-2.5">
-                        <span className="sr-only">Ações</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  {groups.map(({ type, items }) =>
-                    items.length === 0 ? null : (
-                      <BudgetGroup
-                        key={type}
-                        type={type}
-                        items={items}
-                        // Buscando, os grupos ficam abertos para mostrar o resultado
-                        open={!collapsed.has(type) || query !== ""}
-                        onToggle={() => toggleGroup(type)}
-                        groupPlanned={plannedByType[type]}
-                        groupSpent={summary.data?.spentByType[type]}
-                        spentByBudget={summary.data?.spentByBudget}
-                        rangeMode={rangeMode}
-                        onEdit={setEditing}
-                        onDelete={setDeleting}
-                      />
-                    )
-                  )}
-                </table>
-              </div>
-            )}
           </section>
         </>
       )}
@@ -267,6 +298,7 @@ export function Budgets() {
           open
           onClose={() => setCreating(false)}
           title="Novo orçamento"
+          choices={withoutBudget}
         />
       )}
 
@@ -274,8 +306,9 @@ export function Budgets() {
         <BudgetModal
           open
           onClose={() => setEditing(null)}
-          title="Editar orçamento"
-          defaultValues={editing}
+          title={editing.budget ? "Editar orçamento" : "Definir orçamento"}
+          category={editing.category}
+          budget={editing.budget}
         />
       )}
 
@@ -285,10 +318,15 @@ export function Budgets() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir orçamento?</AlertDialogTitle>
+            <AlertDialogTitle>Remover orçamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.name}</strong> será removido permanentemente.
-              Transações recorrentes vinculadas a ele ficarão sem orçamento.
+              O orçamento de <strong>{deleting?.category.name}</strong> sai do
+              plano. A categoria continua no grupo{" "}
+              {deleting &&
+                SPENDING_GROUP_LABELS[
+                  deleting.category.group
+                ].toLowerCase()}{" "}
+              e as transações não mudam.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -297,12 +335,12 @@ export function Budgets() {
               className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               onClick={() => {
                 if (deleting)
-                  deleteMutation.mutate(deleting.id, {
+                  deleteMutation.mutate(deleting.category.id, {
                     onSuccess: () => setDeleting(null),
                   })
               }}
             >
-              Excluir
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -313,22 +351,25 @@ export function Budgets() {
 
 // ── Resumo: plano vs meta e realizado do mês ──────────────────────────────────
 function SummaryCard({
-  plannedByType,
+  plannedByGroup,
   summary,
   isLoading,
   isError,
   onRetry,
 }: {
-  plannedByType: Record<BudgetType, number>
+  plannedByGroup: Record<SpendingGroup, number>
   summary: BudgetSummary | undefined
   isLoading: boolean
   isError: boolean
   onRetry: () => void
 }) {
-  const totalPlanned = TYPE_ORDER.reduce((s, t) => s + plannedByType[t], 0)
+  const totalPlanned = SPENDING_GROUP_ORDER.reduce(
+    (s, g) => s + plannedByGroup[g],
+    0
+  )
   const income = summary?.income ?? 0
   const totalSpent = summary
-    ? TYPE_ORDER.reduce((s, t) => s + summary.spentByType[t], 0)
+    ? SPENDING_GROUP_ORDER.reduce((s, g) => s + summary.spentByGroup[g], 0)
     : 0
   // Base da % é a renda do mês; sem entrada registrada não há %
   const hasIncome = income > 0
@@ -364,9 +405,9 @@ function SummaryCard({
           <span className="text-2xl font-bold tracking-tight tabular-nums">
             {isLoading ? "—" : formatCurrency(totalSpent)}
           </span>
-          {totalPlanned > 0 && !isLoading && (
+          {hasIncome && !isLoading && (
             <span className="text-sm text-muted-foreground tabular-nums">
-              {pct((totalSpent / totalPlanned) * 100)} do planejado
+              {pct(planPct(totalSpent))} da renda
             </span>
           )}
         </div>
@@ -383,25 +424,25 @@ function SummaryCard({
       {hasIncome && (
         <div className="flex flex-col gap-1.5" aria-hidden="true">
           <StackRow label="Plano">
-            {TYPE_ORDER.map((type) => (
+            {SPENDING_GROUP_ORDER.map((group) => (
               <span
-                key={type}
+                key={group}
                 className="h-full"
                 style={{
-                  width: `${(planPct(plannedByType[type]) / scale) * 100}%`,
-                  backgroundColor: BUDGET_TYPE_HEX[type],
+                  width: `${(planPct(plannedByGroup[group]) / scale) * 100}%`,
+                  backgroundColor: SPENDING_GROUP_HEX[group],
                 }}
               />
             ))}
           </StackRow>
           <StackRow label="Meta" thin>
-            {TYPE_ORDER.map((type) => (
+            {SPENDING_GROUP_ORDER.map((group) => (
               <span
-                key={type}
+                key={group}
                 className="h-full"
                 style={{
-                  width: `${(BUDGET_TYPE_TARGET[type] / scale) * 100}%`,
-                  backgroundColor: BUDGET_TYPE_HEX[type],
+                  width: `${(SPENDING_GROUP_TARGET[group] / scale) * 100}%`,
+                  backgroundColor: SPENDING_GROUP_HEX[group],
                 }}
               />
             ))}
@@ -422,14 +463,14 @@ function SummaryCard({
 
       {/* Grupos */}
       <div className="grid border-t sm:grid-cols-3">
-        {TYPE_ORDER.map((type) => (
+        {SPENDING_GROUP_ORDER.map((group) => (
           <GroupStat
-            key={type}
-            type={type}
-            planned={plannedByType[type]}
-            share={hasIncome ? planPct(plannedByType[type]) : null}
-            spent={summary?.spentByType[type]}
-            flow={type === "investment" ? summary?.investmentFlow : undefined}
+            key={group}
+            group={group}
+            planned={plannedByGroup[group]}
+            share={hasIncome ? planPct(plannedByGroup[group]) : null}
+            spent={summary?.spentByGroup[group]}
+            flow={group === "investment" ? summary?.investmentFlow : undefined}
           />
         ))}
       </div>
@@ -462,27 +503,27 @@ function StackRow({
 }
 
 // Distância da meta: nos gastos, acima é alerta; no investimento, abaixo é
-function deltaTone(type: BudgetType, delta: number) {
-  const good = type === "investment" ? delta >= -2 : delta <= 2
+function deltaTone(group: SpendingGroup, delta: number) {
+  const good = group === "investment" ? delta >= -2 : delta <= 2
   if (good) return FINANCE.income
   return Math.abs(delta) > 8 ? FINANCE.expense : PALETTE.amber
 }
 
 function GroupStat({
-  type,
+  group,
   planned,
   share,
   spent,
   flow,
 }: {
-  type: BudgetType
+  group: SpendingGroup
   planned: number
   share: number | null
   spent: number | undefined
   flow?: { invested: number; redeemed: number }
 }) {
-  const color = BUDGET_TYPE_HEX[type]
-  const target = BUDGET_TYPE_TARGET[type]
+  const color = SPENDING_GROUP_HEX[group]
+  const target = SPENDING_GROUP_TARGET[group]
   const delta = share == null ? null : share - target
   const use = spent != null && planned > 0 ? (spent / planned) * 100 : null
 
@@ -493,7 +534,7 @@ function GroupStat({
           className="size-2.5 rounded-full"
           style={{ backgroundColor: color }}
         />
-        {BUDGET_GROUP_LABELS[type]}
+        {SPENDING_GROUP_LABELS[group]}
       </div>
       <span className="text-xl font-bold tracking-tight tabular-nums">
         {formatCurrency(planned)}
@@ -506,8 +547,8 @@ function GroupStat({
           <span
             className="rounded-full px-2 py-px font-semibold whitespace-nowrap tabular-nums"
             style={{
-              color: deltaTone(type, delta),
-              backgroundColor: tint(deltaTone(type, delta), 14),
+              color: deltaTone(group, delta),
+              backgroundColor: tint(deltaTone(group, delta), 14),
             }}
           >
             {delta > 0 ? "+" : delta < 0 ? "−" : ""}
@@ -517,7 +558,7 @@ function GroupStat({
       </div>
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
-          {type === "investment" ? "Aportado (líquido)" : "Realizado"}
+          {group === "investment" ? "Aportado (líquido)" : "Realizado"}
         </span>
         <span className="font-medium text-foreground tabular-nums">
           {spent == null ? "—" : formatCurrency(spent)}
@@ -562,30 +603,30 @@ function UsageBar({
 }
 
 // ── Grupo da tabela ───────────────────────────────────────────────────────────
-function BudgetGroup({
-  type,
-  items,
+function PlanGroup({
+  group,
+  rows,
   open,
   onToggle,
   groupPlanned,
   groupSpent,
-  spentByBudget,
   rangeMode,
+  transactionsHref,
   onEdit,
   onDelete,
 }: {
-  type: BudgetType
-  items: Budget[]
+  group: SpendingGroup
+  rows: PlanRow[]
   open: boolean
   onToggle: () => void
   groupPlanned: number
   groupSpent: number | undefined
-  spentByBudget: Record<string, number> | undefined
   rangeMode: RangeMode
-  onEdit: (budget: Budget) => void
-  onDelete: (budget: Budget) => void
+  transactionsHref: (categoryId: string) => string
+  onEdit: (row: PlanRow) => void
+  onDelete: (row: PlanRow) => void
 }) {
-  const color = BUDGET_TYPE_HEX[type]
+  const color = SPENDING_GROUP_HEX[group]
 
   return (
     <tbody>
@@ -608,9 +649,9 @@ function BudgetGroup({
               className="size-2.5 rounded-full"
               style={{ backgroundColor: color }}
             />
-            {BUDGET_GROUP_LABELS[type]}
+            {SPENDING_GROUP_LABELS[group]}
             <span className="font-normal text-muted-foreground">
-              {items.length} {items.length === 1 ? "item" : "itens"}
+              {rows.length} {rows.length === 1 ? "categoria" : "categorias"}
             </span>
           </button>
         </td>
@@ -624,70 +665,94 @@ function BudgetGroup({
       </tr>
 
       {open &&
-        items.map((budget) => {
-          const planned = plannedValue(budget, rangeMode)
-          const spent = spentByBudget?.[budget.id]
+        rows.map((row) => {
+          const { category, budget, spent, count } = row
+          const planned = budget ? plannedValue(budget, rangeMode) : null
           // Uso contra o teto: numa faixa, o máximo
-          const ceiling =
-            budget.amountType === "fixed"
-              ? planned
+          const ceiling = budget
+            ? budget.amountType === "exact"
+              ? Number(budget.amount ?? 0)
               : Number(budget.amountMax ?? 0)
-          const use =
-            spent != null && ceiling > 0 ? (spent / ceiling) * 100 : null
+            : 0
+          const use = ceiling > 0 ? (spent / ceiling) * 100 : null
 
           return (
             <tr
-              key={budget.id}
+              key={category.id}
               className="group border-b transition-colors last:border-b-0 hover:bg-muted/30"
             >
-              <td className="py-2 pr-4 pl-11 font-medium">{budget.name}</td>
-              <td className="px-4 py-2">
-                <span className="rounded-full border px-2 py-px text-xs whitespace-nowrap text-muted-foreground">
-                  {budget.amountType === "fixed" ? "Valor exato" : "Faixa"}
+              <td className="py-2 pr-4 pl-11 font-medium">
+                <span className="flex items-center gap-2">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: category.color }}
+                  />
+                  {category.name}
                 </span>
               </td>
-              <td className="px-4 py-2 text-right whitespace-nowrap tabular-nums">
-                {formatBudgetValue(budget)}
-              </td>
-              <td className="px-4 py-2 text-right">
-                {spent == null ? (
-                  <span className="text-xs text-muted-foreground">
-                    sem vínculo
+              <td className="px-4 py-2">
+                {budget ? (
+                  <span className="rounded-full border px-2 py-px text-xs whitespace-nowrap text-muted-foreground">
+                    {budget.amountType === "exact" ? "Valor exato" : "Faixa"}
                   </span>
                 ) : (
-                  <div className="flex items-center justify-end gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    sem orçamento
+                  </span>
+                )}
+              </td>
+              <td className="px-4 py-2 text-right whitespace-nowrap tabular-nums">
+                {budget ? formatBudgetValue(budget) : "—"}
+              </td>
+              <td className="px-4 py-2 text-right">
+                {count === 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    nada no mês
+                  </span>
+                ) : (
+                  <Link
+                    to={transactionsHref(category.id)}
+                    title={`Ver ${count} ${count === 1 ? "transação" : "transações"}`}
+                    className="flex items-center justify-end gap-2 rounded-md hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
                     <span className="tabular-nums">
                       {formatCurrency(spent)}
                     </span>
-                    <UsageBar
-                      use={use}
-                      color={color}
-                      className="w-16 shrink-0"
-                    />
-                  </div>
+                    {budget && (
+                      <UsageBar
+                        use={use}
+                        color={color}
+                        className="w-16 shrink-0"
+                      />
+                    )}
+                  </Link>
                 )}
               </td>
               <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">
-                {groupPlanned > 0 ? pct((planned / groupPlanned) * 100) : "—"}
+                {planned != null && groupPlanned > 0
+                  ? pct((planned / groupPlanned) * 100)
+                  : "—"}
               </td>
               <td className="px-2 py-1">
                 <div className="flex justify-end gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
                   <button
                     type="button"
-                    onClick={() => onEdit(budget)}
-                    aria-label={`Editar ${budget.name}`}
+                    onClick={() => onEdit(row)}
+                    aria-label={`Editar o plano de ${category.name}`}
                     className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
                   >
                     <Pencil size={15} className="lg:size-3.5" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(budget)}
-                    aria-label={`Excluir ${budget.name}`}
-                    className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
-                  >
-                    <Trash2 size={15} className="lg:size-3.5" />
-                  </button>
+                  {budget && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(row)}
+                      aria-label={`Remover o orçamento de ${category.name}`}
+                      className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive lg:size-7"
+                    >
+                      <Trash2 size={15} className="lg:size-3.5" />
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

@@ -11,7 +11,6 @@ const paymentMethodUnion = t.Union([
   t.Literal("transfer"),
 ])
 
-const recurrenceUnion = t.Union([t.Literal("fixed"), t.Literal("variable")])
 const matchTypeUnion = t.Union([
   t.Literal("contains"),
   t.Literal("exact"),
@@ -28,10 +27,6 @@ const ruleBody = t.Object({
   renameTo: t.Optional(t.Nullable(t.String())),
   categoryId: t.Optional(t.Nullable(t.String())),
   paymentMethod: t.Optional(t.Nullable(paymentMethodUnion)),
-  recurrence: t.Optional(t.Nullable(recurrenceUnion)),
-  isEssential: t.Optional(t.Nullable(t.Boolean())),
-  forceIncome: t.Optional(t.Nullable(t.Boolean())),
-  budgetId: t.Optional(t.Nullable(t.String())),
   enabled: t.Optional(t.Boolean()),
 })
 
@@ -51,14 +46,12 @@ export const classificationRoute = new Elysia({ prefix: "/classification" })
           t.Object({
             index: t.Number(),
             description: t.String(),
-            date: t.Optional(t.String()),
-            amount: t.Optional(t.Number()),
           })
         ),
       }),
     }
   )
-  // Chamado quando o usuário corrige uma sugestão na revisão da importação.
+  // Transforma uma correção em regra `learned` (ver domain/classification.md).
   .post(
     "/feedback",
     async ({ body, status }) => {
@@ -72,10 +65,7 @@ export const classificationRoute = new Elysia({ prefix: "/classification" })
         description: t.String({ minLength: 1 }),
         categoryId: t.Optional(t.Nullable(t.String())),
         paymentMethod: t.Optional(t.Nullable(paymentMethodUnion)),
-        recurrence: t.Optional(t.Nullable(recurrenceUnion)),
-        isEssential: t.Optional(t.Nullable(t.Boolean())),
         renameTo: t.Optional(t.Nullable(t.String())),
-        budgetId: t.Optional(t.Nullable(t.String())),
         createRule: t.Optional(t.Boolean()),
       }),
     }

@@ -23,22 +23,21 @@ import {
 } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { FINANCE, tint } from "@/lib/tokens"
+import { FINANCE, PALETTE, tint } from "@/lib/tokens"
 import {
   BUDGET_LINE_STATUS_LABELS,
-  BUDGET_TYPE_HEX,
-  BUDGET_TYPE_LABELS,
   INSIGHT_SEVERITY_HEX,
   MONTHS,
+  SPENDING_GROUP_HEX,
+  SPENDING_GROUP_LABELS,
+  SPENDING_GROUP_ORDER,
   type Anomaly,
   type BudgetLine,
-  type BudgetType,
   type Insight,
   type MonthlyReport,
   type Scalar,
+  type SpendingGroup,
 } from "@/types/finance"
-
-const TYPE_ORDER: BudgetType[] = ["essential", "desire", "investment"]
 
 export function Reports() {
   const navigate = useNavigate()
@@ -195,7 +194,7 @@ function ReportBody({
       {/* 4. 50/30/20 */}
       <Section
         title="Regra 50/30/20"
-        subtitle="Realizado contra a meta, sobre o gasto total do mês"
+        subtitle="Gasto de cada grupo contra a meta, em % da renda do mês"
       >
         <DistributionChart distribution={metrics.distribution} />
       </Section>
@@ -237,8 +236,8 @@ function ReportBody({
                 <span
                   className="flex size-8 shrink-0 items-center justify-center rounded-lg"
                   style={{
-                    backgroundColor: tint(FINANCE.variable, 14),
-                    color: FINANCE.variable,
+                    backgroundColor: tint(PALETTE.teal, 14),
+                    color: PALETTE.teal,
                   }}
                 >
                   <Store size={15} />
@@ -550,18 +549,29 @@ function InsightCard({
 }
 
 // ── 4. Distribuição 50/30/20 ─────────────────────────────────────────────────
-// Barra empilhada realizado sobre barra de meta. Cores vêm de BUDGET_TYPE_HEX
-// (lib/tokens.ts) — o contraste dessas cores contra a superfície fica abaixo de
-// 3:1 no tema claro, então cada faixa carrega rótulo direto além da legenda.
+// Barra empilhada realizado sobre barra de meta, em % da renda (a mesma base
+// da tela de Orçamentos). O que sobra da renda fica vazio; acima de 100% a
+// escala estica. Cores vêm de SPENDING_GROUP_HEX — o contraste contra a
+// superfície fica abaixo de 3:1 no tema claro, então cada faixa carrega
+// rótulo direto além da legenda.
 function DistributionChart({
   distribution,
 }: {
   distribution: Record<
-    BudgetType,
+    SpendingGroup,
     { pct: number; targetPct: number; deltaPp: number; amountBrl: number }
   >
 }) {
-  const hasData = TYPE_ORDER.some((type) => distribution[type].amountBrl > 0)
+  const hasData = SPENDING_GROUP_ORDER.some(
+    (group) => distribution[group].amountBrl > 0
+  )
+  const hasIncome = SPENDING_GROUP_ORDER.some(
+    (group) => distribution[group].pct !== 0
+  )
+  const scale = Math.max(
+    100,
+    SPENDING_GROUP_ORDER.reduce((sum, g) => sum + distribution[g].pct, 0)
+  )
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">
@@ -569,36 +579,42 @@ function DistributionChart({
         <p className="text-sm text-muted-foreground">
           Sem despesas no mês para distribuir.
         </p>
+      ) : !hasIncome ? (
+        <p className="text-sm text-muted-foreground">
+          Sem entradas no mês: a regra 50/30/20 é medida sobre a renda.
+        </p>
       ) : (
         <>
           <StackedBar
             label="Realizado"
-            segments={TYPE_ORDER.map((type) => ({
-              type,
-              pct: distribution[type].pct,
+            scale={scale}
+            segments={SPENDING_GROUP_ORDER.map((group) => ({
+              group,
+              pct: distribution[group].pct,
             }))}
           />
           <StackedBar
             label="Meta"
             muted
-            segments={TYPE_ORDER.map((type) => ({
-              type,
-              pct: distribution[type].targetPct,
+            scale={scale}
+            segments={SPENDING_GROUP_ORDER.map((group) => ({
+              group,
+              pct: distribution[group].targetPct,
             }))}
           />
 
           <div className="flex flex-wrap gap-x-5 gap-y-2 border-t pt-3">
-            {TYPE_ORDER.map((type) => {
-              const bucket = distribution[type]
+            {SPENDING_GROUP_ORDER.map((group) => {
+              const bucket = distribution[group]
               const off = Math.abs(bucket.deltaPp) > 5
               return (
-                <div key={type} className="flex items-center gap-2 text-xs">
+                <div key={group} className="flex items-center gap-2 text-xs">
                   <span
                     className="size-2.5 rounded-full"
-                    style={{ backgroundColor: BUDGET_TYPE_HEX[type] }}
+                    style={{ backgroundColor: SPENDING_GROUP_HEX[group] }}
                   />
                   <span className="font-medium">
-                    {BUDGET_TYPE_LABELS[type]}
+                    {SPENDING_GROUP_LABELS[group]}
                   </span>
                   <span className="text-muted-foreground tabular-nums">
                     {formatCurrency(bucket.amountBrl)}
@@ -625,10 +641,13 @@ function DistributionChart({
 function StackedBar({
   label,
   segments,
+  scale,
   muted,
 }: {
   label: string
-  segments: { type: BudgetType; pct: number }[]
+  segments: { group: SpendingGroup; pct: number }[]
+  /** Largura total da barra, em %: 100 ou mais quando o gasto passa da renda. */
+  scale: number
   muted?: boolean
 }) {
   return (
@@ -636,17 +655,17 @@ function StackedBar({
       <span className="text-xs text-muted-foreground">{label}</span>
       {/* gap-0.5 = o espaçador de 2px entre segmentos adjacentes */}
       <div className="flex h-9 gap-0.5 overflow-hidden rounded-md">
-        {segments.map(({ type, pct }) =>
+        {segments.map(({ group, pct }) =>
           pct <= 0 ? null : (
             <div
-              key={type}
+              key={group}
               className="flex items-center justify-center overflow-hidden text-[11px] font-medium text-white tabular-nums"
               style={{
-                width: `${pct}%`,
-                backgroundColor: BUDGET_TYPE_HEX[type],
+                width: `${(pct / scale) * 100}%`,
+                backgroundColor: SPENDING_GROUP_HEX[group],
                 opacity: muted ? 0.45 : 1,
               }}
-              title={`${BUDGET_TYPE_LABELS[type]}: ${pct}%`}
+              title={`${SPENDING_GROUP_LABELS[group]}: ${pct}% da renda`}
             >
               {pct >= 8 ? `${Math.round(pct)}%` : ""}
             </div>
@@ -660,7 +679,7 @@ function StackedBar({
 // ── 5. Orçamentos ─────────────────────────────────────────────────────────────
 const BUDGET_STATUS_HEX = {
   over: FINANCE.expense,
-  under: FINANCE.variable,
+  under: PALETTE.teal,
   on_track: FINANCE.income,
   missing: FINANCE.essential,
 } as const
@@ -675,7 +694,7 @@ function BudgetTable({ budgets }: { budgets: BudgetLine[] }) {
   return (
     <div className="overflow-hidden rounded-xl border">
       <div className="grid grid-cols-[1fr_120px_120px_120px] gap-3 border-b bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
-        <span>Orçamento</span>
+        <span>Categoria</span>
         <span className="text-right">Planejado</span>
         <span className="text-right">Realizado</span>
         <span>Situação</span>
@@ -688,11 +707,17 @@ function BudgetTable({ budgets }: { budgets: BudgetLine[] }) {
           const color = BUDGET_STATUS_HEX[line.status]
           return (
             <div
-              key={line.budgetId}
+              key={line.categoryId}
               className="grid grid-cols-[1fr_120px_120px_120px] items-center gap-3 px-4 py-2.5"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{line.name}</p>
+                <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: line.color }}
+                  />
+                  {line.name}
+                </p>
                 <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full transition-all"
@@ -704,7 +729,7 @@ function BudgetTable({ budgets }: { budgets: BudgetLine[] }) {
                 </div>
               </div>
               <span className="text-right text-sm text-muted-foreground tabular-nums">
-                {line.amountType === "variable"
+                {line.amountType === "range"
                   ? `até ${formatCurrency(line.plannedMaxBrl ?? 0)}`
                   : formatCurrency(line.plannedBrl ?? 0)}
               </span>

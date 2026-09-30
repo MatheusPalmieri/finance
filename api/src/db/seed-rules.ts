@@ -19,7 +19,6 @@ import {
   categories,
   classificationRules,
   type NewClassificationRule,
-  type Recurrence,
 } from "./schema"
 
 interface SeedRule {
@@ -28,9 +27,6 @@ interface SeedRule {
   /** Sem `renameTo` o nome original do extrato é mantido. */
   renameTo?: string
   categoryName?: string
-  /** Força o sinal, ignorando o do extrato. */
-  forceIncome?: boolean
-  recurrence?: Recurrence
 }
 
 export const SEED_RULES: SeedRule[] = [
@@ -40,17 +36,8 @@ export const SEED_RULES: SeedRule[] = [
     renameTo: "Salário",
     categoryName: "Salário",
   },
-  {
-    patterns: ["aplicacao rdb"],
-    categoryName: "Investimento",
-    forceIncome: true,
-    recurrence: "variable",
-  },
-  {
-    patterns: ["resgate rdb"],
-    categoryName: "Investimento",
-    recurrence: "variable",
-  },
+  { patterns: ["aplicacao rdb"], categoryName: "Investimento" },
+  { patterns: ["resgate rdb"], categoryName: "Investimento" },
   {
     // Rendimento em centavos, vem várias vezes por mês
     patterns: ["valor recebido de investimentos"],
@@ -128,7 +115,8 @@ export const SEED_RULES: SeedRule[] = [
     categoryName: "Transporte",
   },
 
-  // ── Alimentação (mantém o nome do estabelecimento) ────────────────────────
+  // ── Mercado e alimentação (mantêm o nome do estabelecimento) ──────────────
+  // Mercado é essencial; comer fora (restaurante, delivery) é variável
   {
     patterns: [
       "giassi",
@@ -138,7 +126,7 @@ export const SEED_RULES: SeedRule[] = [
       "fort atacadista",
       "cooper filial blumenau",
     ],
-    categoryName: "Alimentação",
+    categoryName: "Mercado",
   },
   { patterns: ["marmita"], categoryName: "Alimentação" },
   { patterns: ["ifd*", "ifd *", "ifood"], categoryName: "Alimentação" },
@@ -239,8 +227,6 @@ export async function seedClassificationRules() {
       categoryId: rule.categoryName
         ? (categoryByName.get(rule.categoryName.toLowerCase()) ?? null)
         : null,
-      recurrence: rule.recurrence ?? null,
-      forceIncome: rule.forceIncome ?? null,
     })
   })
 

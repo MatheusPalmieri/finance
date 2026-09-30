@@ -8,7 +8,7 @@ import { classificationRules, type ClassificationRule } from "../../db/schema"
 import { merchantKey, normalizeDescription } from "./normalize"
 import { EMPTY_PATCH, type ClassificationPatch } from "./types"
 
-/** Regex inválida é desabilitada em memória e logada — nunca derruba a importação. */
+/** Regex inválida é desabilitada em memória e logada — nunca derruba o sync. */
 const brokenRegexIds = new Set<string>()
 
 function compileRegex(rule: ClassificationRule): RegExp | null {
@@ -74,10 +74,6 @@ export function ruleToPatch(rule: ClassificationRule): ClassificationPatch {
     suggestedName: rule.renameTo,
     categoryId: rule.categoryId,
     paymentMethod: rule.paymentMethod,
-    recurrence: rule.recurrence,
-    isEssential: rule.isEssential,
-    budgetId: rule.budgetId,
-    forceIncome: rule.forceIncome,
   }
 }
 

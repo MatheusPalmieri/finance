@@ -33,7 +33,7 @@ export function sample<T>(values: readonly T[], rand: () => number): T {
 
 /**
  * Amostra de uma distribuição triangular — usada nos orçamentos de faixa
- * (`amountType: "variable"`), onde só conhecemos mínimo, máximo e a moda
+ * (`amountType: "range"`), onde só conhecemos mínimo, máximo e a moda
  * (a mediana do realizado).
  */
 export function triangular(

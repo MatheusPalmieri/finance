@@ -1,7 +1,7 @@
 ---
 title: Projeção de fluxo de caixa e simulador "posso comprar?"
 area: domain
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -27,10 +27,18 @@ para a UI poder explicar de onde saiu o número.
 | Componente | Origem | Natureza |
 |---|---|---|
 | Receita recorrente | Entradas que aparecem em ≥ 4 dos últimos 6 meses, agrupadas por `merchantKey` | determinística |
-| Gastos fixos | `budgets` com `amountType: "fixed"` | determinística |
+| Orçamentos exatos | `budgets` com `amountType: "exact"` | determinística |
 | Orçamentos de faixa | `amountMin`/`amountMax` → distribuição triangular | estocástica |
-| Gastos variáveis | Bootstrap do histórico por categoria | estocástica |
-| Lançamentos conhecidos | Transações já cadastradas com data futura | determinística |
+| Categorias sem orçamento | Bootstrap do histórico da categoria | estocástica |
+| Lançamentos conhecidos | Transações já lançadas com data futura (parcelas), **fora** das categorias com orçamento | determinística |
+
+**Sem dupla contagem:** categoria com orçamento usa só o plano. Ela sai do
+bootstrap e das parcelas futuras, que o plano já cobre. Antes (orçamento por
+item), o aluguel orçado somava com o histórico da categoria e a parcela futura
+da academia somava com o orçamento dela.
+
+Na resposta, cada mês traz `budgetedExpenses` (exatos + moda das faixas) e
+`unbudgetedExpensesP50`.
 | Cenário simulado | Eventos que o usuário está testando | determinística |
 
 ### O mês corrente não é contado duas vezes
@@ -38,13 +46,13 @@ para a UI poder explicar de onde saiu o número.
 O saldo das contas já reflete o que foi gasto neste mês. Projetar o mês inteiro
 por cima disso contaria em dobro. Então, no primeiro mês do horizonte:
 
-- **fixos** entram pro-rata pela fração do mês que ainda falta;
+- **orçamentos exatos** entram pro-rata pela fração do mês que ainda falta;
 - **receita esperada** desconta o que já foi recebido (com piso em zero);
 - **componentes estocásticos** são escalados por `remainingFraction`.
 
 Dos meses seguintes em diante, `remainingFraction` é 1.
 
-### Gastos variáveis — bootstrap por categoria
+### Categorias sem orçamento — bootstrap por categoria
 
 1. Série dos **12 últimos meses** de total mensal da categoria. **Meses sem
    gasto entram como 0** — a ausência é informação, e descartá-los inflaria a
@@ -119,7 +127,8 @@ O p50 negativo derruba direto para `no` porque significa que o resultado
 *típico* já é vermelho — pior do que a probabilidade sozinha sugere.
 
 **Reserva mínima**: `app_settings.minimumReserveBrl`, ou, quando nula, o default
-calculado (mediana mensal dos gastos essenciais).
+calculado: mediana mensal dos gastos das categorias do grupo **essencial**
+(`categories.group`).
 
 ### Acionáveis
 

@@ -1,8 +1,14 @@
 import { Elysia, t } from "elysia"
-import { and, between, eq, ilike, sql } from "drizzle-orm"
+import { and, between, eq, sql } from "drizzle-orm"
 import { db } from "../db"
-import { budgets, transactions } from "../db/schema"
-import { REAL_TRANSACTIONS } from "../lib/scope"
+import { budgets, categories, transactions } from "../db/schema"
+import { COUNTED_TRANSACTIONS, REAL_TRANSACTIONS } from "../lib/scope"
+import { spendingByCategory, totalsByGroup } from "../lib/spending"
+
+// Orçamento é o plano mensal de uma CATEGORIA (no máximo um por categoria). O
+// realizado é o gasto da categoria no mês — não há vínculo por transação, então
+// tudo que a classificação põe na categoria já conta. O grupo 50/30/20 mora na
+// categoria e é editado junto com o plano. Ver domain/budget.md.
 
 // Primeiro e último dia do mês ("YYYY-MM-DD")
 function monthBounds(month: number, year: number) {
@@ -13,104 +19,78 @@ function monthBounds(month: number, year: number) {
   }
 }
 
-/**
- * Realizado do mês para a tela de Orçamentos. Regra (ver domain/budget.md):
- * - vinculada a um orçamento → grupo daquele orçamento;
- * - `kind = investment` sem vínculo → investimento, pelo líquido
- *   (aplicações − resgates);
- * - toda outra saída `regular` sem vínculo → variável (`desire`).
- * Essencial/não essencial não pesa aqui. Fatura e transferência entre contas
- * próprias ficam fora.
- */
+const round = (v: number) => Number(v.toFixed(2))
+
+/** Realizado do mês: por grupo, por categoria e a renda que serve de base. */
 async function buildSummary(month: number, year: number) {
   const { firstDay, lastDay } = monthBounds(month, year)
-  const inMonth = and(REAL_TRANSACTIONS, between(transactions.date, firstDay, lastDay))
   const amount = sql`${transactions.amount}::numeric`
 
-  const [totals] = await db
-    .select({
-      income: sql<string>`coalesce(-sum(${amount}) filter (where ${transactions.kind} = 'regular' and ${amount} < 0), 0)`,
-      unlinkedVariable: sql<string>`coalesce(sum(${amount}) filter (where ${transactions.kind} = 'regular' and ${transactions.budgetId} is null and ${amount} > 0), 0)`,
-      invested: sql<string>`coalesce(sum(${amount}) filter (where ${transactions.kind} = 'investment' and ${transactions.budgetId} is null and ${amount} > 0), 0)`,
-      redeemed: sql<string>`coalesce(-sum(${amount}) filter (where ${transactions.kind} = 'investment' and ${transactions.budgetId} is null and ${amount} < 0), 0)`,
-    })
-    .from(transactions)
-    .where(inMonth)
+  const [spending, [totals]] = await Promise.all([
+    spendingByCategory(firstDay, lastDay),
+    db
+      .select({
+        income: sql<string>`coalesce(-sum(${amount}) filter (where ${COUNTED_TRANSACTIONS} and ${amount} < 0), 0)`,
+        invested: sql<string>`coalesce(sum(${amount}) filter (where ${transactions.kind} = 'investment' and ${amount} > 0), 0)`,
+        redeemed: sql<string>`coalesce(-sum(${amount}) filter (where ${transactions.kind} = 'investment' and ${amount} < 0), 0)`,
+      })
+      .from(transactions)
+      .where(and(REAL_TRANSACTIONS, between(transactions.date, firstDay, lastDay))),
+  ])
 
-  // Soma líquida por orçamento (estorno abate)
-  const linked = await db
-    .select({
-      budgetId: transactions.budgetId,
-      type: budgets.type,
-      spent: sql<string>`sum(${amount})`,
-    })
-    .from(transactions)
-    .innerJoin(budgets, eq(transactions.budgetId, budgets.id))
-    .where(and(inMonth, sql`${transactions.kind} in ('regular', 'investment')`))
-    .groupBy(transactions.budgetId, budgets.type)
-
-  const byType = { essential: 0, desire: 0, investment: 0 }
-  const byBudget: Record<string, number> = {}
-  for (const row of linked) {
-    const value = Number(row.spent)
-    byType[row.type] += value
-    if (row.budgetId) byBudget[row.budgetId] = value
-  }
-
-  const invested = Number(totals?.invested ?? 0)
-  const redeemed = Number(totals?.redeemed ?? 0)
-  byType.desire += Number(totals?.unlinkedVariable ?? 0)
-  byType.investment += invested - redeemed
-
-  const round = (v: number) => Number(v.toFixed(2))
+  const byGroup = totalsByGroup(spending)
   return {
     month,
     year,
     income: round(Number(totals?.income ?? 0)),
-    spentByType: {
-      essential: round(byType.essential),
-      desire: round(byType.desire),
-      investment: round(byType.investment),
+    spentByGroup: {
+      essential: round(byGroup.essential),
+      variable: round(byGroup.variable),
+      investment: round(byGroup.investment),
     },
-    investmentFlow: { invested: round(invested), redeemed: round(redeemed) },
-    spentByBudget: Object.fromEntries(
-      Object.entries(byBudget).map(([id, v]) => [id, round(v)])
+    investmentFlow: {
+      invested: round(Number(totals?.invested ?? 0)),
+      redeemed: round(Number(totals?.redeemed ?? 0)),
+    },
+    /** Gasto e nº de transações de cada categoria com movimento no mês. */
+    spentByCategory: Object.fromEntries(
+      spending.map((row) => [row.categoryId, { total: round(row.total), count: row.count }])
     ),
   }
 }
 
-const budgetBody = t.Object({
-  name: t.String({ minLength: 1 }),
-  type: t.Union([t.Literal("essential"), t.Literal("desire"), t.Literal("investment")]),
-  amountType: t.Union([t.Literal("fixed"), t.Literal("variable")]),
+const planBody = t.Object({
+  group: t.Union([t.Literal("essential"), t.Literal("variable"), t.Literal("investment")]),
+  // null = categoria sem orçamento (só o grupo é gravado)
+  amountType: t.Nullable(t.Union([t.Literal("exact"), t.Literal("range")])),
   amount: t.Optional(t.Nullable(t.Number())),
   amountMin: t.Optional(t.Nullable(t.Number())),
   amountMax: t.Optional(t.Nullable(t.Number())),
 })
 
-type BudgetBody = typeof budgetBody.static
+type PlanBody = typeof planBody.static
 
-// Valida as regras condicionais de valor; retorna mensagem de erro ou null
-function validateAmounts(body: BudgetBody): string | null {
-  if (body.amountType === "fixed") {
-    if (body.amount == null) return "Valor é obrigatório para orçamento de valor fixo"
-  } else {
+// Valida os valores conforme a forma; retorna mensagem de erro ou null
+function validateAmounts(body: PlanBody): string | null {
+  if (body.amountType === "exact") {
+    if (body.amount == null || body.amount <= 0) return "Informe um valor maior que zero"
+  } else if (body.amountType === "range") {
     if (body.amountMin == null || body.amountMax == null) {
       return "Valor mínimo e máximo são obrigatórios para orçamento em faixa"
     }
-    if (body.amountMin >= body.amountMax) {
-      return "O valor mínimo deve ser menor que o máximo"
-    }
+    if (body.amountMin < 0) return "O valor mínimo não pode ser negativo"
+    if (body.amountMin >= body.amountMax) return "O valor mínimo deve ser menor que o máximo"
   }
   return null
 }
 
-// Normaliza os campos de valor conforme o tipo, zerando os que não se aplicam
-function normalizeAmounts(body: BudgetBody) {
-  if (body.amountType === "fixed") {
-    return { amount: String(body.amount), amountMin: null, amountMax: null }
+// Grava só os campos da forma escolhida, zerando os outros
+function amountsOf(body: PlanBody) {
+  if (body.amountType === "exact") {
+    return { amountType: "exact" as const, amount: String(body.amount), amountMin: null, amountMax: null }
   }
   return {
+    amountType: "range" as const,
     amount: null,
     amountMin: String(body.amountMin),
     amountMax: String(body.amountMax),
@@ -118,19 +98,8 @@ function normalizeAmounts(body: BudgetBody) {
 }
 
 export const budgetsRoute = new Elysia({ prefix: "/budgets" })
-  .get(
-    "/",
-    ({ query }) => {
-      if (query.name) {
-        return db
-          .select()
-          .from(budgets)
-          .where(ilike(budgets.name, `%${query.name}%`))
-          .orderBy(budgets.name)
-      }
-      return db.select().from(budgets).orderBy(budgets.name)
-    },
-    { query: t.Object({ name: t.Optional(t.String()) }) }
+  .get("/", () =>
+    db.query.budgets.findMany({ with: { category: true } })
   )
   .get(
     "/summary",
@@ -147,53 +116,46 @@ export const budgetsRoute = new Elysia({ prefix: "/budgets" })
       }),
     }
   )
-  .get("/:id", async ({ params, status }) => {
-    const [budget] = await db.select().from(budgets).where(eq(budgets.id, params.id))
-    if (!budget) return status(404, { message: "Orçamento não encontrado" })
-    return budget
-  })
-  .post(
-    "/",
-    async ({ body, status }) => {
-      const invalid = validateAmounts(body)
-      if (invalid) return status(400, { message: invalid })
-
-      const [budget] = await db
-        .insert(budgets)
-        .values({
-          name: body.name,
-          type: body.type,
-          amountType: body.amountType,
-          ...normalizeAmounts(body),
-        })
-        .returning()
-      return budget
-    },
-    { body: budgetBody }
-  )
+  // Plano da categoria: grupo 50/30/20 + orçamento (cria, altera ou remove)
   .put(
-    "/:id",
+    "/:categoryId",
     async ({ params, body, status }) => {
       const invalid = validateAmounts(body)
       if (invalid) return status(400, { message: invalid })
 
-      const [budget] = await db
-        .update(budgets)
-        .set({
-          name: body.name,
-          type: body.type,
-          amountType: body.amountType,
-          ...normalizeAmounts(body),
-        })
-        .where(eq(budgets.id, params.id))
-        .returning()
-      if (!budget) return status(404, { message: "Orçamento não encontrado" })
-      return budget
+      const result = await db.transaction(async (tx) => {
+        const [category] = await tx
+          .update(categories)
+          .set({ group: body.group })
+          .where(eq(categories.id, params.categoryId))
+          .returning()
+        if (!category) return null
+
+        if (body.amountType === null) {
+          await tx.delete(budgets).where(eq(budgets.categoryId, category.id))
+          return { category, budget: null }
+        }
+
+        const values = amountsOf(body)
+        const [budget] = await tx
+          .insert(budgets)
+          .values({ categoryId: category.id, ...values })
+          .onConflictDoUpdate({ target: budgets.categoryId, set: values })
+          .returning()
+        return { category, budget }
+      })
+
+      if (!result) return status(404, { message: "Categoria não encontrada" })
+      return result
     },
-    { body: budgetBody }
+    { body: planBody }
   )
-  .delete("/:id", async ({ params, status }) => {
-    const [budget] = await db.delete(budgets).where(eq(budgets.id, params.id)).returning()
+  // Remove só o orçamento; a categoria e o grupo ficam
+  .delete("/:categoryId", async ({ params, status }) => {
+    const [budget] = await db
+      .delete(budgets)
+      .where(eq(budgets.categoryId, params.categoryId))
+      .returning()
     if (!budget) return status(404, { message: "Orçamento não encontrado" })
     return { success: true }
   })

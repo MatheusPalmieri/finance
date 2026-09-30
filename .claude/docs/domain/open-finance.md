@@ -1,7 +1,7 @@
 ---
 title: Domínio — Open Finance (sync com a Pluggy)
 area: domain
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -61,8 +61,8 @@ nem digitado.
      pendente para lançada);
    - senão → insere, com a classificação em 3 camadas (IA desligada por padrão:
      `OPEN_FINANCE_SYNC_USE_AI=true` liga).
-5. **Campos do usuário nunca são sobrescritos:** nome, categoria, forma de
-   pagamento, essencial, recorrência, orçamento e observação.
+5. **Campos do usuário nunca são sobrescritos:** nome, categoria e observação.
+   A forma de pagamento é definida só quando a transação chega.
 6. **Removidas:** o que sumiu da janela é apagado, a menos que o provedor devolva
    a conta **vazia** (mais provável ser falha que extrato vazio).
 7. **Retrato de saldos:** terminado com sucesso (não em `dryRun`), grava

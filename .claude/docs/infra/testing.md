@@ -1,7 +1,7 @@
 ---
 title: Testes da API — unitários e e2e
 area: infra
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -35,6 +35,16 @@ vezes seguidas dá o mesmo resultado.
 `scripts/test-db.ts` cria o banco se não existir e aplica o schema com
 `drizzle-kit push` — o mesmo caminho do desenvolvimento, então o schema de teste
 nunca diverge.
+
+- **Sucesso só com confirmação na saída** ("Changes applied" ou "No changes
+  detected"). O drizzle-kit sai com código 0 mesmo quando falha: com enum ou
+  coluna renomeada ele quer perguntar no terminal e, sem TTY, só imprime o erro.
+  Antes disso, o script dizia "schema aplicado" e os testes rodavam no schema
+  velho.
+- Se o push não confirmar, o script recria o schema `public` do banco de teste
+  (descartável) e aplica de novo, sem perguntas.
+- `TEST_DATABASE_URL=` vazio no `.env` conta como não definida (`src/test/env.ts`
+  usa `||`, não `??`).
 
 ### Preload
 
@@ -93,7 +103,8 @@ assíncronas ao banco (a promessa fica pendente até o timeout do teste). O
 | Arquivo | Spec | Cenários |
 |---|---|---|
 | `src/e2e/classification.e2e.test.ts` | 01 | As 3 camadas, o seed do de-para, o Pix dinâmico, aprendizado por feedback e o conflito 409, CRUD de regras com preview, séries recorrentes |
-| `src/e2e/apply-rule.e2e.test.ts` | 01 | "Aplicar às existentes": prévia só com o que muda, casamento pelo `originalName`, só campos de classificação, idempotência, fixo sem orçamento e entrada nunca essencial |
+| `src/e2e/apply-rule.e2e.test.ts` | 01 | "Aplicar às existentes": prévia só com o que muda (nome e categoria), casamento pelo `originalName`, forma de pagamento nunca aplicada, idempotência |
+| `src/e2e/budgets.e2e.test.ts` | — | Orçamento por categoria: resumo por categoria e grupo, mudar o grupo move o gasto, PUT/DELETE do plano, validação, cascade ao excluir a categoria |
 | `src/e2e/reports.e2e.test.ts` | 02 | Totais contra o dashboard, orçamentos, 50/30/20, anomalias, movers, estabelecimentos novos, insights, narrativa e ciclo de vida |
 | `src/e2e/forecast.e2e.test.ts` | 03 | Saldo inicial, determinismo, percentis, cenários, veredito, acionáveis, parser e preferências |
 | `src/e2e/llm.e2e.test.ts` | 00 | Health, telemetria em `llm_calls` (inclusive falhas), consumo agregado |

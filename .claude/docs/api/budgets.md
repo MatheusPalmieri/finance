@@ -1,62 +1,64 @@
 ---
 title: API — Orçamentos (Budgets)
 area: api
-updated: 2026-09-25
+updated: 2026-09-30
 ---
 
-## Orçamentos — `api/src/routes/budgets.ts` (prefixo `/budgets`)
+## Visão geral
 
-Catálogo de gastos planejados (50/30/20). Regras de domínio em `.claude/docs/domain/budget.md`.
+`api/src/routes/budgets.ts`, prefixo `/budgets`. O orçamento é o plano de uma
+categoria (ver `domain/budget.md`). A rota é endereçada pelo **id da
+categoria** e grava junto o grupo 50/30/20 dela.
 
-| Método | Path | Descrição |
-|--------|------|-----------|
-| GET | `/budgets` | Lista todos, ordenado por nome |
-| GET | `/budgets?name=alug` | Filtra por nome (`ilike`) — usado pelo autocomplete na transação |
-| GET | `/budgets/summary?month=9&year=2026` | Realizado do mês para a tela de Orçamentos (sem params = mês atual) |
-| GET | `/budgets/:id` | Busca por ID |
-| POST | `/budgets` | Cria (valida regras de valor) |
-| PUT | `/budgets/:id` | Atualiza (valida regras de valor) |
-| DELETE | `/budgets/:id` | Remove |
+## Endpoints
 
-**Body (POST / PUT):**
-```jsonc
-// fixo
-{ "name": "Aluguel", "type": "essential", "amountType": "fixed", "amount": 2200 }
-// variável
-{ "name": "Conta de Luz", "type": "essential", "amountType": "variable", "amountMin": 90, "amountMax": 260 }
+| Método | Caminho | Descrição |
+|---|---|---|
+| GET | `/budgets` | Todos os orçamentos, cada um com `category` |
+| GET | `/budgets/summary?month&year` | Realizado do mês (default: mês atual) |
+| PUT | `/budgets/:categoryId` | Grava o grupo da categoria e cria, altera ou remove o orçamento |
+| DELETE | `/budgets/:categoryId` | Remove só o orçamento (404 se não houver) |
+
+### PUT `/budgets/:categoryId`
+
+```json
+{ "group": "essential", "amountType": "range", "amountMin": 2700, "amountMax": 3000 }
 ```
 
-Validações (retornam **400** com `{ message }`):
-- `fixed` → `amount` obrigatório.
-- `variable` → `amountMin` e `amountMax` obrigatórios e `amountMin < amountMax`.
+| Campo | Regra |
+|---|---|
+| `group` | `essential` \| `variable` \| `investment` — gravado em `categories.group` |
+| `amountType` | `exact` \| `range` \| `null` (`null` = categoria sem orçamento) |
+| `amount` | Obrigatório e > 0 quando `exact` |
+| `amountMin` / `amountMax` | Obrigatórios quando `range`; mín ≥ 0 e mín < máx |
 
-Os campos que não se aplicam ao `amountType` são gravados como `null`.
+- Faz upsert pelo índice único de `category_id`, numa transação com a
+  atualização do grupo.
+- Resposta: `{ category, budget }`, com `budget: null` quando `amountType` é
+  `null`.
+- Erros: 400 (valores inválidos), 404 (categoria inexistente).
+- Excluir a categoria (`DELETE /categories/:id`) apaga o orçamento dela (cascade).
 
-## Integração na rota de Transações
+### GET `/budgets/summary`
 
-`POST` / `PUT /transactions` agora aceitam `budgetId` (nullable). Validação:
-- `recurrence = fixed` e sem `budgetId` → **400** `"Selecione o orçamento vinculado ao gasto recorrente"`.
-- `recurrence = variable` → `budgetId` é forçado a `null`, mesmo se enviado.
-
-`GET /transactions` e `GET /transactions/:id` passam a trazer a relation `budget`.
-
-## Nota técnica — `status` vs `error`
-
-Nesta versão do Elysia o helper de resposta no contexto é **`status(code, body)`** (e não `error`, que é `undefined` em runtime — causava `error is not a function`). Todas as rotas foram ajustadas para `status`. Ver `.claude/docs/decisions/elysia-status-helper.md`.
-
-## `GET /budgets/summary`
-
-Realizado do mês que a tela de Orçamentos compara com o plano. Só leitura,
-tudo do Open Finance (`REAL_TRANSACTIONS`). Regra em `domain/budget.md`.
-
-```jsonc
+```json
 {
   "month": 9, "year": 2026,
-  "income": 9042.95,              // entradas `regular` do mês (base da %)
-  "spentByType": { "essential": 3232.01, "desire": 7265.86, "investment": 0 },
-  "investmentFlow": { "invested": 0, "redeemed": 0 }, // sem vínculo; investment = invested − redeemed
-  "spentByBudget": { "<budgetId>": 2250 }             // soma líquida das vinculadas
+  "income": 23697.83,
+  "spentByGroup": { "essential": 3019.09, "variable": 1200, "investment": 350 },
+  "investmentFlow": { "invested": 500, "redeemed": 150 },
+  "spentByCategory": { "<categoryId>": { "total": 2291.98, "count": 1 } }
 }
 ```
 
-Teste: `api/src/e2e/budgets-summary.e2e.test.ts`.
+- `spentByGroup` e `spentByCategory` vêm de `lib/spending.ts` (saídas `regular`
+  + líquido de `kind = investment`; sem fatura nem transferência própria).
+- `spentByCategory` só lista categorias com movimento no mês. O `count` alimenta
+  o status `missing` do check-up.
+- `income`: entradas `regular` do mês, que são a base da % na tela.
+- `investmentFlow`: aplicações e resgates brutos (`kind = investment`).
+
+## Categorias (`/categories`)
+
+`POST` e `PUT` aceitam `group` opcional (default `variable`). Ver
+`api/lookups.md`.

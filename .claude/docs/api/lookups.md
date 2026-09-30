@@ -1,12 +1,12 @@
 ---
 title: API — Categorias
 area: api
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
 
-Cadastro auxiliar ("lookup") de Categorias, com o shape `{ id, name, color, createdAt }`. A validação de corpo usa `t` do Elysia (TypeBox).
+Cadastro auxiliar ("lookup") de Categorias, com o shape `{ id, name, color, group, createdAt }`. `group` é o grupo 50/30/20 (`essential` \| `variable` \| `investment`, default `variable`; ver `domain/budget.md`). A validação de corpo usa `t` do Elysia (TypeBox).
 
 | Módulo | Plugin | Prefixo | Tabela |
 |--------|--------|---------|--------|
@@ -25,9 +25,9 @@ Montados em `api/src/index.ts`.
 | Método | Path | Descrição |
 |--------|------|-----------|
 | GET | `/categories` | Lista todos, ordenado por `name` |
-| POST | `/categories` | Cria — body `{ name, color? }` |
-| PUT | `/categories/:id` | Edita — body `{ name, color? }`; 404 se não existir |
-| DELETE | `/categories/:id` | Remove (hard delete); 404 se não existir |
+| POST | `/categories` | Cria — body `{ name, color?, group? }` |
+| PUT | `/categories/:id` | Edita — body `{ name, color?, group? }`; 404 se não existir |
+| DELETE | `/categories/:id` | Remove (hard delete) e leva junto o orçamento dela (cascade); 404 se não existir |
 
 **Body (POST / PUT):**
 

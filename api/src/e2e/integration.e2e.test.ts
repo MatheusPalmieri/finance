@@ -42,7 +42,7 @@ describe("e2e — transações vêm só do Open Finance", () => {
     ])
     const body = {
       name: "Manual", amount: 10, categoryId: category.id, paymentMethod: "pix",
-      accountId: account.id, isEssential: false, recurrence: "variable", date: dayIn(0, 1),
+      accountId: account.id, date: dayIn(0, 1),
     }
 
     expect((await api.post("/transactions", body)).status).toBe(404)
@@ -64,8 +64,7 @@ describe("e2e — transações vêm só do Open Finance", () => {
     }>(
       `/transactions/${tx.id}`,
       {
-        name: "Feira", categoryId: other.id, isEssential: true,
-        recurrence: "variable", budgetId: null, notes: "sábado",
+        name: "Feira", categoryId: other.id, notes: "sábado",
         // Campos do banco no corpo são ignorados pela validação do Elysia
         amount: 1, date: "2000-01-01", paymentMethod: "pix",
       }
@@ -76,30 +75,20 @@ describe("e2e — transações vêm só do Open Finance", () => {
     expect(res.body.paymentMethod).toBe("credit_card")
   })
 
-  test("entrada reclassificada nunca vira essencial", async () => {
+  test("trocar a categoria move o gasto para o orçamento dela", async () => {
     const account = await makeAccount("Nubank")
-    const category = await makeCategory("Salário")
+    const others = await makeCategory("Outros")
+    const housing = await makeCategory("Moradia", { group: "essential" })
     const [tx] = await makeTransactions([
-      { name: "Salário", amount: -5000, date: dayIn(0, 5), categoryId: category.id, accountId: account.id },
+      { name: "Aluguel", amount: 2000, date: dayIn(0, 5), categoryId: others.id, accountId: account.id },
     ])
-    const res = await api.patch<{ isEssential: boolean }>(`/transactions/${tx.id}`, {
-      name: "Salário", categoryId: category.id, paymentMethod: "transfer",
-      isEssential: true, recurrence: "variable",
-    })
-    expect(res.body.isEssential).toBe(false)
-  })
+    const now = new Date()
+    const summaryPath = `/budgets/summary?month=${now.getMonth() + 1}&year=${now.getFullYear()}`
 
-  test("gasto fixo exige orçamento", async () => {
-    const account = await makeAccount("Nubank")
-    const category = await makeCategory("Moradia")
-    const [tx] = await makeTransactions([
-      { name: "Aluguel", amount: 2000, date: dayIn(0, 5), categoryId: category.id, accountId: account.id },
-    ])
-    const res = await api.patch(`/transactions/${tx.id}`, {
-      name: "Aluguel", categoryId: category.id, paymentMethod: "boleto",
-      isEssential: true, recurrence: "fixed", budgetId: null,
-    })
-    expect(res.status).toBe(400)
+    await api.patch(`/transactions/${tx.id}`, { name: "Aluguel", categoryId: housing.id })
+    const res = await api.get<{ spentByCategory: Record<string, { total: number }> }>(summaryPath)
+    expect(res.body.spentByCategory[housing.id].total).toBe(2000)
+    expect(res.body.spentByCategory[others.id]).toBeUndefined()
   })
 
   test("renomear na reclassificação mantém as séries coerentes", async () => {
@@ -123,8 +112,6 @@ describe("e2e — transações vêm só do Open Finance", () => {
     await api.patch(`/transactions/${created[2].id}`, {
       name: "Outro Servico Totalmente Diferente",
       categoryId: category.id,
-      isEssential: false,
-      recurrence: "variable",
     })
     await api.post("/recurring/recalculate")
     expect(await db.select().from(recurringSeries)).toHaveLength(0)

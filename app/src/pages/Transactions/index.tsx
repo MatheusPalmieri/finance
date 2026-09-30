@@ -6,18 +6,14 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarRange,
-  Info,
   Landmark,
   Pencil,
-  PiggyBank,
-  Repeat,
   RotateCcw,
   Search,
   SlidersHorizontal,
   X,
-  Zap,
 } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { usePeriod } from "@/components/period-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,13 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   Popover,
   PopoverContent,
@@ -44,11 +33,6 @@ import {
 } from "@/components/ui/popover"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
-import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
-import {
-  BudgetModal,
-  type BudgetFormValues,
-} from "@/components/forms/BudgetModal"
 import {
   useCategories,
   useReclassifyTransaction,
@@ -61,10 +45,10 @@ import {
   MONTHS,
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_ORDER,
-  RECURRENCE_LABELS,
+  SPENDING_GROUP_HEX,
+  SPENDING_GROUP_LABELS,
   TRANSACTION_KIND_LABELS,
   type PaymentMethod,
-  type Recurrence,
   type Transaction,
 } from "@/types/finance"
 
@@ -78,48 +62,39 @@ function monthRange(month: number, year: number) {
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 // Só a classificação é do usuário. Valor, data e conta vêm do banco via Open
-// Finance e aparecem como leitura no modal.
-const schema = z
-  .object({
-    name: z.string().min(1, "Informe o nome"),
-    categoryId: z.string().min(1, "Selecione a categoria"),
-    isEssential: z.boolean(),
-    recurrence: z.enum(["fixed", "variable"]),
-    budgetId: z.string().optional(),
-    notes: z.string().optional(),
-  })
-  // Em gasto fixo, o orçamento vinculado é obrigatório
-  .superRefine((val, ctx) => {
-    if (val.recurrence === "fixed" && !val.budgetId) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["budgetId"],
-        message: "Selecione o orçamento vinculado",
-      })
-    }
-  })
+// Finance e aparecem como leitura no modal. A categoria decide o orçamento e o
+// grupo 50/30/20 em que o gasto conta.
+const schema = z.object({
+  name: z.string().min(1, "Informe o nome"),
+  categoryId: z.string().min(1, "Selecione a categoria"),
+  notes: z.string().optional(),
+})
 
 type FormValues = z.infer<typeof schema>
 
 // ── Página ────────────────────────────────────────────────────────────────────
 export function Transactions() {
   const { month, year } = usePeriod()
+  // Vindo de Orçamentos: `?categoryId=…&from=…&to=…` abre já filtrada
+  const [searchParams] = useSearchParams()
+  const linkedFrom = searchParams.get("from")
+  const linkedTo = searchParams.get("to")
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
-  const [filterCategoryId, setFilterCategoryId] = useState("")
+  const [filterCategoryId, setFilterCategoryId] = useState(
+    searchParams.get("categoryId") ?? ""
+  )
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<
     PaymentMethod | ""
   >("")
-  const [filterRecurrence, setFilterRecurrence] = useState<Recurrence | "">("")
   const [order, setOrder] = useState<"asc" | "desc">("desc")
   const [customRange, setCustomRange] = useState<{
     from: string
     to: string
-  } | null>(null)
+  } | null>(linkedFrom && linkedTo ? { from: linkedFrom, to: linkedTo } : null)
   const [draftFrom, setDraftFrom] = useState("")
   const [draftTo, setDraftTo] = useState("")
   const [editing, setEditing] = useState<Transaction | null>(null)
-  const [converting, setConverting] = useState<Transaction | null>(null)
 
   const { from, to } = customRange ?? monthRange(month, year)
   const isSingleDay =
@@ -153,7 +128,6 @@ export function Transactions() {
     search: search || undefined,
     categoryId: filterCategoryId || undefined,
     paymentMethod: filterPaymentMethod || undefined,
-    recurrence: filterRecurrence || undefined,
     from,
     to,
     order,
@@ -164,8 +138,8 @@ export function Transactions() {
 
   // Filtros ativos dentro do popover (ordenação fora do padrão também conta)
   const activeFilters =
-    [filterCategoryId, filterPaymentMethod, filterRecurrence].filter(Boolean)
-      .length + (order !== "desc" ? 1 : 0)
+    [filterCategoryId, filterPaymentMethod].filter(Boolean).length +
+    (order !== "desc" ? 1 : 0)
 
   const grouped = groupByDate(data?.data ?? [])
 
@@ -340,26 +314,6 @@ export function Transactions() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>Recorrência</Label>
-              <Select
-                value={filterRecurrence || "all"}
-                onValueChange={(v) => {
-                  setFilterRecurrence(v === "all" ? "" : (v as Recurrence))
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Recorrência" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toda recorrência</SelectItem>
-                  <SelectItem value="fixed">Recorrente</SelectItem>
-                  <SelectItem value="variable">Avulso</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <Label>Ordenação</Label>
               <Select
                 value={order}
@@ -420,7 +374,6 @@ export function Transactions() {
                     key={tx.id}
                     tx={tx}
                     onEdit={() => setEditing(tx)}
-                    onConvertToBudget={() => setConverting(tx)}
                   />
                 ))}
               </div>
@@ -461,41 +414,17 @@ export function Transactions() {
           transaction={editing}
         />
       )}
-
-      {converting && (
-        <BudgetModal
-          open
-          onClose={() => setConverting(null)}
-          title="Converter em orçamento"
-          submitLabel="Criar orçamento"
-          initialValues={budgetFromTransaction(converting)}
-        />
-      )}
     </div>
   )
-}
-
-// Pré-preenche o orçamento com o que a transação já diz: nome (ou o nome
-// original do banco), valor absoluto, fixo/variável e se é essencial
-function budgetFromTransaction(tx: Transaction): Partial<BudgetFormValues> {
-  const amount = Math.abs(Number(tx.amount))
-  return {
-    name: tx.name || tx.originalName || "",
-    type: tx.isEssential ? "essential" : "desire",
-    amountType: "fixed",
-    amount: amount > 0 ? amount : undefined,
-  }
 }
 
 // ── Linha de transação ────────────────────────────────────────────────────────
 function TransactionRow({
   tx,
   onEdit,
-  onConvertToBudget,
 }: {
   tx: Transaction
   onEdit: () => void
-  onConvertToBudget: () => void
 }) {
   const amount = Number(tx.amount)
   const isIncome = amount < 0
@@ -521,19 +450,6 @@ function TransactionRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">{tx.name}</p>
-          {!isIncome && tx.isEssential && (
-            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-              Essencial
-            </span>
-          )}
-          <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">
-            {tx.recurrence === "fixed" ? (
-              <Repeat size={10} />
-            ) : (
-              <Zap size={10} />
-            )}
-            {RECURRENCE_LABELS[tx.recurrence]}
-          </span>
           {tx.status === "pending" && (
             <span
               className="shrink-0 rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400"
@@ -572,17 +488,6 @@ function TransactionRow({
 
       {/* Ação: sempre visível no toque, revelada no hover no desktop */}
       <div className="flex shrink-0 items-center gap-1 transition-opacity focus-within:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">
-        {!isIncome && (
-          <button
-            type="button"
-            onClick={onConvertToBudget}
-            aria-label="Converter em orçamento"
-            title="Converter em orçamento"
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:size-7"
-          >
-            <PiggyBank size={15} className="lg:size-3.5" />
-          </button>
-        )}
         <button
           type="button"
           onClick={onEdit}
@@ -624,15 +529,11 @@ function ClassificationModal({
     defaultValues: {
       name: transaction.name,
       categoryId: transaction.categoryId,
-      isEssential: transaction.isEssential,
-      recurrence: transaction.recurrence,
-      budgetId: transaction.budgetId ?? undefined,
       notes: transaction.notes ?? undefined,
     },
   })
 
-  const isEssential = watch("isEssential")
-  const recurrence = watch("recurrence")
+  const selectedCategory = categories?.find((c) => c.id === watch("categoryId"))
   // Só oferece reverter quando o nome atual difere do oficial do banco
   const currentName = watch("name")
   const canRestoreName =
@@ -643,9 +544,6 @@ function ClassificationModal({
       {
         id: transaction.id,
         ...values,
-        // Essencial só existe em saída — entrada é sempre gravada como não essencial
-        isEssential: isIncome ? false : values.isEssential,
-        budgetId: values.recurrence === "fixed" ? values.budgetId : null,
         notes: values.notes || null,
       },
       {
@@ -751,57 +649,19 @@ function ClassificationModal({
           )}
         </div>
 
-        {/* Tipo de gasto (só saídas) e recorrência, lado a lado */}
-        <TooltipProvider delayDuration={150}>
-          <div className="grid grid-cols-2 gap-3">
-            {!isIncome && (
-              <ToggleField
-                id="tx-essential"
-                label="Tipo de gasto"
-                help="Essencial é o que você não consegue cortar (moradia, mercado, saúde). Não essencial é o que dá para reduzir ou evitar — entra na fatia variável do 50/30/20."
-                checked={isEssential}
-                onCheckedChange={(v) => setValue("isEssential", v)}
-                onText="Essencial"
-                offText="Não essencial"
-                onColor={FINANCE.essential}
-                offColor={FINANCE.nonEssential}
-              />
-            )}
-            <ToggleField
-              id="tx-recurrence"
-              label="Recorrência"
-              help="Recorrente se repete todo mês com valor parecido (aluguel, assinaturas) e pode ser vinculado a um orçamento. Avulso acontece de vez em quando ou muda de mês a mês (lazer, compras pontuais)."
-              checked={recurrence === "fixed"}
-              onCheckedChange={(v) => {
-                setValue("recurrence", v ? "fixed" : "variable")
-                if (!v) setValue("budgetId", undefined)
+        {/* A categoria decide o grupo 50/30/20 e o orçamento em que o gasto conta */}
+        {!isIncome && selectedCategory && (
+          <p className="-mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span
+              className="size-2 shrink-0 rounded-full"
+              style={{
+                backgroundColor: SPENDING_GROUP_HEX[selectedCategory.group],
               }}
-              onText="Recorrente"
-              offText="Avulso"
-              onColor={FINANCE.fixed}
-              offColor={FINANCE.variable}
             />
-          </div>
-        </TooltipProvider>
-
-        {/* Orçamento vinculado (apenas gasto fixo) */}
-        {recurrence === "fixed" && (
-          <div className="flex flex-col gap-1.5">
-            <Label>Orçamento vinculado</Label>
-            <BudgetCombobox
-              value={watch("budgetId")}
-              onChange={(id) =>
-                setValue("budgetId", id, { shouldValidate: true })
-              }
-              selectedName={transaction.budget?.name}
-              hasError={!!errors.budgetId}
-            />
-            {errors.budgetId && (
-              <p className="text-xs text-destructive">
-                {errors.budgetId.message}
-              </p>
-            )}
-          </div>
+            Conta no grupo{" "}
+            {SPENDING_GROUP_LABELS[selectedCategory.group].toLowerCase()} e no
+            orçamento de {selectedCategory.name}, se houver
+          </p>
         )}
 
         {/* Observações */}
@@ -816,86 +676,6 @@ function ClassificationModal({
         </div>
       </div>
     </FormModal>
-  )
-}
-
-// Escolha binária do formulário: toggle buttons + tooltip de ajuda
-function ToggleField({
-  id,
-  label,
-  help,
-  checked,
-  onCheckedChange,
-  onText,
-  offText,
-  onColor,
-  offColor,
-}: {
-  id: string
-  label: string
-  help: string
-  checked: boolean
-  onCheckedChange: (checked: boolean) => void
-  onText: string
-  offText: string
-  onColor: string
-  offColor: string
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <Label id={`${id}-label`}>{label}</Label>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={`O que é ${label.toLowerCase()}?`}
-              className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
-            >
-              <Info size={13} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-60">
-            {help}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <ToggleGroup
-        aria-labelledby={`${id}-label`}
-        type="single"
-        variant="outline"
-        spacing={0}
-        className="w-full"
-        value={checked ? "on" : "off"}
-        // Radix permite desmarcar o item ativo; ignora para sempre haver um valor
-        onValueChange={(v) => v && onCheckedChange(v === "on")}
-      >
-        {(
-          [
-            ["on", onText, onColor],
-            ["off", offText, offColor],
-          ] as const
-        ).map(([value, text, color]) => {
-          const active = checked === (value === "on")
-          return (
-            <ToggleGroupItem
-              key={value}
-              value={value}
-              size="sm"
-              className={cn(
-                "flex-1 text-xs",
-                active
-                  ? "border-transparent text-white hover:text-white"
-                  : "text-muted-foreground"
-              )}
-              style={active ? { backgroundColor: color } : undefined}
-            >
-              {text}
-            </ToggleGroupItem>
-          )
-        })}
-      </ToggleGroup>
-    </div>
   )
 }
 

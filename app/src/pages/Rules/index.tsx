@@ -32,7 +32,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { BudgetCombobox } from "@/components/forms/BudgetCombobox"
 import { FormModal } from "@/components/forms/FormModal"
 import { ErrorState } from "@/components/ui/error-state"
 import { SegmentedControl } from "@/components/charts"
@@ -65,7 +64,6 @@ import {
   type PaymentMethod,
   type RecurringSeries,
   type RecurringStatus,
-  type Recurrence,
   type RuleMatchType,
   type RuleSource,
 } from "@/types/finance"
@@ -258,9 +256,6 @@ function RulesTab() {
 const APPLY_FIELD_LABELS: Record<RuleApplyField, string> = {
   name: "nome",
   category: "categoria",
-  essential: "tipo de gasto",
-  recurrence: "recorrência",
-  budget: "orçamento",
 }
 
 // Regras só valem para o que o sync traz de novo. Aqui o usuário reaplica
@@ -365,12 +360,6 @@ function ruleEffects(rule: ClassificationRule): string[] {
   if (rule.renameTo) out.push(`renomeia para "${rule.renameTo}"`)
   if (rule.category) out.push(rule.category.name)
   if (rule.paymentMethod) out.push(PAYMENT_METHOD_LABELS[rule.paymentMethod])
-  if (rule.recurrence)
-    out.push(rule.recurrence === "fixed" ? "gasto recorrente" : "gasto avulso")
-  if (rule.isEssential !== null)
-    out.push(rule.isEssential ? "essencial" : "não essencial")
-  if (rule.forceIncome) out.push("força entrada")
-  if (rule.budget) out.push(`orçamento ${rule.budget.name}`)
   return out
 }
 
@@ -500,10 +489,6 @@ function RuleModal({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">(
     rule?.paymentMethod ?? ""
   )
-  const [recurrence, setRecurrence] = useState<Recurrence | "">(
-    rule?.recurrence ?? ""
-  )
-  const [budgetId, setBudgetId] = useState(rule?.budgetId ?? "")
 
   // Preview ao vivo com debounce de 400ms — mostra o que a regra casaria hoje
   const { mutate: runTest, data: preview, reset: resetTest } = test
@@ -527,9 +512,6 @@ function RuleModal({
       renameTo: renameTo.trim() || null,
       categoryId: categoryId || null,
       paymentMethod: paymentMethod || null,
-      recurrence: recurrence || null,
-      // Orçamento só faz sentido em gasto fixo, como na transação
-      budgetId: recurrence === "fixed" ? budgetId || null : null,
     }
     if (rule) {
       update.mutate(
@@ -650,39 +632,10 @@ function RuleModal({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label>Recorrência</Label>
-          <Select
-            value={recurrence || NONE}
-            onValueChange={(v) => {
-              setRecurrence(v === NONE ? "" : (v as Recurrence))
-              if (v !== "fixed") setBudgetId("")
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Não definir</SelectItem>
-              <SelectItem value="fixed">Recorrente</SelectItem>
-              <SelectItem value="variable">Avulso</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {recurrence === "fixed" && (
-          <div className="flex flex-col gap-1.5">
-            <Label>Orçamento vinculado</Label>
-            <BudgetCombobox
-              value={budgetId || undefined}
-              onChange={(id) => setBudgetId(id ?? "")}
-              selectedName={rule?.budget?.name}
-            />
-            <p className="text-xs text-muted-foreground">
-              Sem orçamento, a transação entra como avulsa.
-            </p>
-          </div>
-        )}
+        <p className="-mt-2 text-xs text-muted-foreground">
+          A categoria decide o orçamento e o grupo 50/30/20 em que o gasto
+          conta.
+        </p>
 
         {/* Preview ao vivo */}
         <div className="rounded-xl border bg-muted/30 p-3">

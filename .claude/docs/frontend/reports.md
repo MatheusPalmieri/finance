@@ -1,7 +1,7 @@
 ---
 title: Página /reports — Check-up mensal
 area: frontend
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -48,10 +48,12 @@ direto no cache da query do período (`setQueryData`), sem ler de novo.
 4. **Insights** — grade de cards, borda tingida pela severidade. Os que têm
    `categoryId` são clicáveis e navegam para `/transactions` já filtrado por
    categoria e período.
-5. **50/30/20** — duas barras empilhadas, realizado sobre meta (esta em 45% de
-   opacidade), mais uma legenda com valor e desvio em pp.
-6. **Orçamentos** — tabela planejado vs. realizado, barra de progresso por linha
-   colorida pelo status. Ordenada por urgência: `over`, `missing`, `under`,
+5. **50/30/20** — duas barras empilhadas em **% da renda**, realizado sobre
+   meta (esta em 45% de opacidade), mais uma legenda com valor e desvio em pp.
+   O que sobra da renda fica vazio; acima de 100% a escala estica. Sem renda no
+   mês, mostra um aviso em vez das barras.
+6. **Orçamentos** — uma linha por categoria orçada (cor + nome), planejado vs.
+   realizado, barra de progresso colorida pelo status. Ordenada por urgência: `over`, `missing`, `under`,
    `on_track`.
 7. **Anomalias** — por linha: categoria, valor atual vs. mediana, sparkline dos
    6 meses anteriores + o mês atual na ponta com a mediana como linha de
@@ -67,8 +69,8 @@ relatório de zeros (ver `.claude/docs/frontend/states.md`).
 ## Cores dos gráficos
 
 Sem cor literal: tudo sai de `lib/tokens.ts`. O trio do 50/30/20 é
-`BUDGET_TYPE_HEX` (âmbar / violeta / esmeralda), o mesmo já usado na página de
-Orçamentos.
+`SPENDING_GROUP_HEX` (âmbar / violeta / esmeralda), o mesmo da página de
+Orçamentos e do Início.
 
 A paleta foi validada com o script da skill `dataviz`: separação para daltonismo
 e contraste normal passam com folga (pior par ΔE 26,1 deutan / 34,7 normal). O

@@ -1,4 +1,4 @@
-import type { BudgetType } from "../../db/schema"
+import type { SpendingGroup } from "../../db/schema"
 
 /** Toda métrica escalar do relatório vem com o mês anterior e a variação. */
 export interface Scalar {
@@ -43,12 +43,14 @@ export interface BiggestExpense {
 
 export type BudgetLineStatus = "over" | "under" | "on_track" | "missing"
 
+/** Orçamento de uma categoria contra o gasto dela no mês. */
 export interface BudgetLine {
-  budgetId: string
+  categoryId: string
   name: string
-  type: BudgetType
-  amountType: "fixed" | "variable"
-  /** Alvo: valor fixo, ou `null` quando o orçamento é faixa. */
+  color: string
+  group: SpendingGroup
+  amountType: "exact" | "range"
+  /** Alvo: valor exato, ou `null` quando o orçamento é faixa. */
   plannedBrl: number | null
   plannedMinBrl: number | null
   plannedMaxBrl: number | null
@@ -65,7 +67,8 @@ export interface DistributionBucket {
   deltaPp: number
 }
 
-export type Distribution = Record<BudgetType, DistributionBucket>
+/** Gasto por grupo 50/30/20, em % da renda do mês. */
+export type Distribution = Record<SpendingGroup, DistributionBucket>
 
 export type AnomalySeverity = "high" | "medium" | "saving"
 
@@ -153,7 +156,6 @@ export interface Insight {
   title: string
   amountBrl: number | null
   categoryId?: string
-  budgetId?: string
   recurringSeriesId?: string
   /** Dados crus que a narrativa pode citar — nada além disto vai ao LLM. */
   facts: Record<string, number | string>

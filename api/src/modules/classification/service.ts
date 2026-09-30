@@ -1,5 +1,5 @@
-// Orquestra as três camadas em cascata com early-exit: numa importação típica
-// do Nubank, 70–85% das linhas param na camada 1 ou 2 e o LLM vê poucas linhas.
+// Orquestra as três camadas em cascata com early-exit: num sync típico do
+// Open Finance, a maior parte das linhas para na camada 1 ou 2 e o LLM vê poucas.
 
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm"
 import { db } from "../../db"
@@ -121,7 +121,7 @@ export async function suggest(input: SuggestInput): Promise<SuggestResult> {
           byIndex.set(suggestion.index, suggestion)
         }
       } catch (err) {
-        // Degradação obrigatória: sem IA o resto da importação segue igual
+        // Degradação obrigatória: sem IA o resto do sync segue igual
         aiOk = false
         console.error(
           "[classification] camada LLM indisponível, seguindo sem ela:",
@@ -165,10 +165,7 @@ export interface FeedbackInput {
   description: string
   categoryId?: string | null
   paymentMethod?: ClassificationRule["paymentMethod"]
-  recurrence?: ClassificationRule["recurrence"]
-  isEssential?: boolean | null
   renameTo?: string | null
-  budgetId?: string | null
   /** `false` só registra a correção, sem criar regra. */
   createRule?: boolean
 }
@@ -205,9 +202,6 @@ export async function feedback(
     renameTo: input.renameTo ?? null,
     categoryId: input.categoryId ?? null,
     paymentMethod: input.paymentMethod ?? null,
-    recurrence: input.recurrence ?? null,
-    isEssential: input.isEssential ?? null,
-    budgetId: input.budgetId ?? null,
   }
 
   if (existing) {
@@ -268,7 +262,7 @@ export async function listRules(params: ListRulesParams = {}) {
 
   return db.query.classificationRules.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
-    with: { category: true, budget: true },
+    with: { category: true },
     orderBy: [
       desc(classificationRules.priority),
       desc(classificationRules.hitCount),
@@ -363,10 +357,6 @@ export async function testRule(pattern: string, matchType: RuleMatchType) {
       renameTo: null,
       categoryId: null,
       paymentMethod: null,
-      recurrence: null,
-      isEssential: null,
-      forceIncome: null,
-      budgetId: null,
       enabled: true,
       hitCount: 0,
       lastHitAt: null,
@@ -384,10 +374,10 @@ export async function testRule(pattern: string, matchType: RuleMatchType) {
 
 // ── Aplicar regra às existentes ──────────────────────────────────────────────
 // Regras só valem para transação nova do sync. Aqui a regra é reaplicada no
-// histórico, a pedido do usuário e com prévia. Só campos de classificação:
-// forma de pagamento e sinal (`paymentMethod`, `forceIncome`) são do Open Finance.
+// histórico, a pedido do usuário e com prévia. Só nome e categoria: a forma de
+// pagamento é do Open Finance.
 
-export type ApplyField = "name" | "category" | "essential" | "recurrence" | "budget"
+export type ApplyField = "name" | "category"
 
 interface PlannedChange {
   id: string
@@ -398,9 +388,6 @@ interface PlannedChange {
   next: {
     name: string
     categoryId: string
-    isEssential: boolean
-    recurrence: "fixed" | "variable"
-    budgetId: string | null
   }
   fields: ApplyField[]
 }
@@ -419,9 +406,6 @@ async function planApplication(rule: ClassificationRule): Promise<PlannedChange[
       originalName: transactions.originalName,
       name: transactions.name,
       categoryId: transactions.categoryId,
-      isEssential: transactions.isEssential,
-      recurrence: transactions.recurrence,
-      budgetId: transactions.budgetId,
     })
     .from(transactions)
     .where(REAL_TRANSACTIONS)
@@ -433,33 +417,14 @@ async function planApplication(rule: ClassificationRule): Promise<PlannedChange[
   for (const row of rows) {
     if (!matchRule(probe, row.originalName ?? row.name)) continue
 
-    const isIncome = Number(row.amount) < 0
-    let recurrence = row.recurrence
-    let budgetId = row.budgetId
-    // Mesma regra do sync: fixo só com orçamento; variável zera o orçamento
-    if (rule.recurrence === "fixed" && rule.budgetId) {
-      recurrence = "fixed"
-      budgetId = rule.budgetId
-    } else if (rule.recurrence === "variable") {
-      recurrence = "variable"
-      budgetId = null
-    }
-
     const next = {
       name: rule.renameTo ?? row.name,
       categoryId: rule.categoryId ?? row.categoryId,
-      // Entrada nunca é essencial
-      isEssential: isIncome ? false : (rule.isEssential ?? row.isEssential),
-      recurrence,
-      budgetId,
     }
 
     const fields: ApplyField[] = []
     if (next.name !== row.name) fields.push("name")
     if (next.categoryId !== row.categoryId) fields.push("category")
-    if (next.isEssential !== row.isEssential) fields.push("essential")
-    if (next.recurrence !== row.recurrence) fields.push("recurrence")
-    if (next.budgetId !== row.budgetId) fields.push("budget")
     if (fields.length === 0) continue
 
     out.push({

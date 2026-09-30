@@ -39,7 +39,8 @@ async function seedHealthyHistory() {
     type: "CHECKING",
     balance: 20000,
   })
-  const category = await makeCategory("Alimentação")
+  // Grupo essencial: a reserva mínima default sai da mediana desses gastos
+  const category = await makeCategory("Mercado", { group: "essential" })
 
   await makeTransactions([
     ...Array.from({ length: 6 }, (_, i) => ({
@@ -56,7 +57,6 @@ async function seedHealthyHistory() {
       date: monthsAgo(i + 1, 12),
       categoryId: category.id,
       accountId: checking.id,
-      isEssential: true,
     })),
   ])
 
@@ -172,16 +172,42 @@ describe("e2e GET /forecast/cashflow", () => {
     expect(res.body.assumptions.lowConfidenceCategories).toContain("Lazer")
   })
 
-  test("orçamentos fixos entram como saída determinística", async () => {
+  test("orçamentos de valor exato entram como saída determinística", async () => {
     await makeAccount("Nubank", { balance: 10000 })
-    await makeBudget("Aluguel", { amount: 2000 })
+    const housing = await makeCategory("Moradia")
+    await makeBudget(housing.id, { amount: 2000 })
 
     const res = await api.get<CashflowProjection>(
       "/forecast/cashflow?horizonMonths=3"
     )
     // O mês corrente entra pro-rata; os seguintes, cheios
-    expect(res.body.months[1].fixedExpenses).toBe(2000)
-    expect(res.body.months[2].fixedExpenses).toBe(2000)
+    expect(res.body.months[1].budgetedExpenses).toBe(2000)
+    expect(res.body.months[2].budgetedExpenses).toBe(2000)
+  })
+
+  test("categoria com orçamento troca o histórico e as parcelas futuras pelo plano", async () => {
+    const account = await makeAccount("Nubank", { balance: 10000 })
+    const gym = await makeCategory("Academia")
+    const fun = await makeCategory("Lazer")
+    // 12 meses constantes: sem tendência, o p50 é o próprio valor mensal
+    await makeTransactions([
+      ...Array.from({ length: 12 }, (_, i) => ({
+        name: "Academia", amount: 80, date: monthsAgo(i + 1, 10), categoryId: gym.id, accountId: account.id,
+      })),
+      ...Array.from({ length: 12 }, (_, i) => ({
+        name: "Cinema", amount: 50, date: monthsAgo(i + 1, 10), categoryId: fun.id, accountId: account.id,
+      })),
+      // Parcela futura da academia: já coberta pelo orçamento
+      { name: "Academia 3/12", amount: 80, date: monthsAgo(-1, 20), categoryId: gym.id, accountId: account.id },
+    ])
+    await makeBudget(gym.id, { amount: 80 })
+
+    const res = await api.get<CashflowProjection>("/forecast/cashflow?horizonMonths=3")
+    const next = res.body.months[1]
+    expect(next.budgetedExpenses).toBe(80)
+    expect(next.knownTransactions).toBe(0)
+    // Só Lazer (sem orçamento) sai do histórico
+    expect(next.unbudgetedExpensesP50).toBe(50)
   })
 
   test("transações já lançadas no futuro entram no mês certo", async () => {

@@ -7,7 +7,6 @@ import type {
   BudgetSummary,
   CashflowProjection,
   BudgetAmountType,
-  BudgetType,
   Category,
   ClassificationRule,
   DashboardSummary,
@@ -17,7 +16,6 @@ import type {
   MonthlyReportSummary,
   ParseScenarioResponse,
   PaymentMethod,
-  Recurrence,
   ScenarioEvent,
   SimulateResponse,
   RecurringResponse,
@@ -26,7 +24,7 @@ import type {
   RuleSource,
   RuleApplyPreview,
   RuleTestResponse,
-  SuggestResponse,
+  SpendingGroup,
   OpenFinanceStatus,
   SyncReport,
   SyncRun,
@@ -55,31 +53,32 @@ export interface ListTransactionsParams {
   accountId?: string
   categoryId?: string
   paymentMethod?: PaymentMethod | ""
-  recurrence?: Recurrence | ""
-  isEssential?: "true" | "false" | ""
   from?: string
   to?: string
   order?: "asc" | "desc"
 }
 
 // Reclassificação: só os campos do usuário. Valor, data e conta vêm do banco
-// via Open Finance e não são editáveis
+// via Open Finance e não são editáveis. A categoria decide orçamento e grupo
 export interface TransactionClassificationInput {
   name: string
   categoryId: string
-  isEssential: boolean
-  recurrence: Recurrence
-  budgetId?: string | null
   notes?: string | null
 }
 
-export interface BudgetInput {
-  name: string
-  type: BudgetType
-  amountType: BudgetAmountType
+/** Plano da categoria: grupo 50/30/20 + orçamento (`amountType: null` = sem). */
+export interface CategoryPlanInput {
+  group: SpendingGroup
+  amountType: BudgetAmountType | null
   amount?: number | null
   amountMin?: number | null
   amountMax?: number | null
+}
+
+export interface CategoryInput {
+  name: string
+  color?: string
+  group?: SpendingGroup
 }
 
 export interface DashboardParams {
@@ -101,32 +100,7 @@ export interface RuleInput {
   renameTo?: string | null
   categoryId?: string | null
   paymentMethod?: PaymentMethod | null
-  recurrence?: Recurrence | null
-  isEssential?: boolean | null
-  forceIncome?: boolean | null
-  budgetId?: string | null
   enabled?: boolean
-}
-
-export interface SuggestInput {
-  useAi?: boolean
-  items: {
-    index: number
-    description: string
-    date?: string
-    amount?: number
-  }[]
-}
-
-export interface FeedbackInput {
-  description: string
-  categoryId?: string | null
-  paymentMethod?: PaymentMethod | null
-  recurrence?: Recurrence | null
-  isEssential?: boolean | null
-  renameTo?: string | null
-  budgetId?: string | null
-  createRule?: boolean
 }
 
 export interface ListRecurringParams {
@@ -170,12 +144,12 @@ export const api = {
 
   categories: {
     list: () => request<Category[]>("/categories"),
-    create: (body: { name: string; color?: string }) =>
+    create: (body: CategoryInput) =>
       request<Category>("/categories", {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    update: (id: string, body: { name: string; color?: string }) =>
+    update: (id: string, body: CategoryInput) =>
       request<Category>(`/categories/${id}`, {
         method: "PUT",
         body: JSON.stringify(body),
@@ -193,8 +167,6 @@ export const api = {
       if (params.accountId) q.set("accountId", params.accountId)
       if (params.categoryId) q.set("categoryId", params.categoryId)
       if (params.paymentMethod) q.set("paymentMethod", params.paymentMethod)
-      if (params.recurrence) q.set("recurrence", params.recurrence)
-      if (params.isEssential) q.set("isEssential", params.isEssential)
       if (params.from) q.set("from", params.from)
       if (params.to) q.set("to", params.to)
       if (params.order) q.set("order", params.order)
@@ -210,43 +182,26 @@ export const api = {
   },
 
   budgets: {
-    list: (name?: string) => {
-      const q = name ? `?name=${encodeURIComponent(name)}` : ""
-      return request<Budget[]>(`/budgets${q}`)
-    },
+    list: () => request<Budget[]>("/budgets"),
     summary: (params: DashboardParams = {}) => {
       const q = new URLSearchParams()
       if (params.month) q.set("month", String(params.month))
       if (params.year) q.set("year", String(params.year))
       return request<BudgetSummary>(`/budgets/summary?${q}`)
     },
-    get: (id: string) => request<Budget>(`/budgets/${id}`),
-    create: (body: BudgetInput) =>
-      request<Budget>("/budgets", {
-        method: "POST",
-        body: JSON.stringify(body),
+    // Grava o grupo da categoria e cria, altera ou remove o orçamento dela
+    savePlan: (categoryId: string, body: CategoryPlanInput) =>
+      request<{ category: Category; budget: Budget | null }>(
+        `/budgets/${categoryId}`,
+        { method: "PUT", body: JSON.stringify(body) }
+      ),
+    delete: (categoryId: string) =>
+      request<{ success: boolean }>(`/budgets/${categoryId}`, {
+        method: "DELETE",
       }),
-    update: (id: string, body: BudgetInput) =>
-      request<Budget>(`/budgets/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
   },
 
   classification: {
-    // POST com corpo grande — é mutation, nunca query cacheada
-    suggest: (body: SuggestInput) =>
-      request<SuggestResponse>("/classification/suggest", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    feedback: (body: FeedbackInput) =>
-      request<{ ruleId: string; created: boolean }>(
-        "/classification/feedback",
-        { method: "POST", body: JSON.stringify(body) }
-      ),
     listRules: (params: ListRulesParams = {}) => {
       const q = new URLSearchParams()
       if (params.search) q.set("search", params.search)

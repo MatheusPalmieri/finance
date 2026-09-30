@@ -1,10 +1,10 @@
 ---
 title: Banco de dados — Drizzle ORM + PostgreSQL
 area: infra
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
-> ⚠️ **A confirmar:** a seção "Schema atual" abaixo (enum `client_status`, tabela `clients`) descreve um CRM diferente que não existe neste projeto Finance — parece copiado de outro projeto do monorepo. O schema real do Finance é `api/src/db/schema.ts` (`accounts`, `categories`, `transactions`, `budgets` + enums `account_type`, `recurrence`, `budget_type`, `budget_amount_type`, `payment_method`). A seção **Seed** abaixo é factual e específica deste projeto.
+> ⚠️ **A confirmar:** a seção "Schema atual" abaixo (enum `client_status`, tabela `clients`) descreve um CRM diferente que não existe neste projeto Finance — parece copiado de outro projeto do monorepo. O schema real do Finance é `api/src/db/schema.ts` (`accounts`, `categories`, `transactions`, `budgets` + enums `account_type`, `spending_group`, `budget_amount_type`, `payment_method`). A seção **Seed** abaixo é factual e específica deste projeto.
 
 ## Visão geral
 
@@ -95,7 +95,7 @@ Só **um** seed, e sem dado financeiro:
 
 | Script | Arquivo | O que sobe |
 |--------|---------|-----------|
-| `bun run db:seed` | `api/src/db/seed.ts` | `categoriesData` (13 categorias fixas). Nenhuma conta, saldo ou transação |
+| `bun run db:seed` | `api/src/db/seed.ts` | `categoriesData` (15 categorias, cada uma com o grupo 50/30/20 padrão). Nenhuma conta, saldo ou transação |
 
 - Contas, saldos e transações vêm **só do Open Finance**: rode `bun run
   sync:pluggy` (ou abra o app) depois do seed. As contas nascem no primeiro sync.
@@ -103,4 +103,4 @@ Só **um** seed, e sem dado financeiro:
 - **Não existe seed de dados fake.** O `db:seed:dev` (transações aleatórias) e o
   `import:csv` foram removidos em 2026-09-23 — ver
   `decisions/open-finance-fonte-unica.md`.
-- Categorias padrão: Lazer, Transporte, Estudos, Investimento, Alimentação, Office, Saúde, Compras, Música, Moradia, Assinaturas, Serviços, Outros.
+- Categorias padrão (grupo): Moradia, Mercado, Transporte, Saúde, Estudos, Serviços (essencial); Alimentação, Lazer, Compras, Assinaturas, Música, Office, Salário, Outros (variável); Investimento (investimento).

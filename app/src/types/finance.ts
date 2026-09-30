@@ -7,9 +7,9 @@ export type AccountType =
   | "INVESTMENT"
   | "CASH"
   | "OTHER"
-export type Recurrence = "fixed" | "variable"
-export type BudgetType = "essential" | "desire" | "investment"
-export type BudgetAmountType = "fixed" | "variable"
+// Grupo 50/30/20 — mora na categoria; todo gasto herda o grupo dela
+export type SpendingGroup = "essential" | "variable" | "investment"
+export type BudgetAmountType = "exact" | "range"
 // Lista fixa do sistema — não é mais CRUD do usuário (ver .claude/docs/domain/transaction.md)
 export type PaymentMethod =
   | "cash"
@@ -36,6 +36,7 @@ export interface Category {
   id: string
   name: string
   color: string
+  group: SpendingGroup
   createdAt: string
 }
 
@@ -48,9 +49,6 @@ export interface Transaction {
   categoryId: string
   paymentMethod: PaymentMethod
   accountId: string
-  isEssential: boolean
-  recurrence: Recurrence
-  budgetId: string | null
   date: string
   notes: string | null
   source: TransactionSource
@@ -61,19 +59,19 @@ export interface Transaction {
   updatedAt: string
   account?: Account
   category?: Category | null
-  budget?: Budget | null
 }
 
+/** Plano mensal de uma categoria (no máximo um por categoria). */
 export interface Budget {
   id: string
-  name: string
-  type: BudgetType
+  categoryId: string
   amountType: BudgetAmountType
   amount: string | null
   amountMin: string | null
   amountMax: string | null
   createdAt: string
   updatedAt: string
+  category: Category
 }
 
 /** Realizado do mês na tela de Orçamentos (GET /budgets/summary). */
@@ -82,18 +80,16 @@ export interface BudgetSummary {
   year: number
   /** Entradas `regular` do mês — base da % na tela */
   income: number
-  spentByType: Record<BudgetType, number>
-  /** Aplicações e resgates sem vínculo; o grupo investimento usa o líquido */
+  spentByGroup: Record<SpendingGroup, number>
+  /** Aplicações e resgates; o grupo investimento usa o líquido */
   investmentFlow: { invested: number; redeemed: number }
-  /** Soma líquida das transações vinculadas, por id do orçamento */
-  spentByBudget: Record<string, number>
+  /** Gasto e nº de transações de cada categoria com movimento no mês */
+  spentByCategory: Record<string, { total: number; count: number }>
 }
 
 // ── Classificação inteligente ───────────────────────────────────────────────
 export type RuleSource = "seed" | "manual" | "learned"
 export type RuleMatchType = "contains" | "exact" | "regex"
-export type SuggestionSource = "rule" | "knn" | "llm" | "none"
-
 export interface ClassificationRule {
   id: string
   pattern: string
@@ -103,43 +99,12 @@ export interface ClassificationRule {
   renameTo: string | null
   categoryId: string | null
   paymentMethod: PaymentMethod | null
-  recurrence: Recurrence | null
-  isEssential: boolean | null
-  forceIncome: boolean | null
-  budgetId: string | null
   enabled: boolean
   hitCount: number
   lastHitAt: string | null
   createdAt: string
   updatedAt: string
   category?: Category | null
-  budget?: Budget | null
-}
-
-export interface Suggestion {
-  index: number
-  source: SuggestionSource
-  ruleId: string | null
-  confidence: number
-  suggestedName: string | null
-  categoryId: string | null
-  paymentMethod: PaymentMethod | null
-  recurrence: Recurrence | null
-  isEssential: boolean | null
-  budgetId: string | null
-  forceIncome: boolean | null
-}
-
-export interface SuggestResponse {
-  aiAvailable: boolean
-  items: Suggestion[]
-  stats: {
-    rule: number
-    knn: number
-    llm: number
-    none: number
-    llmLatencyMs: number | null
-  }
 }
 
 export interface RuleTestResponse {
@@ -148,12 +113,7 @@ export interface RuleTestResponse {
 }
 
 /** Campos que "aplicar às existentes" altera numa transação. */
-export type RuleApplyField =
-  | "name"
-  | "category"
-  | "essential"
-  | "recurrence"
-  | "budget"
+export type RuleApplyField = "name" | "category"
 
 /** Prévia de "aplicar às existentes": só as transações que mudariam. */
 export interface RuleApplyPreview {
@@ -211,13 +171,6 @@ export const RULE_MATCH_LABELS: Record<RuleMatchType, string> = {
   regex: "Regex",
 }
 
-export const SUGGESTION_SOURCE_LABELS: Record<SuggestionSource, string> = {
-  rule: "regra",
-  knn: "histórico",
-  llm: "IA",
-  none: "sem sugestão",
-}
-
 export const RECURRING_STATUS_LABELS: Record<RecurringStatus, string> = {
   ACTIVE: "Ativa",
   OVERDUE: "Atrasada",
@@ -248,10 +201,12 @@ export interface NullableScalar {
 
 export type BudgetLineStatus = "over" | "under" | "on_track" | "missing"
 
+/** Orçamento de uma categoria contra o gasto dela no mês. */
 export interface BudgetLine {
-  budgetId: string
+  categoryId: string
   name: string
-  type: BudgetType
+  color: string
+  group: SpendingGroup
   amountType: BudgetAmountType
   plannedBrl: number | null
   plannedMinBrl: number | null
@@ -321,7 +276,8 @@ export interface MonthlyReportMetrics {
     categoryName: string | null
   } | null
   budgets: BudgetLine[]
-  distribution: Record<BudgetType, DistributionBucket>
+  /** Gasto por grupo em % da renda do mês */
+  distribution: Record<SpendingGroup, DistributionBucket>
   anomalies: Anomaly[]
   topMovers: { up: Mover[]; down: Mover[] }
   newMerchants: {
@@ -363,7 +319,6 @@ export interface Insight {
   title: string
   amountBrl: number | null
   categoryId?: string
-  budgetId?: string
   recurringSeriesId?: string
   facts: Record<string, number | string>
 }
@@ -435,8 +390,10 @@ export interface ProjectedMonth {
   year: number
   label: string
   expectedIncome: number
-  fixedExpenses: number
-  variableExpensesP50: number
+  /** Orçamentos do mês: valores exatos + ponto médio das faixas */
+  budgetedExpenses: number
+  /** Gasto provável (p50) das categorias sem orçamento */
+  unbudgetedExpensesP50: number
   knownTransactions: number
   scenarioImpact: number
   balance: Percentiles
@@ -581,15 +538,13 @@ export interface NamedAmount {
 
 export interface DashboardSummary {
   totalExpenses: string
-  essentialExpenses: string
-  nonEssentialExpenses: string
-  /** Despesas ainda sem categoria (não entram em essencial/não essencial). */
+  /** Despesas pelo grupo da categoria, sem as ainda não classificadas */
+  expensesByGroup: Record<SpendingGroup, string>
+  /** Despesas ainda sem categoria (fora dos grupos). */
   unclassifiedExpenses: string
   unclassifiedCount: number
   /** Mês anterior até o mesmo dia, para o ritmo do gasto. */
   pace: { previousTotal: string; cutoffDay: number; partial: boolean }
-  fixedExpenses: string
-  variableExpenses: string
   transactionCount: number
   expensesByCategory: {
     categoryId: string
@@ -622,35 +577,29 @@ export const ACCOUNT_TYPE_HEX: Record<AccountType, string> = {
   OTHER: PALETTE.gray,
 }
 
-export const RECURRENCE_LABELS: Record<Recurrence, string> = {
-  fixed: "Recorrente",
-  variable: "Avulso",
-}
+export const SPENDING_GROUP_ORDER: SpendingGroup[] = [
+  "essential",
+  "variable",
+  "investment",
+]
 
-export const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
+export const SPENDING_GROUP_LABELS: Record<SpendingGroup, string> = {
   essential: "Essencial",
-  desire: "Variável",
+  variable: "Variável",
   investment: "Investimento",
 }
 
-// Nome dos grupos só na tela de Orçamentos: lá "essencial" é o que você
-// vinculou como recorrente, então se chama "Fixo" (ver domain/budget.md)
-export const BUDGET_GROUP_LABELS: Record<BudgetType, string> = {
-  essential: "Fixo",
-  desire: "Variável",
-  investment: "Investimento",
-}
-
-// Cores por tipo, refletindo a regra 50/30/20
-export const BUDGET_TYPE_HEX: Record<BudgetType, string> = {
+// Cores por grupo, refletindo a regra 50/30/20
+export const SPENDING_GROUP_HEX: Record<SpendingGroup, string> = {
   essential: FINANCE.essential,
-  desire: FINANCE.nonEssential,
+  variable: FINANCE.variable,
   investment: FINANCE.income,
 }
 
-export const BUDGET_TYPE_TARGET: Record<BudgetType, number> = {
+/** Meta de cada grupo em % da renda. */
+export const SPENDING_GROUP_TARGET: Record<SpendingGroup, number> = {
   essential: 50,
-  desire: 30,
+  variable: 30,
   investment: 20,
 }
 

@@ -1,7 +1,7 @@
 ---
 title: API — Transações, Contas e Dashboard
 area: api
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -24,8 +24,7 @@ removidos (respondem 404).
 
 **Query params de GET:** `page`, `limit` (máx 100), `search` (ilike em `name`),
 `categoryId`, `paymentMethod` (valor fora do enum é ignorado), `accountId`,
-`recurrence` (`fixed`\|`variable`), `isEssential` (`true`\|`false`), `from`,
-`to`, `order` (`asc`|`desc`, padrão `desc`; ordena por data dentro do período). Resposta: `{ data, total, page, limit }`. Sempre com `REAL_TRANSACTIONS`
+`from`, `to`, `order` (`asc`|`desc`, padrão `desc`; ordena por data dentro do período). Resposta: `{ data, total, page, limit }`. Sempre com `REAL_TRANSACTIONS`
 (`source = 'open_finance'`).
 
 **Body do PATCH:**
@@ -33,16 +32,13 @@ removidos (respondem 404).
 {
   "name": "Supermercado",
   "categoryId": "uuid",
-  "isEssential": true,
-  "recurrence": "variable",
-  "budgetId": null,
   "notes": null
 }
 ```
 - `amount`, `date`, `accountId` e `paymentMethod` no corpo são descartados pela
   validação — são do banco.
-- `recurrence = fixed` sem `budgetId` → 400; `variable` força `budgetId = null`.
-- Entrada (amount < 0) nunca vira essencial, mesmo com `isEssential: true`.
+- Não há vínculo com orçamento nem campo essencial/recorrência: a categoria
+  decide o orçamento e o grupo 50/30/20 (ver `domain/budget.md`).
 - Dispara `scheduleRecalculate()` (recorrências), pois renomear muda a chave do
   estabelecimento.
 - 404 se a transação não existe.
@@ -71,10 +67,12 @@ usa `REAL_TRANSACTIONS`, só com data até hoje (parcela futura do cartão não 
 
 - **Sem classificação**: transação na categoria de reserva do sync (`Outros`,
   `lib/fallback-category.ts`) — `category_id` é obrigatório, então não há `null`.
-  `essentialExpenses`/`nonEssentialExpenses` **não** a incluem: o sync grava
-  `is_essential = false` por padrão, e contar isso como "não essencial" seria
+  `expensesByGroup` **não** a inclui: contá-la no grupo de "Outros" seria
   inventar dado. Limitação: quem reclassifica de propósito para "Outros" cai no
   mesmo balde.
+- **`expensesByGroup`**: despesas pelo grupo 50/30/20 da categoria
+  (`categories.group`). Por ser painel de despesas, não inclui o líquido de
+  aplicações, que a tela de Orçamentos soma no grupo investimento.
 - **`pace`**: total de despesas do mês anterior até o mesmo dia (`cutoffDay`).
   `partial` = o mês pedido é o corrente; mês fechado compara com o anterior inteiro.
 
@@ -83,19 +81,15 @@ Resposta:
 ```jsonc
 {
   "totalExpenses": "1699.51",
-  "essentialExpenses": "1444.20",
-  "nonEssentialExpenses": "255.31",
+  "expensesByGroup": { "essential": "1444.20", "variable": "255.31", "investment": "0" },
   "unclassifiedExpenses": "0.00",
   "unclassifiedCount": 0,
   "pace": { "previousTotal": "1570.00", "cutoffDay": 23, "partial": true },
-  "fixedExpenses": "1245.51",
-  "variableExpenses": "454.00",
   "transactionCount": 9,
   "expensesByCategory": [{ "categoryId", "categoryName", "color", "amount" }],
   "expensesByPaymentMethod": [{ "id", "name", "color", "amount" }],
   "expensesByAccount": [{ "id", "name", "color", "amount" }],
   "monthlyTrend": [{ "month": "2026-06", "total": 1699.51 }],
-  "budgetProgress": [{ "id", "categoryId", "categoryName", "color", "budgeted", "spent", "percentage" }],
   "recentTransactions": [/* últimas 6 até hoje, com relations */]
 }
 ```

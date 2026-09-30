@@ -176,7 +176,7 @@ export interface LoadedHistory {
   recurringIncome: ReturnType<typeof detectRecurringIncome>
   /** Quantos meses distintos têm qualquer lançamento — mede a maturidade da base. */
   historyMonths: number
-  /** Mediana mensal dos gastos essenciais — default da reserva mínima. */
+  /** Mediana mensal dos gastos do grupo essencial — default da reserva mínima. */
   medianEssentialMonthly: number
 }
 
@@ -187,8 +187,8 @@ export async function loadHistory(
 ): Promise<LoadedHistory> {
   const period = between(transactions.date, from, to)
 
-  // Gastos variáveis por categoria e mês
-  const variableRows = await db
+  // Gastos por categoria e mês (quem tem orçamento é trocado pelo plano no service)
+  const expenseRows = await db
     .select({
       categoryId: transactions.categoryId,
       categoryName: categories.name,
@@ -201,7 +201,6 @@ export async function loadHistory(
       and(
         period,
         sql`${transactions.amount}::numeric > 0`,
-        eq(transactions.recurrence, "variable"),
         COUNTED_TRANSACTIONS
       )
     )
@@ -220,7 +219,7 @@ export async function loadHistory(
     )
     .groupBy(transactions.name, MONTH_EXPR)
 
-  // Maturidade da base e mediana de essenciais
+  // Maturidade da base e mediana dos gastos do grupo essencial
   const [meta] = await db
     .select({
       months: sql<number>`count(distinct ${MONTH_EXPR})::int`,
@@ -234,11 +233,12 @@ export async function loadHistory(
       total: sql<string>`sum(${transactions.amount}::numeric)`,
     })
     .from(transactions)
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
       and(
         period,
         sql`${transactions.amount}::numeric > 0`,
-        eq(transactions.isEssential, true),
+        eq(categories.group, "essential"),
         COUNTED_TRANSACTIONS
       )
     )
@@ -257,7 +257,7 @@ export async function loadHistory(
 
   return {
     categories: buildCategorySeries(
-      variableRows.map((r) => ({
+      expenseRows.map((r) => ({
         categoryId: r.categoryId,
         categoryName: r.categoryName ?? "Sem categoria",
         month: r.month,

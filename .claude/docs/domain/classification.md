@@ -1,7 +1,7 @@
 ---
 title: Classificação inteligente e recorrências
 area: domain
-updated: 2026-09-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -28,8 +28,16 @@ Cascata com *early-exit*: a primeira camada que resolve encerra a linha.
 
 No sync do Open Finance, cerca de metade das linhas para na camada 1 ou 2,
 então o LLM vê poucas linhas. O que nenhuma camada resolve volta com
-`source: "none"` e fica em branco para o usuário preencher — exatamente o
-comportamento anterior ao motor existir.
+`source: "none"` e cai na categoria de reserva ("Outros").
+
+Cada camada sugere **nome, categoria e forma de pagamento**. Orçamento e grupo
+50/30/20 não são sugeridos: vêm da categoria (ver `domain/budget.md`).
+
+**kNN pelo nome do banco:** o índice usa `merchantKey(originalName)`, que é o
+texto com que a transação nova chega. Antes usava o nome editado, e um
+histórico renomeado ("Financiamento do carro") nunca casava com "Pagamento
+efetuado - AYMORE…". Quando a chave é a mesma, o nome que o usuário deu é
+reaproveitado.
 
 ## Normalização
 
@@ -64,8 +72,7 @@ criou.
 | `pattern` + `matchType` | `contains` (padrão), `exact` ou `regex` |
 | `source` | `seed` (migrada do de-para) · `manual` · `learned` |
 | `priority` | Maior avalia antes; empate resolve por pattern mais longo |
-| `renameTo`, `categoryId`, `paymentMethod`, `recurrence`, `isEssential`, `budgetId` | Só aplica o que estiver preenchido |
-| `forceIncome` | Força o sinal, ignorando o do extrato (caso "Aplicação RDB") |
+| `renameTo`, `categoryId`, `paymentMethod` | Só aplica o que estiver preenchido. A categoria decide o orçamento e o grupo 50/30/20 |
 | `enabled` | Desliga sem apagar |
 | `hitCount`, `lastHitAt` | Telemetria de uso |
 
@@ -90,6 +97,9 @@ de-para herdado do CSV foi descartado). Cada entrada tem um ou mais `patterns`,
 - Grupos como mercado, delivery e fast food só categorizam e **mantêm o nome**
   do estabelecimento; renomear só onde há uma identidade única (Aluguel, Conta
   de luz, Combustível, Spotify…).
+- Supermercados vão para **Mercado** (essencial) e comer fora para
+  **Alimentação** (variável). A categoria "Groceries" da Pluggy (`10…`) também
+  cai em Mercado quando nenhuma camada resolve.
 - Categoria inexistente → `categoryId: null`. "Salário" e "Outros" precisam
   existir (`db:seed`).
 - **Idempotente**: só insere o que falta, nunca sobrescreve o que o usuário
@@ -101,8 +111,11 @@ o resto (Pix, restaurantes avulsos) é do kNN e da IA.
 
 ## Aprendizado (feedback)
 
-Corrigir uma categoria (reclassificar uma transação) chama
-`POST /classification/feedback`:
+`POST /classification/feedback` transforma uma correção em regra.
+
+> **A confirmar:** nenhuma tela chama a rota hoje. Reclassificar uma transação
+> não cria regra; o caminho atual é criar ou editar a regra e usar "Aplicar às
+> existentes".
 
 1. Deriva o pattern com `merchantKey(description)`.
 2. Já existe regra `learned` com esse pattern → **atualiza**.
@@ -124,9 +137,7 @@ corrigir o passado, a tela de regras tem **"Aplicar às existentes"**
 
 - Casa pelo `originalName` (o nome do banco), como o sync. Considera só a regra
   escolhida, sem olhar prioridade.
-- Aplica só a classificação: nome, categoria, essencial, recorrência e
-  orçamento. Nunca a forma de pagamento nem o sinal, que são do Open Finance.
-- Mesma regra do sync para gasto fixo: sem orçamento, a recorrência não muda.
+- Aplica só nome e categoria. Nunca a forma de pagamento, que é do Open Finance.
 - A prévia lista só as transações que de fato mudariam, com os campos afetados.
 
 Fluxo típico: editar a regra (ex.: `yduqs` → fixo + orçamento Faculdade) e
@@ -157,9 +168,7 @@ Hoje:
 
 | Situação | O que acontece |
 |---|---|
-| `recurrence` em português | Convertida (`fixo`/`mensal` → `fixed`) |
-| `recurrence` irreconhecível | Vira `null`, o resto da linha é aproveitado |
-| `isEssential` como `"sim"`/`"não"` | Convertido |
+| Campo a mais (ex.: `recurrence`) | Ignorado, o resto da linha é aproveitado |
 | Confiança em percentual (`80`) | Normalizada para `0,8` |
 | Confiança ausente ou absurda | Vira `0,5` — incerteza honesta |
 | Linha sem `index` utilizável | Só ela é descartada |
@@ -196,8 +205,8 @@ pelo recálculo (o usuário disse que não é assinatura).
 
 ### Quando recalcula
 
-Ao criar, editar ou excluir transação e ao fim de `POST /transactions/bulk`,
-com **debounce de 5s** — uma importação inteira dispara um recálculo só. Também
+Ao fim de cada sync, ao reclassificar uma transação e ao aplicar uma regra às
+existentes, com **debounce de 5s**: uma rajada dispara um recálculo só. Também
 sob demanda via `POST /recurring/recalculate`.
 
 ## Estatística compartilhada

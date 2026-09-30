@@ -16,7 +16,7 @@ export interface CategorySeries {
   trendMonthlyPct: number | null
 }
 
-/** Orçamento de faixa: amostrado por distribuição triangular. */
+/** Orçamento de faixa de uma categoria: amostrado por distribuição triangular. */
 export interface RangeBudget {
   budgetId: string
   name: string
@@ -32,11 +32,14 @@ export interface MonthPlan {
   label: string
   /** Receita recorrente esperada (magnitude positiva). */
   expectedIncome: number
-  /** Orçamentos de valor fixo (magnitude positiva). */
-  fixedExpenses: number
+  /** Orçamentos de valor exato (magnitude positiva). */
+  exactBudgets: number
   /** Orçamentos de faixa, amostrados a cada iteração. */
   rangeBudgets: RangeBudget[]
-  /** Transações já cadastradas com data futura. Positivo = saída líquida. */
+  /**
+   * Transações já lançadas com data futura (parcelas), fora das categorias
+   * com orçamento. Positivo = saída líquida.
+   */
   knownTransactions: number
   /** Eventos do cenário simulado. Positivo = saída líquida. */
   scenarioImpact: number
@@ -69,8 +72,10 @@ export interface ProjectedMonth {
   year: number
   label: string
   expectedIncome: number
-  fixedExpenses: number
-  variableExpensesP50: number
+  /** Orçamentos do mês: exatos + moda das faixas. */
+  budgetedExpenses: number
+  /** Gasto provável (p50) das categorias sem orçamento, pelo histórico. */
+  unbudgetedExpensesP50: number
   knownTransactions: number
   scenarioImpact: number
   balance: Percentiles

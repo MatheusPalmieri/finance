@@ -10,9 +10,8 @@ import {
   categories,
   transactions,
   type AccountType,
-  type BudgetType,
   type PaymentMethod,
-  type Recurrence,
+  type SpendingGroup,
   type TransactionKind,
   type TransactionStatus,
 } from "../db/schema"
@@ -152,8 +151,14 @@ export async function withAiDisabled<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Fábricas ─────────────────────────────────────────────────────────────────
 
-export async function makeCategory(name: string, color = "#6366f1") {
-  const [row] = await db.insert(categories).values({ name, color }).returning()
+export async function makeCategory(
+  name: string,
+  options: { color?: string; group?: SpendingGroup } = {}
+) {
+  const [row] = await db
+    .insert(categories)
+    .values({ name, color: options.color ?? "#6366f1", group: options.group ?? "variable" })
+    .returning()
   return row
 }
 
@@ -201,10 +206,10 @@ async function addToBalanceSnapshot(account: AccountBalance) {
   await writeSnapshot("balances", { accounts: list, cash: sum("BANK"), cardDebt: sum("CREDIT") })
 }
 
+/** Orçamento de uma categoria: `amount` = valor exato; `amountMin/Max` = faixa. */
 export async function makeBudget(
-  name: string,
+  categoryId: string,
   options: {
-    type?: BudgetType
     amount?: number
     amountMin?: number
     amountMax?: number
@@ -214,9 +219,8 @@ export async function makeBudget(
   const [row] = await db
     .insert(budgets)
     .values({
-      name,
-      type: options.type ?? "essential",
-      amountType: isRange ? "variable" : "fixed",
+      categoryId,
+      amountType: isRange ? "range" : "exact",
       amount: isRange ? null : String(options.amount ?? 0),
       amountMin: isRange ? String(options.amountMin) : null,
       amountMax: isRange ? String(options.amountMax ?? 0) : null,
@@ -235,9 +239,6 @@ export interface TransactionSeed {
   categoryId: string
   accountId: string
   paymentMethod?: PaymentMethod
-  recurrence?: Recurrence
-  isEssential?: boolean
-  budgetId?: string | null
   kind?: TransactionKind
   status?: TransactionStatus
   externalId?: string
@@ -255,9 +256,6 @@ export async function makeTransaction(seed: TransactionSeed) {
       categoryId: seed.categoryId,
       accountId: seed.accountId,
       paymentMethod: seed.paymentMethod ?? "credit_card",
-      recurrence: seed.recurrence ?? "variable",
-      isEssential: seed.isEssential ?? false,
-      budgetId: seed.budgetId ?? null,
       kind: seed.kind ?? "regular",
       status: seed.status ?? "posted",
       // Toda transação vem do Open Finance: sem id explícito, inventa um único

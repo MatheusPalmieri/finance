@@ -427,8 +427,8 @@ function LimitMeter({
 }
 
 // ── Gastos do mês ─────────────────────────────────────────────────────────────
-// Total, compras no cartão, essencial e recorrentes, com o ritmo contra o mês
-// anterior no mesmo dia e a composição numa barra só.
+// Total, compras no cartão, essencial e variável (grupos da categoria), com o
+// ritmo contra o mês anterior no mesmo dia e a composição numa barra só.
 function SpendCard({
   data,
   isLoading,
@@ -441,10 +441,10 @@ function SpendCard({
   if (isLoading || !data) return <Skeleton className="h-56 rounded-xl" />
 
   const total = Number(data.totalExpenses)
-  const essential = Number(data.essentialExpenses)
-  const nonEssential = Number(data.nonEssentialExpenses)
+  const essential = Number(data.expensesByGroup.essential)
+  const variable = Number(data.expensesByGroup.variable)
+  const investment = Number(data.expensesByGroup.investment)
   const unclassified = Number(data.unclassifiedExpenses)
-  const fixed = Number(data.fixedExpenses)
 
   const byMethod = (id: string) =>
     Number(data.expensesByPaymentMethod.find((m) => m.id === id)?.amount ?? 0)
@@ -459,11 +459,8 @@ function SpendCard({
 
   const parts = [
     { label: "Essencial", value: essential, color: FINANCE.essential },
-    {
-      label: "Não essencial",
-      value: nonEssential,
-      color: FINANCE.nonEssential,
-    },
+    { label: "Variável", value: variable, color: FINANCE.variable },
+    { label: "Investimento", value: investment, color: FINANCE.income },
     {
       label: "Sem classificação",
       value: unclassified,
@@ -537,9 +534,10 @@ function SpendCard({
               hint={`${pct(essential, total)}% do total`}
             />
             <Kpi
-              label="Recorrentes"
-              value={formatCurrency(fixed)}
-              hint={`${pct(fixed, total)}% do total`}
+              label="Variável"
+              dot={FINANCE.variable}
+              value={formatCurrency(variable)}
+              hint={`${pct(variable, total)}% do total`}
             />
           </div>
 
