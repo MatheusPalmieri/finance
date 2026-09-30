@@ -73,6 +73,7 @@ truncar `transactions`):
 | Script | O que faz |
 |---|---|
 | `api/scripts/migrate-open-finance.sql` | F1 da spec 04: tabelas do sync |
+| `api/scripts/migrate-budgets-by-category.sql` | Orçamento por categoria: `categories.group`, categoria Mercado, `budgets.category_id`, remove `recurrence`/`is_essential`/`budget_id`/`force_income` e apaga `monthly_reports` (ver `decisions/orcamento-por-categoria.md`) |
 | `api/scripts/migrate-open-finance-only.sql` | Open Finance como fonte única: apaga o que não veio de lá, remove as colunas manuais, restringe `transaction_source`, cria `open_finance_snapshots`. Faça `pg_dump` antes (comando no cabeçalho do arquivo) |
 
 ## Comandos

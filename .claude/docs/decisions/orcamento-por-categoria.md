@@ -55,7 +55,8 @@ Outras decisões tomadas junto:
 
 ## Migração do banco de dev
 
-Passos em uma transação, com backup antes em `backups/`:
+`api/scripts/migrate-budgets-by-category.sql`, numa transação só (comando no
+cabeçalho do arquivo). Faz backup antes em `backups/`:
 
 1. Criar `spending_group`, adicionar `categories.group` e definir os grupos
    padrão: Moradia, Transporte, Saúde, Estudos, Serviços e Mercado =
@@ -69,6 +70,8 @@ Passos em uma transação, com backup antes em `backups/`:
    `budget_amount_type`.
 5. Apagar `monthly_reports`, que guardam o formato antigo, e gerá-los de novo.
 
-> **A confirmar:** o script SQL desses passos não foi gravado no repositório (a
-> criação foi bloqueada pelo modo automático). Até a migração rodar, o banco de
-> dev continua no schema antigo e a API nova não funciona contra ele.
+**Aplicada em 2026-09-30.** Antes, rodou numa cópia restaurada do dump, onde o
+`drizzle-kit push` respondeu "No changes detected". Resultado: 1078
+transações preservadas, 76 compras movidas para Mercado e 13 orçamentos
+consolidados em 8. Backup de antes em
+`backups/finance-2026-09-30-pre-migracao.dump`.
