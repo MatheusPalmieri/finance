@@ -8,6 +8,7 @@
 //   PATCH /items/{id}                             -> reexecuta a coleta
 //   GET   /accounts?itemId=                       -> { results }
 //   GET   /v2/transactions?accountId=&dateFrom=&after=  -> { results, next }
+//   GET   /bills?accountId=                       -> { results } (faturas fechadas do cartão; 2026-09-30)
 //   GET   /investments?itemId=&pageSize=          -> { results }
 //   GET   /investments/{id}/transactions?pageSize=      -> { results }
 
@@ -16,6 +17,7 @@ import type { OpenFinanceProvider } from "../provider"
 import type {
   ListTransactionsOptions,
   ProviderAccount,
+  ProviderBill,
   ProviderInvestment,
   ProviderInvestmentTransaction,
   ProviderItem,
@@ -117,6 +119,13 @@ export class PluggyProvider implements OpenFinanceProvider {
       if (!after) break
     }
     return all
+  }
+
+  async listBills(accountId: string) {
+    const res = await this.#get<{ results: ProviderBill[] }>(
+      `/bills?accountId=${encodeURIComponent(accountId)}`
+    )
+    return res.results
   }
 
   async listInvestments(itemId: string) {

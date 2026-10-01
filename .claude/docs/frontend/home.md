@@ -23,8 +23,12 @@ no bloco certo. Quatro blocos, de cima para baixo:
   conta. O lápis (aparece no hover no desktop) abre `AccountModal`
   (`components/accounts/AccountModal.tsx`): só nome e cor — o resto é do banco.
   Substituiu a antiga `AccountsSection` (grid de cards de conta).
-- **Fatura aberta** = soma de `monthBill` dos cartões, sempre vermelha; a barra
-  mostra a dívida total sobre o limite. **Compras no cartão** (gastos do mês) é
+- **Fatura** = soma de `bill.total` dos cartões, sempre vermelha. O título é
+  "Fatura fechada" quando o banco já deu o valor oficial (`bill.official`) e
+  "Fatura aberta" com a nota "Estimativa pela soma das compras" quando não.
+  Diferença entre o oficial e o detalhado aparece como "R$ X cobrados sem
+  detalhe do banco". O vencimento ao lado do cartão é o da fatura
+  (`bill.dueDate`). A barra mostra a dívida total sobre o limite. **Compras no cartão** (gastos do mês) é
   outra base — compras por data, não o ciclo da fatura — por isso o nome
   diferente.
 - **Patrimônio** = conta + investido − dívida total dos cartões. É derivado, então

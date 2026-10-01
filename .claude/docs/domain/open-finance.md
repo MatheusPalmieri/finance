@@ -36,7 +36,7 @@ nem digitado.
 | Campo | Regra |
 |---|---|
 | `date` | ISO UTC da Pluggy → dia em `America/Sao_Paulo` |
-| `amount` | `type === "DEBIT"` → `+|v|` (despesa); `CREDIT` → `-|v|` (entrada). O sinal cru da Pluggy se inverte entre conta e cartão; o `type` não |
+| `amount` | `type === "DEBIT"` → `+|v|` (despesa); `CREDIT` → `-|v|` (entrada). O sinal cru da Pluggy se inverte entre conta e cartão; o `type` não. **Sempre em reais:** compra no exterior vem com `amount` na moeda da compra (21,49 USD) e o valor cobrado em `amountInAccountCurrency` (R$ 114,55) — vale este. Até 2026-09-30 o sync gravava o dólar (7 transações, corrigidas por um sync completo) |
 | `status` | `PENDING` → `pending`; o resto → `posted` |
 | `kind` | Fatura (`05100000` ou "Pagamento de fatura/recebido") → `bill_payment`; RDB e compra/venda de ativos — inclusive "Compra de Renda Variável", que a Pluggy categoriza como Shopping — (texto ou categoria `03*`) → `investment`; `04000000` Same person transfer → `own_transfer`; o resto → `regular` |
 | `name` | "Transferência enviada\|X" → "Pix para X"; "Tipo\|X" → "Tipo - X". É o formato do extrato CSV, então as regras e o histórico existentes continuam valendo (ex.: a regra de salário) |

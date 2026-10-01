@@ -240,7 +240,13 @@ function PositionStrip({ accounts }: { accounts: Account[] }) {
   const banks = balances.accounts.filter((a) => a.type === "BANK")
   const cards = balances.accounts.filter((a) => a.type === "CREDIT")
 
-  const bill = cards.reduce((sum, c) => sum + (c.monthBill ?? 0), 0)
+  const bill = cards.reduce((sum, c) => sum + (c.bill?.total ?? 0), 0)
+  // Fechada só quando o banco já deu o valor oficial de todos os cartões
+  const allOfficial = cards.length > 0 && cards.every((c) => c.bill?.official)
+  const undetailed = cards.reduce(
+    (sum, c) => sum + (c.bill?.undetailed ?? 0),
+    0
+  )
   const limit = cards.reduce((sum, c) => sum + (c.creditLimit ?? 0), 0)
   const invested = investments?.available ? investments.total : 0
   const netWorth = balances.cash + invested - balances.cardDebt
@@ -272,9 +278,10 @@ function PositionStrip({ accounts }: { accounts: Account[] }) {
           </div>
         </section>
 
-        {/* Fatura aberta: saída, sempre em vermelho */}
+        {/* Fatura a pagar: saída, sempre em vermelho. Oficial quando o banco já
+            fechou; senão é a soma das compras */}
         <section className="flex flex-col gap-2.5 border-t p-5 md:border-t-0">
-          <Eyebrow>Fatura aberta</Eyebrow>
+          <Eyebrow>{allOfficial ? "Fatura fechada" : "Fatura aberta"}</Eyebrow>
           {cards.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nenhum cartão vinculado
@@ -284,18 +291,32 @@ function PositionStrip({ accounts }: { accounts: Account[] }) {
               <p className="text-3xl font-semibold text-destructive tabular-nums">
                 {formatCurrency(bill)}
               </p>
+              {!allOfficial && (
+                <p className="-mt-1.5 text-xs text-muted-foreground">
+                  Estimativa pela soma das compras — o banco ainda não fechou
+                </p>
+              )}
+              {Math.abs(undetailed) >= 0.01 && (
+                <p
+                  className="-mt-1.5 text-xs text-muted-foreground tabular-nums"
+                  title="Diferença entre o valor oficial da fatura e os lançamentos que o Open Finance detalhou (parcela que não veio, estorno lançado em outra fatura)"
+                >
+                  {formatCurrency(Math.abs(undetailed))}{" "}
+                  {undetailed > 0 ? "cobrados" : "abatidos"} sem detalhe do
+                  banco
+                </p>
+              )}
               <div className="flex flex-col gap-1.5">
                 {cards.map((c) => (
                   <BankRow
                     key={c.accountId}
                     balance={c}
-                    value={c.monthBill ?? 0}
+                    value={c.bill?.total ?? 0}
                     account={accountById.get(c.accountId)}
                     onEdit={setEditing}
                     suffix={
-                      c.dueDate &&
-                      c.dueDate >= new Date().toISOString().slice(0, 10)
-                        ? ` · vence ${formatDate(c.dueDate).slice(0, 5)}`
+                      c.bill?.dueDate
+                        ? ` · vence ${formatDate(c.bill.dueDate).slice(0, 5)}`
                         : ""
                     }
                   />

@@ -20,16 +20,33 @@ export function toLocalDate(iso: string): string {
 }
 
 /**
+ * Valor em reais. Compra no exterior vem com `amount` na moeda da compra
+ * (21,49 USD) e o convertido em `amountInAccountCurrency` (R$ 114,55) — é este
+ * que a fatura cobra. Mantém o sinal de `amount`.
+ */
+function accountCurrencyAmount(
+  tx: Pick<ProviderTransaction, "amount" | "amountInAccountCurrency">
+): number {
+  const amount = Number(tx.amount)
+  if (tx.amountInAccountCurrency == null) return amount
+  const converted = Math.abs(Number(tx.amountInAccountCurrency))
+  return amount < 0 ? -converted : converted
+}
+
+/**
  * Convenção do domínio: positivo = despesa, negativo = entrada. O sinal de
  * `amount` na Pluggy se inverte entre conta e cartão, mas `type` é consistente
- * nos dois: DEBIT é saída.
+ * nos dois: DEBIT é saída. Sempre em reais (ver `accountCurrencyAmount`).
  */
-export function toDomainAmount(tx: Pick<ProviderTransaction, "amount" | "type">): number {
-  const magnitude = Math.abs(Number(tx.amount))
+export function toDomainAmount(
+  tx: Pick<ProviderTransaction, "amount" | "amountInAccountCurrency" | "type">
+): number {
+  const amount = accountCurrencyAmount(tx)
+  const magnitude = Math.abs(amount)
   if (tx.type === "DEBIT") return magnitude
   if (tx.type === "CREDIT") return -magnitude
   // Sem `type`: cai no sinal da própria Pluggy para conta (negativo = saída)
-  return -Number(tx.amount)
+  return -amount
 }
 
 // Categorias da Pluggy que marcam movimento interno

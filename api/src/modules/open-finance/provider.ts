@@ -1,6 +1,7 @@
 import type {
   ListTransactionsOptions,
   ProviderAccount,
+  ProviderBill,
   ProviderInvestment,
   ProviderInvestmentTransaction,
   ProviderItem,
@@ -24,6 +25,8 @@ export interface OpenFinanceProvider {
     accountId: string,
     opts?: ListTransactionsOptions
   ): Promise<ProviderTransaction[]>
+  /** Faturas fechadas do cartão, com o valor oficial cobrado pelo banco. */
+  listBills(accountId: string): Promise<ProviderBill[]>
   listInvestments(itemId: string): Promise<ProviderInvestment[]>
   listInvestmentTransactions(
     investmentId: string

@@ -6,6 +6,7 @@
 import type { OpenFinanceProvider } from "../../modules/open-finance/provider"
 import type {
   ProviderAccount,
+  ProviderBill,
   ProviderInvestment,
   ProviderInvestmentTransaction,
   ProviderItem,
@@ -20,6 +21,8 @@ export class MockOpenFinanceProvider implements OpenFinanceProvider {
   accounts: ProviderAccount[] = []
   /** accountId → transações */
   transactions: Record<string, ProviderTransaction[]> = {}
+  /** accountId → faturas fechadas */
+  bills: Record<string, ProviderBill[]> = {}
   investments: ProviderInvestment[] = []
   /** investmentId → movimentações */
   investmentTransactions: Record<string, ProviderInvestmentTransaction[]> = {}
@@ -60,6 +63,11 @@ export class MockOpenFinanceProvider implements OpenFinanceProvider {
     const all = this.transactions[accountId] ?? []
     // Mesma semântica do dateFrom da Pluggy (data em UTC)
     return opts.from ? all.filter((t) => t.date.slice(0, 10) >= opts.from!) : all
+  }
+
+  async listBills(accountId: string) {
+    this.#check()
+    return this.bills[accountId] ?? []
   }
 
   async listInvestments() {

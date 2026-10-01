@@ -13,7 +13,7 @@
 // - Um sync por vez: advisory lock na transação do banco + dedupe em memória.
 // - O sync é a porta de entrada de TODO dado financeiro: não existe lançamento
 //   manual nem importação de extrato. Terminado com sucesso, ele grava também
-//   o retrato de saldos (com as contas que já buscou, sem chamada extra) e
+//   o retrato de saldos (com as contas e faturas que já buscou) e
 //   atualiza o de investimentos em segundo plano se estiver vencido.
 // - `dryRun` roda exatamente o mesmo caminho e desfaz tudo no fim.
 
@@ -32,7 +32,7 @@ import {
 } from "../../db/schema"
 import { scheduleRecalculate } from "../classification"
 import { suggest } from "../classification/service"
-import { saveBalancesFromSync } from "./balances"
+import { fetchBills, saveBalancesFromSync, type BillsByAccount } from "./balances"
 import { getInvestments } from "./investments"
 import { log } from "./log"
 import { normalizeTransaction, type NormalizedTransaction } from "./normalize"
@@ -138,6 +138,8 @@ interface FetchedAccount {
 interface FetchedItem {
   item: ProviderItem
   accounts: FetchedAccount[]
+  /** Faturas fechadas dos cartões — para o retrato de saldos. */
+  bills: BillsByAccount
   from: string
   full: boolean
 }
@@ -191,7 +193,8 @@ async function fetchItem(
       transactions: await provider.listTransactions(account.id, { from }),
     })
   }
-  return { item, accounts: fetched, from, full }
+  const bills = await fetchBills(provider, providerAccounts)
+  return { item, accounts: fetched, bills, from, full }
 }
 
 // ── Vínculo de contas ────────────────────────────────────────────────────────
@@ -562,10 +565,14 @@ async function execute(opts: SyncOptions, runId: string | null): Promise<SyncRep
     throw err
   }
 
-  // As contas buscadas já trazem saldo e limite: grava o retrato sem outra ida
-  // à Pluggy. Falhar aqui não desfaz o sync — o retrato se refaz na próxima leitura
+  // As contas buscadas já trazem saldo e limite, e as faturas vieram junto:
+  // grava o retrato sem outra ida à Pluggy. Falhar aqui não desfaz o sync — o
+  // retrato se refaz na próxima leitura
   try {
-    await saveBalancesFromSync(fetchedItems.flatMap((f) => f.accounts.map((a) => a.account)))
+    await saveBalancesFromSync(
+      fetchedItems.flatMap((f) => f.accounts.map((a) => a.account)),
+      new Map(fetchedItems.flatMap((f) => [...f.bills]))
+    )
   } catch (err) {
     log.error("retrato de saldos não gravado", { message: err instanceof Error ? err.message : String(err) })
   }

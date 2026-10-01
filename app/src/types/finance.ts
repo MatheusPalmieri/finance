@@ -741,10 +741,28 @@ export interface AccountBalance {
   balance: number
   creditLimit: number | null
   availableCredit: number | null
+  /** Vencimento informado na conta — costuma ser o da última fatura fechada. */
   dueDate: string | null
   minimumPayment: number | null
-  /** Cartão: fatura do mês (aberta). `balance` é a dívida total, com parcelas futuras. */
-  monthBill?: number | null
+  /** Cartão: a fatura a pagar. `balance` é a dívida total, com parcelas futuras. */
+  bill?: CardBill | null
+}
+
+/**
+ * Fatura do cartão a pagar. `official` = valor do banco (fatura já fechada);
+ * senão é a soma das compras (estimativa). `undetailed` = o que o banco cobra
+ * sem ter mandado o lançamento.
+ */
+export interface CardBill {
+  /** "yyyy-mm" do vencimento */
+  month: string
+  official: boolean
+  total: number
+  itemized: number
+  undetailed: number
+  dueDate: string | null
+  closingDate: string | null
+  minimumPayment: number | null
 }
 
 export interface BalancesSnapshot extends SnapshotMeta {

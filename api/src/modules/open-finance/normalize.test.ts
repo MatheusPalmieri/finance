@@ -40,6 +40,19 @@ describe("toDomainAmount", () => {
   test("sem type, usa o sinal da conta", () => {
     expect(toDomainAmount({ amount: -20, type: null })).toBe(20)
   })
+
+  test("compra no exterior vale o convertido em reais, não o dólar", () => {
+    // Caso real: assinatura do Claude, 21,49 USD cobrados como R$ 114,55
+    expect(
+      toDomainAmount({ amount: 21.49, amountInAccountCurrency: 114.55, type: "DEBIT" })
+    ).toBe(114.55)
+    expect(
+      toDomainAmount({ amount: -21.49, amountInAccountCurrency: 114.55, type: null })
+    ).toBe(114.55)
+    expect(
+      toDomainAmount({ amount: -5, amountInAccountCurrency: 26.92, type: "CREDIT" })
+    ).toBe(-26.92)
+  })
 })
 
 describe("detectKind", () => {

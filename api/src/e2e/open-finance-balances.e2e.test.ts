@@ -7,6 +7,8 @@ import { db } from "../db"
 import { __setProvider } from "../modules/open-finance/provider"
 import { __clearSnapshotInFlight } from "../modules/open-finance/snapshots"
 import { MockOpenFinanceProvider } from "../test/mocks/open-finance"
+import { transactions } from "../db/schema"
+import type { ProviderTransaction } from "../modules/open-finance/types"
 import { runSync } from "../modules/open-finance/sync"
 import type { CashflowProjection } from "../modules/forecast/types"
 import { api, makeAccount, makeCategory, resetDatabase } from "../test/helpers"
@@ -126,6 +128,115 @@ describe("e2e GET /open-finance/balances", () => {
     provider.failWith = null
     const back = await api.get<BalancesBody>("/open-finance/balances")
     expect(back.body).toMatchObject({ source: "live", stale: false })
+  })
+})
+
+type CardBillBody = {
+  month: string
+  official: boolean
+  total: number
+  itemized: number
+  undetailed: number
+  dueDate: string | null
+  minimumPayment: number | null
+}
+
+/** Cartão com compras da fatura "2026-10" (aberta) e uma de "2026-11". */
+function setupCardBills() {
+  provider.accounts = [
+    {
+      id: "acc-card",
+      type: "CREDIT",
+      name: "Cartão",
+      balance: 900,
+      creditData: { creditLimit: 5000, availableCreditLimit: 4100, balanceDueDate: "2026-09-08T00:00:00.000Z" },
+    },
+  ]
+  const card = (id: string, amount: number, bill: string, extra: Partial<ProviderTransaction> = {}) => ({
+    id,
+    date: "2026-09-20T15:00:00.000Z",
+    amount,
+    type: "DEBIT" as const,
+    status: "PENDING",
+    description: id,
+    creditCardMetadata: { billForecastDate: bill },
+    ...extra,
+  })
+  provider.transactions = {
+    "acc-card": [
+      card("mercado", 400, "2026-10"),
+      // Compra em dólar: a fatura cobra o convertido em reais
+      card("claude", 21.49, "2026-10", { currencyCode: "USD", amountInAccountCurrency: 114.55 }),
+      card("estorno", 100, "2026-10", { type: "CREDIT" }),
+      // Fechou depois do corte: fatura seguinte
+      card("ifood", 50, "2026-11"),
+    ],
+  }
+}
+
+describe("e2e fatura do cartão no retrato de saldos", () => {
+  test("compra em dólar entra em reais", async () => {
+    __setProvider(provider)
+    setupCardBills()
+    await runSync({ trigger: "cli" })
+
+    const rows = await db.select().from(transactions)
+    expect(rows.find((t) => t.externalId === "claude")!.amount).toBe("114.55")
+  })
+
+  test("fatura ainda aberta: estimativa pela soma das compras dela", async () => {
+    __setProvider(provider)
+    setupCardBills()
+    await runSync({ trigger: "cli" })
+
+    const res = await api.get<BalancesBody & { accounts: { bill: CardBillBody | null }[] }>("/open-finance/balances")
+    // 400 + 114,55 − 100; o iFood da fatura de novembro fica de fora
+    expect(res.body.accounts[0].bill).toMatchObject({
+      month: "2026-10",
+      official: false,
+      total: 414.55,
+      itemized: 414.55,
+      undetailed: 0,
+      // O vencimento da conta é o da fatura anterior: não vale para esta
+      dueDate: null,
+    })
+  })
+
+  test("fatura fechada: vale o valor oficial do banco e a diferença aparece", async () => {
+    __setProvider(provider)
+    setupCardBills()
+    provider.bills = {
+      "acc-card": [
+        { id: "b-out", dueDate: "2026-10-07T00:00:00.000Z", totalAmount: 541.0496, minimumPaymentAmount: 81.16 },
+        { id: "b-set", dueDate: "2026-09-08T00:00:00.000Z", totalAmount: 999 },
+      ],
+    }
+    await runSync({ trigger: "cli" })
+
+    const res = await api.get<BalancesBody & { accounts: { bill: CardBillBody | null }[] }>("/open-finance/balances")
+    expect(res.body.accounts[0].bill).toMatchObject({
+      month: "2026-10",
+      official: true,
+      total: 541.05,
+      itemized: 414.55,
+      // O estorno de 126,50 que o banco lançou em outra fatura, por exemplo
+      undetailed: 126.5,
+      dueDate: "2026-10-07",
+      minimumPayment: 81.16,
+    })
+  })
+
+  test("/bills fora do ar não derruba o retrato: fica a estimativa", async () => {
+    __setProvider(provider)
+    setupCardBills()
+    provider.listBills = async () => {
+      throw new Error("bills indisponível")
+    }
+    await runSync({ trigger: "cli" })
+
+    const res = await api.get<BalancesBody & { accounts: { bill: CardBillBody | null }[] }>("/open-finance/balances")
+    expect(res.body.available).toBe(true)
+    expect(res.body.accounts[0].bill).toMatchObject({ official: false, total: 414.55 })
   })
 })
 

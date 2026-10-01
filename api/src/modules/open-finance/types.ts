@@ -41,6 +41,10 @@ export interface ProviderTransaction {
   descriptionRaw?: string | null
   /** Sinal depende da conta: use `type`, que é consistente nas duas. */
   amount: number
+  /** Moeda de `amount` — em compra no exterior vem a moeda da compra (USD). */
+  currencyCode?: string | null
+  /** `amount` convertido para a moeda da conta (R$): o que a fatura cobra. */
+  amountInAccountCurrency?: number | null
   type?: "DEBIT" | "CREDIT" | null
   status?: "PENDING" | "POSTED" | string | null
   category?: string | null
@@ -91,6 +95,17 @@ export interface ProviderInvestmentTransaction {
   quantity?: number | null
   value?: number | null
   date?: string | null
+}
+
+/** Fatura fechada do cartão (GET /bills). Só existe depois que o banco a fecha. */
+export interface ProviderBill {
+  id: string
+  /** ISO; o mês do vencimento é o `billForecastDate` dos lançamentos dela. */
+  dueDate: string
+  billClosingDate?: string | null
+  /** Valor oficial cobrado, na moeda da conta. */
+  totalAmount: number
+  minimumPaymentAmount?: number | null
 }
 
 export interface ListTransactionsOptions {

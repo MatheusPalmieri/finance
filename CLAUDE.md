@@ -86,7 +86,7 @@ Docs existentes:
 - `.claude/docs/frontend/forecast.md` — página /forecast (gráfico de leque, painel de cenário) e card no Home
 - `.claude/docs/domain/classification.md` — motor de classificação em 3 camadas (regras/histórico/IA), regras aprendidas e detector de recorrências
 - `.claude/docs/domain/monthly-report.md` — check-up mensal: métricas, anomalias (mediana/MAD), insights e validação anti-alucinação
-- `.claude/docs/api/open-finance.md` — endpoints /open-finance (status com auto-sync, sync, runs, vínculo de contas, retratos de saldo/investimentos)
+- `.claude/docs/api/open-finance.md` — endpoints /open-finance (status com auto-sync, sync, runs, vínculo de contas, retratos de saldo/investimentos, fatura do cartão oficial ou estimada)
 - `.claude/docs/api/classification.md` — endpoints /classification e /recurring
 - `.claude/docs/api/reports.md` — endpoints /reports (check-up mensal)
 - `.claude/docs/api/llm.md` — camada `LlmProvider` (Ollama/Anthropic; dublê só em testes), env vars, degradação e telemetria
@@ -123,6 +123,7 @@ Docs existentes:
 - `.claude/docs/infra/cors.md` — CORS, origem permitida
 - `.claude/docs/decisions/phone-normalization.md` — ADR do telefone sem 9 inicial
 - `.claude/docs/decisions/phase-system.md` — proposta de phase + closeReason + timestamps de transição (PROPOSTO)
+- `.claude/docs/decisions/mes-de-referencia-pela-fatura.md` — compras do cartão contam no mês da fatura (`billForecastDate`), não da compra (PROPOSTO, não implementado)
 - `.claude/docs/decisions/excecao-grupo-por-transacao.md` — exceção opcional de grupo 50/30/20 numa transação (ex.: besteira no mercado conta como Variável) (PROPOSTO, não implementado)
 
 ### Specs de produto
