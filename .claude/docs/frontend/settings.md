@@ -1,14 +1,14 @@
 ---
 title: Ajustes — dialog estilo macOS
 area: frontend
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 
 ## Visão geral
 
 Telas de configuração que não são uso diário saíram da sidebar e moram num
 dialog de **Ajustes** inspirado nos Ajustes do Sistema do macOS: janela com
-~80% da tela, semáforo, busca e lista de seções à esquerda, conteúdo à direita.
+~80% da tela, busca e lista de seções à esquerda, conteúdo à direita.
 A sidebar ficou só com o que se usa no dia a dia (Início, Transações,
 Investimentos, Orçamento, Projeção, Check-up).
 
@@ -44,9 +44,9 @@ componente (lazy). Os grupos viram blocos separados na lista.
 
 - `DialogContent` sem o X padrão; `md:w-[80vw] md:h-[80dvh]`, cantos
   `rounded-2xl`. No mobile ocupa a tela inteira.
-- **Semáforo** (`TRAFFIC_LIGHTS` em `lib/tokens.ts`): vermelho fecha, verde
-  maximiza/restaura (`calc(100vw-2rem)`), amarelo é decorativo. Glifos aparecem
-  no hover do grupo.
+- Cabeçalho da barra lateral: título **"Ajustes"** (`DialogTitle`) e botão X
+  (`Button` ghost, padrão do app). Sem semáforo do macOS nem maximizar — o
+  usuário pediu que essa parte não imitasse o Mac.
 - **Busca**: filtra por label e keywords, sem acento e sem caixa.
 - **Mobile**: lista → detalhe, como no iOS; botão "‹ Ajustes" volta. Deep-link
   direto numa seção que não seja a padrão já abre no detalhe.

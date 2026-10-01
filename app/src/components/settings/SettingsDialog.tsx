@@ -1,14 +1,14 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
-import { Dialog as DialogPrimitive } from "radix-ui"
-import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Search, XIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { isEditableTarget } from "@/lib/keyboard"
-import { TRAFFIC_LIGHTS } from "@/lib/tokens"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_SETTINGS_SECTION,
@@ -50,7 +50,6 @@ function SettingsWindow({
 }) {
   const { section, select } = useSettings()
   const [query, setQuery] = useState("")
-  const [maximized, setMaximized] = useState(false)
   // No mobile é lista → detalhe (como no iOS). Deep-link direto numa seção
   // abre já no detalhe.
   const [showDetail, setShowDetail] = useState(
@@ -81,15 +80,12 @@ function SettingsWindow({
     <DialogContent
       showCloseButton={false}
       className={cn(
-        "flex gap-0 overflow-hidden p-0 transition-[width,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        // Mobile: tela cheia; desktop: ~80% da tela (ou maximizado)
+        "flex gap-0 overflow-hidden p-0",
+        // Mobile: tela cheia; desktop: ~80% da tela
         "h-dvh w-screen max-w-none rounded-none sm:max-w-none",
-        maximized
-          ? "md:h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:rounded-2xl"
-          : "md:h-[80dvh] md:w-[80vw] md:rounded-2xl"
+        "md:h-[80dvh] md:w-[80vw] md:rounded-2xl"
       )}
     >
-      <DialogTitle className="sr-only">Ajustes</DialogTitle>
       <DialogDescription className="sr-only">
         Aparência, Open Finance, classificação e categorias
       </DialogDescription>
@@ -101,11 +97,13 @@ function SettingsWindow({
           showDetail && "max-md:hidden"
         )}
       >
-        <div className="flex h-12 shrink-0 items-center gap-2 px-4">
-          <TrafficLights
-            maximized={maximized}
-            onToggleMaximize={() => setMaximized((m) => !m)}
-          />
+        <div className="flex h-14 shrink-0 items-center justify-between pr-3 pl-5">
+          <DialogTitle className="text-base font-semibold">Ajustes</DialogTitle>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="Fechar ajustes">
+              <XIcon />
+            </Button>
+          </DialogClose>
         </div>
 
         <div className="px-3 pb-2">
@@ -218,47 +216,6 @@ function SectionButton({
         aria-hidden
       />
     </button>
-  )
-}
-
-// ── Semáforo: vermelho fecha, verde maximiza; amarelo é só decorativo ─────────
-function TrafficLights({
-  maximized,
-  onToggleMaximize,
-}: {
-  maximized: boolean
-  onToggleMaximize: () => void
-}) {
-  const dot =
-    "flex size-3 items-center justify-center rounded-full ring-1 ring-black/10 ring-inset"
-  // Os glifos só aparecem ao passar o mouse sobre o grupo, como no macOS
-  const glyph =
-    "text-[9px] leading-none font-bold text-black/60 opacity-0 group-hover/lights:opacity-100"
-
-  return (
-    <div className="group/lights flex items-center gap-2">
-      <DialogPrimitive.Close
-        aria-label="Fechar ajustes"
-        className={dot}
-        style={{ backgroundColor: TRAFFIC_LIGHTS.close }}
-      >
-        <span className={glyph}>×</span>
-      </DialogPrimitive.Close>
-      <span
-        aria-hidden
-        className={dot}
-        style={{ backgroundColor: TRAFFIC_LIGHTS.minimize }}
-      />
-      <button
-        type="button"
-        onClick={onToggleMaximize}
-        aria-label={maximized ? "Restaurar tamanho" : "Maximizar"}
-        className={cn(dot, "max-md:hidden")}
-        style={{ backgroundColor: TRAFFIC_LIGHTS.zoom }}
-      >
-        <span className={glyph}>{maximized ? "−" : "+"}</span>
-      </button>
-    </div>
   )
 }
 
