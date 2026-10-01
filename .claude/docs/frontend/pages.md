@@ -1,10 +1,10 @@
 ---
 title: Frontend — Páginas e estrutura
 area: frontend
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
-> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/budgets`, `/categories`, `/investments`, `/forecast`, `/reports`, `/rules`, `/open-finance`, ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
+> ⚠️ **A confirmar:** grande parte deste doc (seções de Clientes, Funil, Dashboard operacional, `pages/Clients/*`) descreve um CRM diferente (rotas `/clients`, `/funnel`) que não existe neste projeto Finance (rotas reais: `/`, `/transactions`, `/budgets`, `/categories`, `/investments`, `/forecast`, `/reports`; `/categories`, `/rules` e `/open-finance` agora redirecionam para o dialog de Ajustes (`frontend/settings.md`), ver `App.tsx` e `components/layout/nav.ts`). Parece ter sido copiado de outro projeto do monorepo. Só a seção **Logo** e **Título da página** abaixo foram corrigidas nesta atualização.
 >
 > **Sem dado mockado:** nenhuma página do Finance usa mock — tudo vem da API, e a API só serve dado do Open Finance (ver `decisions/open-finance-fonte-unica.md`). O `pages/Dashboard/mock.ts` citado mais abaixo é do CRM e **não existe** neste projeto.
 >
@@ -90,10 +90,10 @@ Stack de dados/formulários: **TanStack Query v5** (cache + mutations), **React 
 
 ### Título da página (`hooks/usePageTitle.ts`)
 
-`usePageTitle()`, chamado em `AppLayout`, atualiza `document.title` a cada troca de rota usando `navItems` (`components/layout/nav.ts`) como fonte única dos labels: `"{label} | Finance"` (ex.: `"Categorias | Finance"`). Rota sem correspondência em `navItems` mantém apenas `"Finance"`.
+`usePageTitle()`, chamado em `AppLayout`, atualiza `document.title` a cada troca de rota usando `navItems` (`components/layout/nav.ts`) como fonte única dos labels: `"{label} | Finance"` (ex.: `"Categorias | Finance"`). Rota sem correspondência em `navItems` mantém apenas `"Finance"`. Com `?settings=` na URL, vale o label da seção dos Ajustes.
   - **Indicador ativo deslizante**: um `<div>` absoluto (`bg-sidebar-primary`) animado com `translateY(activeIndex * ITEM_HEIGHT)` + `transition-all` (easing `cubic-bezier(0.22,1,0.36,1)`), que escorrega entre os itens. `activeIndex` derivado de `useLocation().pathname` via `getActiveIndex()` (match exato em `/`, `startsWith` no resto). Itens `h-10` (`ITEM_HEIGHT = 40`) num container `relative`.
   - **Micro-interações**: ícone com `group-hover:scale-110`, hover com `bg-sidebar-accent`.
-  - **Rodapé** (`FooterButton` reutilizável): toggle de tema (Sun/Moon com cross-fade via `dark:` variants, hint `D`) + toggle de colapso (`PanelLeftClose`/`PanelLeftOpen`, hint `B`). Ambos viram ícone centralizado + tooltip quando colapsada.
+  - **Rodapé** (`SidebarButton` reutilizável): botão **Ajustes** (abre o dialog, hint `,` — ver `frontend/settings.md`; o tema mudou para lá) + toggle de colapso (`PanelLeftClose`/`PanelLeftOpen`, hint `B`). Ambos viram ícone centralizado + tooltip quando colapsada.
 - `components/layout/AppLayout.tsx` — `<main>` com `max-w-7xl` centralizado, padding `px-8 py-8`. O `<Outlet />` é envolvido por `<Suspense>` com fallback de loading (spinner `Loader2` centralizado em `h-[60vh]`) enquanto o chunk da rota lazy carrega.
 
 ## Setup global (`main.tsx`)

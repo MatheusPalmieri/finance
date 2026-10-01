@@ -105,6 +105,7 @@ Docs existentes:
 - `.claude/docs/api/budgets.md` — endpoints /budgets (resumo por categoria e grupo, PUT/DELETE do plano por categoryId)
 - `.claude/docs/frontend/lookups.md` — página CRUD de categorias (bancos removido, formas de pagamento não é mais CRUD, ver domain/transaction.md)
 - `.claude/docs/frontend/budgets.md` — página /budgets: resumo Essencial/Variável/Investimento contra a meta 50/30/20 (base = renda do mês), tabela por categoria e `BudgetModal` (grupo + valor)
+- `.claude/docs/frontend/settings.md` — dialog de Ajustes estilo macOS (`?settings=`): Aparência, Open Finance, Classificação e Categorias saíram da sidebar
 - `.claude/docs/frontend/global-month.md` — seletor de mês global na sidebar (`PeriodProvider`/`usePeriod`) e quem o consome
 - `.claude/docs/frontend/transactions-filters.md` — navegação por mês, período específico e filtro por conta em Transações
 - `.claude/docs/decisions/orcamento-por-categoria.md` — ADR: orçamento por categoria, grupo na categoria, fim de recorrência/essencial/vínculo por transação

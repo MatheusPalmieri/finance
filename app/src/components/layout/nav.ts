@@ -1,12 +1,9 @@
 import {
   ArrowLeftRight,
-  Cable,
   ChartPie,
   FileText,
   Home,
-  ListFilter,
   PiggyBank,
-  Tag,
   TrendingUp,
 } from "lucide-react"
 
@@ -31,9 +28,6 @@ export const navItems: NavItemDef[] = [
   { to: "/budgets", icon: PiggyBank, label: "Orçamento" },
   { to: "/forecast", icon: TrendingUp, label: "Projeção" },
   { to: "/reports", icon: FileText, label: "Check-up" },
-  { to: "/categories", icon: Tag, label: "Categorias" },
-  { to: "/rules", icon: ListFilter, label: "Classificação" },
-  { to: "/open-finance", icon: Cable, label: "Open Finance" },
 ]
 
 // Retorna true se a rota atual corresponde ao item de navegação

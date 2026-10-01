@@ -1,7 +1,7 @@
 ---
 title: Responsividade e navegação mobile
 area: frontend
-updated: 2026-06-24
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -17,7 +17,7 @@ A fonte única dos itens fica em `app/src/components/layout/nav.ts`
 | Componente | Visibilidade | Papel |
 |------------|--------------|-------|
 | `Sidebar.tsx` | `hidden lg:flex` | sidebar fixa colapsável (desktop) |
-| `MobileTopbar.tsx` | `lg:hidden` | header fixo com logo, toggle de tema e drawer (`Sheet`) |
+| `MobileTopbar.tsx` | `lg:hidden` | header fixo com logo, botão de Ajustes e drawer (`Sheet`) |
 
 `AppLayout` empilha `MobileTopbar` acima do conteúdo numa coluna flex; a sidebar
 fica ao lado. O drawer (`Sheet side="left"`) fecha no clique do link

@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { createBrowserRouter, RouterProvider } from "react-router-dom"
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 
 import { AppLayout } from "@/components/layout/AppLayout"
 
@@ -12,17 +12,8 @@ const Transactions = lazy(() =>
 const Budgets = lazy(() =>
   import("@/pages/Budgets").then((m) => ({ default: m.Budgets }))
 )
-const Categories = lazy(() =>
-  import("@/pages/Categories").then((m) => ({ default: m.Categories }))
-)
-const OpenFinance = lazy(() =>
-  import("@/pages/OpenFinance").then((m) => ({ default: m.OpenFinance }))
-)
 const Investments = lazy(() =>
   import("@/pages/Investments").then((m) => ({ default: m.Investments }))
-)
-const Rules = lazy(() =>
-  import("@/pages/Rules").then((m) => ({ default: m.Rules }))
 )
 const Reports = lazy(() =>
   import("@/pages/Reports").then((m) => ({ default: m.Reports }))
@@ -38,12 +29,19 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "transactions", element: <Transactions /> },
       { path: "budgets", element: <Budgets /> },
-      { path: "categories", element: <Categories /> },
       { path: "forecast", element: <Forecast /> },
       { path: "reports", element: <Reports /> },
-      { path: "rules", element: <Rules /> },
       { path: "investments", element: <Investments /> },
-      { path: "open-finance", element: <OpenFinance /> },
+      // Telas que moravam na sidebar e agora vivem no dialog de Ajustes
+      {
+        path: "open-finance",
+        element: <Navigate to="/?settings=open-finance" replace />,
+      },
+      { path: "rules", element: <Navigate to="/?settings=rules" replace /> },
+      {
+        path: "categories",
+        element: <Navigate to="/?settings=categories" replace />,
+      },
     ],
   },
 ])

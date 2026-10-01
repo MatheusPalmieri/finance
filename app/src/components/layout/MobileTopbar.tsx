@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
-import { Menu, Moon, Sun } from "lucide-react"
+import { Menu, Settings } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -9,7 +9,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "@/components/theme-provider"
+import { useSettings } from "@/components/settings/useSettings"
 import { cn } from "@/lib/utils"
 import { Logo } from "./Logo"
 import { MonthPicker } from "./MonthPicker"
@@ -18,13 +18,9 @@ import { isRouteActive, navItems } from "./nav"
 // Cabeçalho fixo exibido apenas em telas pequenas (< lg). Abre um drawer
 // lateral (Sheet) com a navegação completa. A Sidebar fixa cobre o desktop.
 export function MobileTopbar() {
-  const { theme, setTheme } = useTheme()
+  const settings = useSettings()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
-
-  function toggleTheme() {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md lg:hidden">
@@ -85,11 +81,10 @@ export function MobileTopbar() {
       <Button
         variant="ghost"
         size="icon"
-        onClick={toggleTheme}
-        aria-label="Alternar tema"
+        onClick={() => settings.open()}
+        aria-label="Abrir ajustes"
       >
-        <Sun className="scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-        <Moon className="absolute scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+        <Settings />
       </Button>
     </header>
   )

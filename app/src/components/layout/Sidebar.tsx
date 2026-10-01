@@ -1,12 +1,13 @@
-import { useTheme } from "@/components/theme-provider"
+import { useSettings } from "@/components/settings/useSettings"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { isEditableTarget } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
-import { Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react"
+import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import { Logo } from "./Logo"
@@ -15,14 +16,8 @@ import { isRouteActive, navItems, type IconType } from "./nav"
 
 const STORAGE_KEY = "sidebar-collapsed"
 
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  return !!target.closest("input, textarea, select, [contenteditable='true']")
-}
-
 export function Sidebar() {
-  const { theme, setTheme } = useTheme()
+  const settings = useSettings()
   const { pathname } = useLocation()
 
   const [collapsed, setCollapsed] = useState<boolean>(
@@ -83,29 +78,22 @@ export function Sidebar() {
           <MonthPicker compact={collapsed} />
         </div>
 
-        {/* Rodapé: tema + colapsar */}
+        {/* Rodapé: ajustes + colapsar */}
         <div className="flex flex-col gap-1 border-t border-sidebar-border p-3">
           <SidebarButton
             collapsed={collapsed}
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            tooltip="Alternar tema"
+            onClick={() => settings.open()}
+            tooltip="Ajustes"
             icon={
-              <span className="relative flex size-4.5 shrink-0 items-center justify-center">
-                <Sun
-                  size={18}
-                  className="absolute scale-100 rotate-0 transition-all duration-300 dark:scale-0 dark:-rotate-90"
-                />
-                <Moon
-                  size={18}
-                  className="absolute scale-0 rotate-90 transition-all duration-300 dark:scale-100 dark:rotate-0"
-                />
-              </span>
+              <Settings
+                size={18}
+                className="shrink-0 transition-transform duration-500 group-hover:rotate-90"
+              />
             }
           >
-            <span className="dark:hidden">Tema escuro</span>
-            <span className="hidden dark:inline">Tema claro</span>
+            Ajustes
             <kbd className="ml-auto rounded border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/70">
-              D
+              ,
             </kbd>
           </SidebarButton>
 
@@ -180,7 +168,7 @@ function NavItem({
   )
 }
 
-// ── Botão genérico (tema / colapsar) ──────────────────────────────────────────
+// ── Botão genérico (ajustes / colapsar) ──────────────────────────────────────────
 function SidebarButton({
   collapsed,
   onClick,
@@ -199,7 +187,7 @@ function SidebarButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-10 w-full items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        "group flex h-10 w-full items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         collapsed ? "justify-center" : "gap-3 px-3"
       )}
     >

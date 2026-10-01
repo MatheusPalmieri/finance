@@ -30,7 +30,7 @@ data e hora).
 
 | Rota | Página | Item na sidebar |
 |---|---|---|
-| `/open-finance` | `pages/OpenFinance/index.tsx` | "Open Finance" (ícone `Cable`) |
+| `/?settings=open-finance` | `pages/OpenFinance/index.tsx` | nenhum — seção "Open Finance" dos Ajustes (`frontend/settings.md`); `/open-finance` redireciona |
 | `/investments` | `pages/Investments/index.tsx` | "Investimentos" (ícone `ChartPie`) |
 
 ## Sync automático ao abrir o app
@@ -84,7 +84,7 @@ data e hora).
 |---|---|
 | Início | Card **"Patrimônio agora"** = conta + investimentos − usado do cartão, com `SnapshotStatus`. Some só se o Open Finance não estiver configurado **e** não houver retrato |
 | Início (contas) | A antiga página `/accounts` foi para o Início (hoje uma linha por banco na faixa "Posição agora", ver `frontend/home.md`; edição em `components/accounts/AccountModal.tsx`); a rota e o item da sidebar saíram. Card **"Saldo total"** = `cash` (soma dos bancos; o cartão não abate), com `SnapshotStatus`. Cada conta mostra o saldo do retrato e o selo "Open Finance" / "Sem vínculo". O **cartão** mostra a **fatura do mês** (`monthBill`, vermelha, sem sinal) e, abaixo, a dívida total, o limite e o vencimento. O lápis abre **"Editar conta"**: só nome e cor |
-| Transações | Sem "Nova transação", "Importar CSV" nem excluir. O lápis abre **"Reclassificar transação"**: um bloco de leitura com data, conta, forma de pagamento e valor ("vêm do Open Finance") e os campos do usuário (nome, categoria, observação). Nas saídas, abaixo da categoria, uma linha mostra em que grupo 50/30/20 e em que orçamento o gasto passa a contar: a categoria decide os dois. Quando o nome difere do `originalName`, o rodapé do modal mostra **"Restaurar nome"** (preenche o campo com o nome do banco; vale ao salvar). Estado vazio aponta para `/open-finance`. Selos **"Pendente"** e **"Interno"** |
+| Transações | Sem "Nova transação", "Importar CSV" nem excluir. O lápis abre **"Reclassificar transação"**: um bloco de leitura com data, conta, forma de pagamento e valor ("vêm do Open Finance") e os campos do usuário (nome, categoria, observação). Nas saídas, abaixo da categoria, uma linha mostra em que grupo 50/30/20 e em que orçamento o gasto passa a contar: a categoria decide os dois. Quando o nome difere do `originalName`, o rodapé do modal mostra **"Restaurar nome"** (preenche o campo com o nome do banco; vale ao salvar). Estado vazio abre os Ajustes em Open Finance (`settingsHref`). Selos **"Pendente"** e **"Interno"** |
 | Projeção | "Saldo hoje" com " · desatualizado" (`stale`) ou " · sem Open Finance" (`unavailable`); nas premissas, a origem do saldo inicial em texto |
 
 ## Hooks (`lib/queries.ts`)

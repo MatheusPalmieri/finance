@@ -1,7 +1,7 @@
 ---
 title: Frontend — CRUD de cadastro (Categorias)
 area: frontend
-updated: 2026-09-23
+updated: 2026-09-30
 ---
 
 ## Visão geral
@@ -10,9 +10,9 @@ Páginas de CRUD (nome + cor), construídas sobre um componente genérico pensad
 
 | Rota | Página | Hooks (em `lib/queries.ts`) |
 |------|--------|------------------------------|
-| `/categories` | `pages/Categories/index.tsx` | `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory` |
+| `?settings=categories` (Ajustes) | `pages/Categories/index.tsx` | `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory` |
 
-Rotas registradas em `App.tsx` (lazy) e itens de navegação em `components/layout/nav.ts` (fonte única, consumida por `Sidebar.tsx` e `MobileTopbar.tsx`).
+Desde 2026-09-30 é uma seção do dialog de Ajustes (`components/settings/sections.ts`, ver `frontend/settings.md`); `/categories` redireciona para lá.
 
 > **Carteiras** (`/wallets`, `pages/Wallets`, seletor na sidebar e `WalletProvider`) foram **removidas em 2026-09-23** — ver `.claude/docs/decisions/remocao-carteiras.md`.
 

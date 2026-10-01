@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
+import { settingsHref } from "@/components/settings/useSettings"
 import { usePeriod } from "@/components/period-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -355,7 +356,7 @@ export function Transactions() {
             sincronização.
           </p>
           <Button variant="outline" size="sm" className="gap-2" asChild>
-            <Link to="/open-finance">
+            <Link to={settingsHref("open-finance")}>
               <Landmark size={14} />
               Ir para o Open Finance
             </Link>

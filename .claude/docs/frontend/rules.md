@@ -6,7 +6,7 @@ updated: 2026-09-30
 
 ## Visão geral
 
-Rota `/rules`, item "Classificação" na sidebar. Duas abas num único
+Seção "Classificação" do dialog de Ajustes (`?settings=rules`, ver `frontend/settings.md`); a rota `/rules` redireciona. Duas abas num único
 `SegmentedControl`, porque as duas tratam do mesmo assunto (o que o motor sabe
 sobre as descrições do extrato) e não justificam dois itens de navegação:
 

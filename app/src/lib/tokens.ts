@@ -76,3 +76,10 @@ export const DEFAULT_PICKER_COLOR = PALETTE.emerald
 export function tint(color: string, percent = 12) {
   return `color-mix(in oklch, ${color} ${percent}%, transparent)`
 }
+
+// ── Semáforo da janela de Ajustes (cores do macOS) ────────────────────────────
+export const TRAFFIC_LIGHTS = {
+  close: "#ff5f57",
+  minimize: "#febc2e",
+  zoom: "#28c840",
+} as const

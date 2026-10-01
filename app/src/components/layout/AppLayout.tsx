@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react"
 
 import { usePageTitle } from "@/hooks/usePageTitle"
 import { useOpenFinanceSyncWatcher } from "@/lib/queries"
+import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import { Sidebar } from "./Sidebar"
 import { MobileTopbar } from "./MobileTopbar"
 
@@ -37,6 +38,9 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+
+      {/* Ajustes (?settings=): Aparência, Open Finance, Classificação, Categorias */}
+      <SettingsDialog />
     </div>
   )
 }
