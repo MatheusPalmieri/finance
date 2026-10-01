@@ -760,6 +760,8 @@ export interface CardBill {
   total: number
   itemized: number
   undetailed: number
+  /** Saldo anterior: o que ficou em aberto da fatura passada e o banco trouxe */
+  carriedOver: number
   dueDate: string | null
   closingDate: string | null
   minimumPayment: number | null

@@ -59,9 +59,8 @@ polling do `/status` até ele virar `false`.
 
 ### `GET /open-finance/balances`
 
-Exemplo ilustrativo: o `bill` mostra como a fatura de outubro/2026 vai aparecer
-quando a Pluggy a publicar como fechada (6.861,15 do banco contra 6.734,65
-detalhados).
+Exemplo real (2026-10-01): a fatura de outubro ainda não estava no `/bills`; a
+estimativa (compras + saldo anterior) bateu com os R$ 6.861,15 do banco.
 
 ```json
 { "available": true, "source": "cache", "stale": false, "error": null,
@@ -71,17 +70,18 @@ detalhados).
       "balance": 773.86, "creditLimit": null, "availableCredit": null, "dueDate": null, "minimumPayment": null },
     { "accountId": "uuid", "accountName": "Nubank Cartão", "type": "CREDIT", "balance": 11130.74,
       "creditLimit": 13500, "availableCredit": 973.26, "dueDate": "2026-09-08", "minimumPayment": 847.29,
-      "bill": { "month": "2026-10", "official": true, "total": 6861.15, "itemized": 6734.65,
-                "undetailed": 126.5, "dueDate": "2026-10-07", "closingDate": "2026-09-28",
-                "minimumPayment": 1029.17 } } ] }
+      "bill": { "month": "2026-10", "official": false, "total": 6861.15, "itemized": 6734.65,
+                "carriedOver": 126.5, "undetailed": 0, "dueDate": null, "closingDate": null,
+                "minimumPayment": null } } ] }
 ```
 
 - `balance`: na conta é o saldo disponível; no cartão é o **usado do limite**
 - `bill` (só cartão): a **fatura a pagar** (substituiu `monthBill` em 2026-09-30).
   - `month`: o menor `billForecastDate` com lançamento `regular` e `pending` = mês do vencimento.
   - `itemized`: soma desses lançamentos (compras menos estornos; pagamento de fatura e parcelas futuras ficam fora).
-  - Se `GET /bills` da Pluggy já tem a fatura daquele mês (fechada pelo banco): `official: true`, `total` = valor oficial, `dueDate`/`closingDate`/`minimumPayment` dela e `undetailed = total − itemized` — o que o banco cobra sem ter mandado o lançamento (parcela que não veio, estorno que a Pluggy pôs em outra fatura).
-  - Senão: `official: false`, `total = itemized` (estimativa), `undetailed: 0`, e `dueDate` só se o vencimento da conta for desse mês.
+  - `carriedOver` (saldo anterior): valor oficial da fatura do mês anterior (`/bills`) **mais** os pagamentos recebidos no ciclo (`kind = bill_payment` com o mesmo `billForecastDate`, negativos). Pagou tudo → 0; pagou a menos → o resto entra nesta fatura; pagou a mais → negativo. Sem a fatura anterior no `/bills` → 0. Conferido de fev a out/2026: o pagamento de cada ciclo é exatamente a fatura anterior, exceto em outubro (R$ 126,50 em aberto: o estorno do Sympla abatido no pagamento de setembro).
+  - Se `GET /bills` da Pluggy já tem a fatura daquele mês (fechada pelo banco): `official: true`, `total` = valor oficial, `dueDate`/`closingDate`/`minimumPayment` dela e `undetailed = total − itemized − carriedOver` — o que o banco cobra sem ter mandado o lançamento (por exemplo, parcela que não veio).
+  - Senão: `official: false`, `total = itemized + carriedOver` (estimativa), `undetailed: 0`, e `dueDate` só se o vencimento da conta for desse mês.
   - `/bills` fora do ar não derruba o retrato: a fatura fica como estimativa.
   - `balance` é a dívida total, com as parcelas a vencer, e não é o que vence agora.
   - Retratos antigos não têm o campo até o próximo sync.

@@ -137,6 +137,7 @@ type CardBillBody = {
   total: number
   itemized: number
   undetailed: number
+  carriedOver: number
   dueDate: string | null
   minimumPayment: number | null
 }
@@ -170,6 +171,8 @@ function setupCardBills() {
       card("estorno", 100, "2026-10", { type: "CREDIT" }),
       // Fechou depois do corte: fatura seguinte
       card("ifood", 50, "2026-11"),
+      // Pagamento da fatura de setembro, recebido no ciclo de outubro
+      card("pagamento", 500, "2026-10", { type: "CREDIT", description: "Pagamento recebido" }),
     ],
   }
 }
@@ -208,7 +211,8 @@ describe("e2e fatura do cartão no retrato de saldos", () => {
     provider.bills = {
       "acc-card": [
         { id: "b-out", dueDate: "2026-10-07T00:00:00.000Z", totalAmount: 541.0496, minimumPaymentAmount: 81.16 },
-        { id: "b-set", dueDate: "2026-09-08T00:00:00.000Z", totalAmount: 999 },
+        // Setembro paga por inteiro: sem saldo anterior
+        { id: "b-set", dueDate: "2026-09-08T00:00:00.000Z", totalAmount: 500 },
       ],
     }
     await runSync({ trigger: "cli" })
@@ -219,10 +223,28 @@ describe("e2e fatura do cartão no retrato de saldos", () => {
       official: true,
       total: 541.05,
       itemized: 414.55,
-      // O estorno de 126,50 que o banco lançou em outra fatura, por exemplo
+      carriedOver: 0,
+      // Uma parcela que o Open Finance não mandou, por exemplo
       undetailed: 126.5,
       dueDate: "2026-10-07",
       minimumPayment: 81.16,
+    })
+  })
+
+  test("ainda sem valor oficial: compras + o que ficou em aberto da fatura passada", async () => {
+    __setProvider(provider)
+    setupCardBills()
+    // Setembro custou 626,50 e foram pagos 500 (estorno usado para abater o pagamento)
+    provider.bills = { "acc-card": [{ id: "b-set", dueDate: "2026-09-08T00:00:00.000Z", totalAmount: 626.5 }] }
+    await runSync({ trigger: "cli" })
+
+    const res = await api.get<BalancesBody & { accounts: { bill: CardBillBody | null }[] }>("/open-finance/balances")
+    expect(res.body.accounts[0].bill).toMatchObject({
+      month: "2026-10",
+      official: false,
+      itemized: 414.55,
+      carriedOver: 126.5,
+      total: 541.05,
     })
   })
 

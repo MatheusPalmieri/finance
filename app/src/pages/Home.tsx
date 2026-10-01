@@ -247,6 +247,11 @@ function PositionStrip({ accounts }: { accounts: Account[] }) {
     (sum, c) => sum + (c.bill?.undetailed ?? 0),
     0
   )
+  // Retratos antigos não têm o campo até o próximo sync
+  const carriedOver = cards.reduce(
+    (sum, c) => sum + (c.bill?.carriedOver ?? 0),
+    0
+  )
   const limit = cards.reduce((sum, c) => sum + (c.creditLimit ?? 0), 0)
   const invested = investments?.available ? investments.total : 0
   const netWorth = balances.cash + invested - balances.cardDebt
@@ -279,7 +284,7 @@ function PositionStrip({ accounts }: { accounts: Account[] }) {
         </section>
 
         {/* Fatura a pagar: saída, sempre em vermelho. Oficial quando o banco já
-            fechou; senão é a soma das compras */}
+            fechou; senão é a soma das compras mais o saldo anterior */}
         <section className="flex flex-col gap-2.5 border-t p-5 md:border-t-0">
           <Eyebrow>{allOfficial ? "Fatura fechada" : "Fatura aberta"}</Eyebrow>
           {cards.length === 0 ? (
@@ -296,10 +301,20 @@ function PositionStrip({ accounts }: { accounts: Account[] }) {
                   Estimativa pela soma das compras — o banco ainda não fechou
                 </p>
               )}
+              {Math.abs(carriedOver) >= 0.01 && (
+                <p
+                  className="-mt-1.5 text-xs text-muted-foreground tabular-nums"
+                  title="O que ficou em aberto da fatura passada (valor oficial menos o pagamento recebido) e o banco trouxe para esta"
+                >
+                  {carriedOver > 0
+                    ? `Inclui ${formatCurrency(carriedOver)} de saldo anterior`
+                    : `Desconta ${formatCurrency(-carriedOver)} pagos a mais na fatura passada`}
+                </p>
+              )}
               {Math.abs(undetailed) >= 0.01 && (
                 <p
                   className="-mt-1.5 text-xs text-muted-foreground tabular-nums"
-                  title="Diferença entre o valor oficial da fatura e os lançamentos que o Open Finance detalhou (parcela que não veio, estorno lançado em outra fatura)"
+                  title="Diferença entre o valor oficial da fatura e o que o Open Finance detalhou (compras e saldo anterior) — por exemplo, uma parcela que não veio"
                 >
                   {formatCurrency(Math.abs(undetailed))}{" "}
                   {undetailed > 0 ? "cobrados" : "abatidos"} sem detalhe do

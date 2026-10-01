@@ -19,7 +19,8 @@ import type { ProviderAccount, ProviderBill } from "./types"
  *
  * O mês é o `billForecastDate` mais antigo com lançamento pendente (= mês do
  * vencimento). Se o banco já fechou essa fatura, `GET /bills` traz o valor
- * oficial e ele vale; senão o total é a soma das compras (estimativa).
+ * oficial e ele vale; senão o total é a soma das compras mais o saldo anterior
+ * que ficou em aberto (estimativa).
  */
 export interface CardBill {
   /** "yyyy-mm" do vencimento. */
@@ -31,10 +32,15 @@ export interface CardBill {
   /** Soma dos lançamentos que o Open Finance detalhou nessa fatura. */
   itemized: number
   /**
-   * `total − itemized`: o que o banco cobra sem ter mandado o lançamento
-   * (parcela que não veio, estorno lançado em outra fatura). 0 na estimativa.
+   * `total − itemized − carriedOver`: o que o banco cobra sem ter mandado o
+   * lançamento (parcela que não veio). 0 na estimativa.
    */
   undetailed: number
+  /**
+   * Saldo anterior: a fatura passada (valor oficial) menos o que foi pago dela
+   * neste ciclo. O banco leva o que ficou em aberto para esta fatura.
+   */
+  carriedOver: number
   /** yyyy-mm-dd. */
   dueDate: string | null
   closingDate: string | null
@@ -132,6 +138,7 @@ async function cardBill(
 
   const month = open.month
   const itemized = round2(Number(open.total))
+  const carriedOver = await previousBalance(accountId, month, bills)
   const closed = bills.find((b) => b.dueDate.slice(0, 7) === month)
   if (closed) {
     const total = round2(Number(closed.totalAmount))
@@ -140,7 +147,8 @@ async function cardBill(
       official: true,
       total,
       itemized,
-      undetailed: round2(total - itemized),
+      carriedOver,
+      undetailed: round2(total - itemized - carriedOver),
       dueDate: closed.dueDate.slice(0, 10),
       closingDate: closed.billClosingDate?.slice(0, 10) ?? null,
       minimumPayment:
@@ -148,19 +156,60 @@ async function cardBill(
     }
   }
 
-  // Ainda aberta: só a soma das compras. O vencimento da conta só vale se for
-  // deste mês (costuma ser o da fatura anterior)
+  // Ainda sem valor oficial: compras + saldo anterior. O vencimento da conta
+  // só vale se for deste mês (costuma ser o da fatura anterior)
   const accountDue = account.creditData?.balanceDueDate?.slice(0, 10) ?? null
   return {
     month,
     official: false,
-    total: itemized,
+    total: round2(itemized + carriedOver),
     itemized,
+    carriedOver,
     undetailed: 0,
     dueDate: accountDue?.startsWith(month) ? accountDue : null,
     closingDate: null,
     minimumPayment: null,
   }
+}
+
+/** "yyyy-mm" do mês anterior. */
+function previousMonth(month: string): string {
+  const [year, mm] = month.split("-").map(Number)
+  const zeroBased = year * 12 + (mm - 1) - 1
+  return `${Math.floor(zeroBased / 12)}-${String((zeroBased % 12) + 1).padStart(2, "0")}`
+}
+
+/**
+ * Saldo anterior que o banco carrega para a fatura `month`: o valor oficial da
+ * fatura passada menos os pagamentos recebidos no ciclo (`bill_payment` com o
+ * mesmo `billForecastDate`). Pagou tudo → 0. Caso real (2026-10): fatura de
+ * setembro R$ 5.648,62, pagos R$ 5.522,12 (o estorno do Sympla abatido no
+ * pagamento) → R$ 126,50 entram na fatura de outubro.
+ *
+ * Sem a fatura passada no `/bills`, não há como saber: 0. Pagamento a mais
+ * vira crédito (negativo).
+ */
+async function previousBalance(
+  accountId: string,
+  month: string,
+  bills: ProviderBill[]
+): Promise<number> {
+  const previous = bills.find((b) => b.dueDate.slice(0, 7) === previousMonth(month))
+  if (!previous) return 0
+  const billMonth = sql<string | null>`${pluggyTransactions.payload}->'creditCardMetadata'->>'billForecastDate'`
+  const [paid] = await db
+    .select({ total: sql<string>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .innerJoin(pluggyTransactions, eq(pluggyTransactions.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.accountId, accountId),
+        eq(transactions.kind, "bill_payment"),
+        sql`${billMonth} = ${month}`
+      )
+    )
+  // Pagamento no cartão é entrada (negativo): soma com o sinal
+  return round2(Number(previous.totalAmount) + Number(paid?.total ?? 0))
 }
 
 /** Monta o retrato a partir das contas da Pluggy, só as vinculadas. */
