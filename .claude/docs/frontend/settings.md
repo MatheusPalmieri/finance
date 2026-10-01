@@ -22,8 +22,8 @@ Investimentos, Orçamento, Projeção, Check-up).
 | `categories` | Categorias | `pages/Categories` (ver `frontend/lookups.md`) |
 
 Fonte única: `components/settings/sections.ts` (`settingsSections`). Cada seção
-tem ícone, cor do quadradinho (de `PALETTE`), `keywords` para a busca e o
-componente (lazy). Lista única, mesmo espaçamento entre todos os itens (sem
+tem ícone (sem fundo colorido), `keywords` para a busca e o componente
+(lazy). Lista única, mesmo espaçamento entre todos os itens (sem
 blocos separados por grupo).
 
 ## Abrir e fechar

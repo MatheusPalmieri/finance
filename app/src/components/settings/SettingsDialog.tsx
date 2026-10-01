@@ -176,9 +176,9 @@ function SettingsWindow({
   )
 }
 
-// ── Item da lista: ícone em quadrado colorido, como no macOS ──────────────────
+// ── Item da lista ─────────────────────────────────────────────────────────────
 function SectionButton({
-  section: { label, icon: Icon, color },
+  section: { label, icon: Icon },
   active,
   onClick,
 }: {
@@ -198,12 +198,7 @@ function SectionButton({
           : "hover:bg-sidebar-accent"
       )}
     >
-      <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-md text-white shadow-sm"
-        style={{ backgroundColor: color }}
-      >
-        <Icon size={14} />
-      </span>
+      <Icon size={16} className="shrink-0" />
       <span className="flex-1 truncate">{label}</span>
       <ChevronRight
         size={16}

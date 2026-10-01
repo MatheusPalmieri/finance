@@ -1,7 +1,6 @@
 import { lazy } from "react"
 import { Cable, ListFilter, SunMoon, Tag } from "lucide-react"
 import type { IconType } from "@/components/layout/nav"
-import { PALETTE } from "@/lib/tokens"
 
 export type SettingsSectionId =
   | "appearance"
@@ -13,8 +12,6 @@ export interface SettingsSectionDef {
   id: SettingsSectionId
   label: string
   icon: IconType
-  /** Fundo do ícone quadrado, no estilo dos Ajustes do macOS */
-  color: string
   /** Termos extras para a busca da barra lateral */
   keywords: string[]
   component: React.LazyExoticComponent<React.ComponentType>
@@ -41,7 +38,6 @@ export const settingsSections: SettingsSectionDef[] = [
     id: "appearance",
     label: "Aparência",
     icon: SunMoon,
-    color: PALETTE.slate,
     keywords: ["tema", "escuro", "claro", "dark", "light"],
     component: AppearanceSettings,
   },
@@ -49,7 +45,6 @@ export const settingsSections: SettingsSectionDef[] = [
     id: "open-finance",
     label: "Open Finance",
     icon: Cable,
-    color: PALETTE.emerald,
     keywords: ["pluggy", "banco", "sincronizar", "contas", "sync"],
     component: OpenFinance,
   },
@@ -57,7 +52,6 @@ export const settingsSections: SettingsSectionDef[] = [
     id: "rules",
     label: "Classificação",
     icon: ListFilter,
-    color: PALETTE.blue,
     keywords: ["regras", "recorrentes", "assinaturas", "categorização"],
     component: Rules,
   },
@@ -65,7 +59,6 @@ export const settingsSections: SettingsSectionDef[] = [
     id: "categories",
     label: "Categorias",
     icon: Tag,
-    color: PALETTE.orange,
     keywords: ["categoria", "cores"],
     component: Categories,
   },
