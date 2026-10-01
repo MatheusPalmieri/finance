@@ -57,6 +57,12 @@ se aplicam à forma ficam nulos.
 Mudar o grupo de uma categoria move todo o gasto dela de grupo, inclusive o dos
 meses anteriores.
 
+**Limitação:** compras da mesma categoria sempre caem no mesmo grupo. O banco
+não traz os itens, então a besteira comprada no mercado conta como essencial.
+Hoje, o jeito de medir é o orçamento de Mercado como teto do essencial: o que
+passa dele é excesso. Há uma exceção por transação proposta e ainda não
+implementada em `decisions/excecao-grupo-por-transacao.md`.
+
 ## Onde o orçamento aparece
 
 | Lugar | Uso |
