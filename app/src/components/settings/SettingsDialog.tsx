@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import {
   DEFAULT_SETTINGS_SECTION,
   findSettingsSection,
-  settingsGroups,
+  settingsSections,
   type SettingsSectionDef,
 } from "./sections"
 import { useSettings } from "./useSettings"
@@ -56,19 +56,15 @@ function SettingsWindow({
     initialSection !== DEFAULT_SETTINGS_SECTION
   )
 
-  const current = findSettingsSection(section) ?? settingsGroups[0][0]
+  const current = findSettingsSection(section) ?? settingsSections[0]
   const Content = current.component
 
-  const groups = useMemo(() => {
+  const items = useMemo(() => {
     const q = normalize(query.trim())
-    if (!q) return settingsGroups
-    return settingsGroups
-      .map((group) =>
-        group.filter((s) =>
-          [s.label, ...s.keywords].some((t) => normalize(t).includes(q))
-        )
-      )
-      .filter((group) => group.length > 0)
+    if (!q) return settingsSections
+    return settingsSections.filter((s) =>
+      [s.label, ...s.keywords].some((t) => normalize(t).includes(q))
+    )
   }, [query])
 
   function pick(id: SettingsSectionDef["id"]) {
@@ -121,16 +117,15 @@ function SettingsWindow({
 
         <nav
           aria-label="Seções dos ajustes"
-          className="app-scroll flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2"
+          className="app-scroll flex-1 overflow-y-auto px-3 py-2"
         >
-          {groups.length === 0 && (
+          {items.length === 0 ? (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">
               Nenhum resultado
             </p>
-          )}
-          {groups.map((group, i) => (
-            <ul key={i} className="flex flex-col gap-0.5">
-              {group.map((s) => (
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {items.map((s) => (
                 <li key={s.id}>
                   <SectionButton
                     section={s}
@@ -140,7 +135,7 @@ function SettingsWindow({
                 </li>
               ))}
             </ul>
-          ))}
+          )}
         </nav>
       </aside>
 

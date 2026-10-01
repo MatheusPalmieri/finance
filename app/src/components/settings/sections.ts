@@ -35,47 +35,41 @@ const Categories = lazy(() =>
   import("@/pages/Categories").then((m) => ({ default: m.Categories }))
 )
 
-// Grupos da barra lateral — cada array vira um bloco separado, como no macOS
-export const settingsGroups: SettingsSectionDef[][] = [
-  [
-    {
-      id: "appearance",
-      label: "Aparência",
-      icon: SunMoon,
-      color: PALETTE.slate,
-      keywords: ["tema", "escuro", "claro", "dark", "light"],
-      component: AppearanceSettings,
-    },
-  ],
-  [
-    {
-      id: "open-finance",
-      label: "Open Finance",
-      icon: Cable,
-      color: PALETTE.emerald,
-      keywords: ["pluggy", "banco", "sincronizar", "contas", "sync"],
-      component: OpenFinance,
-    },
-    {
-      id: "rules",
-      label: "Classificação",
-      icon: ListFilter,
-      color: PALETTE.blue,
-      keywords: ["regras", "recorrentes", "assinaturas", "categorização"],
-      component: Rules,
-    },
-    {
-      id: "categories",
-      label: "Categorias",
-      icon: Tag,
-      color: PALETTE.orange,
-      keywords: ["categoria", "cores"],
-      component: Categories,
-    },
-  ],
+// Itens da barra lateral, na ordem exibida
+export const settingsSections: SettingsSectionDef[] = [
+  {
+    id: "appearance",
+    label: "Aparência",
+    icon: SunMoon,
+    color: PALETTE.slate,
+    keywords: ["tema", "escuro", "claro", "dark", "light"],
+    component: AppearanceSettings,
+  },
+  {
+    id: "open-finance",
+    label: "Open Finance",
+    icon: Cable,
+    color: PALETTE.emerald,
+    keywords: ["pluggy", "banco", "sincronizar", "contas", "sync"],
+    component: OpenFinance,
+  },
+  {
+    id: "rules",
+    label: "Classificação",
+    icon: ListFilter,
+    color: PALETTE.blue,
+    keywords: ["regras", "recorrentes", "assinaturas", "categorização"],
+    component: Rules,
+  },
+  {
+    id: "categories",
+    label: "Categorias",
+    icon: Tag,
+    color: PALETTE.orange,
+    keywords: ["categoria", "cores"],
+    component: Categories,
+  },
 ]
-
-export const settingsSections = settingsGroups.flat()
 
 export const DEFAULT_SETTINGS_SECTION: SettingsSectionId = "appearance"
 

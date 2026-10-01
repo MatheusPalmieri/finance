@@ -21,9 +21,10 @@ Investimentos, Orçamento, Projeção, Check-up).
 | `rules` | Classificação | `pages/Rules` (ver `frontend/rules.md`) |
 | `categories` | Categorias | `pages/Categories` (ver `frontend/lookups.md`) |
 
-Fonte única: `components/settings/sections.ts` (`settingsGroups`). Cada seção
+Fonte única: `components/settings/sections.ts` (`settingsSections`). Cada seção
 tem ícone, cor do quadradinho (de `PALETTE`), `keywords` para a busca e o
-componente (lazy). Os grupos viram blocos separados na lista.
+componente (lazy). Lista única, mesmo espaçamento entre todos os itens (sem
+blocos separados por grupo).
 
 ## Abrir e fechar
 
